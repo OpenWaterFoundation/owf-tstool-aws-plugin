@@ -1,0 +1,3 @@
+# Repositories that comprise TSTool aws plugin:
+# - the main TSTool list also needs to be checked
+owf-tstool-aws-plugin
