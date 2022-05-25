@@ -1,15 +1,15 @@
-# List of files to ignore globally in the repository
+# List of files to ignore globally in the repository.
 
-# Temporary editor files
+# Temporary editor files.
 
 *.swp
 *.swo
 
-# Java compiled class files
+# Java compiled class files.
 
 *.class
 
-# Installers and transfer files
+# Installers and transfer files.
 
 *.tar.gz
 *.tar
@@ -19,6 +19,6 @@
 
 *.log
 
-# Target files created by Eclipse/Maven
+# Target files created by Eclipse/Maven.
 
 target/*
