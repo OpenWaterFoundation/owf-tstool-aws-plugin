@@ -1,0 +1,12 @@
+Comment1: Manifest file to distribute with the
+Comment2: owf-trilynx-aws-plugin.jar file.
+Comment3: Maximum line length is 72 characters to avoid truncation.
+Comment4: Indent continued lines by a single space.
+Comment7: Command-Class1 is the path to a command class.
+Comment8: Increment the number as needed for the number of command classes.
+Comment9: Class-Path contains the dep/ folder for dependency jar files.
+manifest-Version: 1.0
+Command-Class1: org.openwaterfoundation.tstool.plugin.aws.
+ commands.AwsS3_Command
+Class-Path: dep/
+

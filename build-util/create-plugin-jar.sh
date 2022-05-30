@@ -30,7 +30,7 @@ checkOperatingSystem() {
   echo "operatingSystem=${operatingSystem} (used to check for Cygwin and filemode compatibility)"
 
   if [ "${operatingSystem}" != "mingw" ]; then
-    ${echo2} "${errorColor}Currently this script only works for MINGW (Git Bash)${endColor}"
+    echoStderr "${errorColor}Currently this script only works for MINGW (Git Bash)${endColor}"
     exit 1
   fi
 }
@@ -63,15 +63,62 @@ configureEcho() {
   endColor='\e[0m' # To switch back to default color
 }
 
+# Copy the maven dependencies into the plugin's 'dep' folder:
+# - remove the 'dep' folder contents before copy to avoid version conflicts
+copyMavenDependencies() {
+  # First delete the 'dep' folder contents.
+  if [ -d "${pluginDepFolder}" ]; then
+    # Remove all the files in the 'dep' folder.
+    rm "${pluginDepFolder}/*"
+  else
+    # Create the 'dep' folder.
+    mkdir -p "${pluginDepFolder}"
+  fi
+
+  # Copy the dependency jar files based on Maven listing:
+  # - echoing a variable in double quotes causes the backslashes to be removed so convert to / before passing to linux commands
+  echo "Copying jar files for dependencies to:"
+  echo "  ${pluginDepFolder}"
+  #mvn -f "${mavenPomFile}" dependency:build-classpath | grep ':' | grep ';' | tr ';' '\n' | tr '\\' '/'
+  #return 0
+  mvn -f "${mavenPomFile}" dependency:build-classpath | grep ':' | grep ';' | tr ';' '\n' | tr '\\' '/' | while read line
+    # The Maven output on Windows from the above is similar to:
+    #   C:\Users\sam\.m2\repository\io\netty\netty-common\4.1.77.Final\netty-common-4.1.77.Final.jar
+    do
+      # Convert to a path consistent with the Linux environment.
+      #echo "Line from mvn: ${line}"
+      linuxPath=$(cygpath -u "${line}")
+      # For debugging.
+      #echo "Linux path: ${linuxPath}"
+      cp -v "${linuxPath}" "${pluginDepFolder}"
+    done
+}
+
+# Echo a string to standard error (stderr).
+# This is done so that TSTool results output printed to stdout is not mixed with stderr.
+# For example, TSTool may be run headless on a server to output to CGI,
+# where stdout formatting is important.
+echoStderr() {
+  ${echo2} "$@" >&2
+}
+
 # Get the plugin version (e.g., 1.2.0)
 # - the version is printed to stdout so assign function output to a variable
 getPluginVersion() {
   # Maven folder structure results in duplicate 'owf-tstool-aws-plugin'?
   # TODO smalers 2022-05-19 need to enable this.
-  srcFile="${repoFolder}/owf-tstool-aws-plugin/src/main/java/openwaterfoundation/tstool/aws/plugin/zzz.java"  
+  srcFile="${repoFolder}/owf-tstool-aws-plugin/src/main/java/org/openwaterfoundation/tstool/plugin/aws/Aws.java"  
   # Get the version from the code
-  # line looks like:   this.pluginProperties.put("Version", "1.2.0 (2020-05-29");
-  cat ${srcFile} | grep pluginProperties | grep Version | cut -d '(' -f 2 | cut -d ',' -f 2 | tr -d '"' | tr -d ' '
+  # line looks like:
+  #  public static final String VERSION = "1.0.0 (2022-05-27)";
+  if [ -f "${srcFile}" ]; then
+    cat ${srcFile} | grep 'VERSION =' | cut -d '"' -f 2 | cut -d ' ' -f 1 | tr -d '"' | tr -d ' '
+  else
+    # Don't echo error to stdout.
+    echoStderr "Source file with version does not exist:"
+    echoStderr "  ${srcFile}"
+    cat ""
+  fi
 }
 
 # Get the TSTool major version (e.g., "13" for 13.3.0):
@@ -88,7 +135,7 @@ setJavaInstallHome() {
   javaInstallHome='/C/Program Files/Java/jdk8'
   if [ ! -d "${javaInstallHome}" ]; then
     echo ""
-    ${echo2} "${errorColor}Unable to determine Java location.  Exiting,${endColor}"
+    echoStderr "${errorColor}Unable to determine Java location.  Exiting,${endColor}"
     exit 1
   fi
 }
@@ -106,11 +153,13 @@ scriptFolder=$(cd $(dirname "$0") && pwd)
 repoFolder=$(dirname ${scriptFolder})
 gitReposFolder=$(dirname ${repoFolder})
 tstoolMainRepoFolder=${gitReposFolder}/cdss-app-tstool-main
+mavenProjectFolder=${repoFolder}/owf-tstool-aws-plugin
+mavenPomFile=${mavenProjectFolder}/pom.xml
 
 # Get the plugin version, which is used in the jar file name.
 pluginVersion=$(getPluginVersion)
 if [ -z "${pluginVersion}" ]; then
-  ${echo2} "${errorColor}Unable to determine plugin version.${endColor}"
+  echoStderr "${errorColor}Unable to determine plugin version.${endColor}"
   exit 1
 else
   echo "Plugin version:  ${pluginVersion}"
@@ -121,7 +170,7 @@ fi
 #tstoolVersion=13
 tstoolMajorVersion=$(getTSToolMajorVersion)
 if [ -z "${tstoolMajorVersion}" ]; then
-  ${echo2} "${errorColor}Unable to determine TSTool main version.${endColor}"
+  echoStderr "${errorColor}Unable to determine TSTool main version.${endColor}"
   exit 1
 else
   echo "TSTool main version:  ${tstoolMajorVersion}"
@@ -133,6 +182,7 @@ fi
 devBinFolder="${repoFolder}/owf-tstool-aws-plugin/target/classes"
 pluginsFolder="$HOME/.tstool/${tstoolMajorVersion}/plugins"
 jarFolder="${pluginsFolder}/owf-tstool-aws-plugin"
+pluginDepFolder="${pluginsFolder}/owf-tstool-aws-plugin/dep"
 jarFile="${jarFolder}/owf-tstool-aws-plugin-${pluginVersion}.jar"
 manifestFile="${repoFolder}/owf-tstool-aws-plugin/src/main/resources/META-INF/MANIFEST.MF"
 
@@ -148,8 +198,8 @@ echo "Jar file: ${jarFile}"
 #rm ${jarFile}
 if [ ! -d "${devBinFolder}" ]; then
   echo ""
-  ${echo2} "${errorColor}Project bin folder does not exist:  ${devBinFolder}${endColor}"
-  ${echo2} "${errorColor}Make sure to compile software in Eclipse.${endColor}"
+  echoStderr "${errorColor}Project bin folder does not exist:  ${devBinFolder}${endColor}"
+  echoStderr "${errorColor}Make sure to compile software in Eclipse.${endColor}"
   exit 1
 fi
 
@@ -165,7 +215,7 @@ cd ${devBinFolder}
 "${javaInstallHome}/bin/jar" -cvfm ${jarFile} ${manifestFile} *
 if [ ! "$?" = "0" ]
 then
-  ${echo2} "${errorColor}Error creating jar file.  Exiting.${endColor}"
+  echoStderr "${errorColor}Error creating jar file.  Exiting.${endColor}"
   exit 1
 fi
 
@@ -176,13 +226,13 @@ echo "Listing of jar file that was created..."
 # Print the java file location again.
 echo ""
 echo "Jar file is:  ${jarFile}"
-jarCount=$(ls -1 ${jarFolder} | wc -l)
+jarCount=$(ls -1 ${jarFolder} | grep -v 'dep' | wc -l)
 if [ ${jarCount} -eq 1 ]; then
   echo "1 plugin jar file is installed (see below).  OK."
 else
-  ${echo2} "${errorColor}${jarCount} plugin jar files are installed (see below).${endColor}"
-  ${echo2} "${errorColor}There should only be one, typically the latest version.${endColor}"
-  ${echo2} "${errorColor}Remove old versions or move to 'plugins-old' in case need to restore.${endColor}"
+  echoStderr "${errorColor}${jarCount} plugin jar files are installed (see below).${endColor}"
+  echoStderr "${errorColor}There should only be one, typically the latest version.${endColor}"
+  echoStderr "${errorColor}Remove old versions or move to 'plugins-old' in case need to restore.${endColor}"
 fi
 # Do not put quotes around the following.
 ls -1 ${jarFolder}/*
@@ -190,12 +240,15 @@ ls -1 ${jarFolder}/*
 # Make sure that the plugins for the old name are not found.
 if [ -d "${oldJarFolder}" ]; then
   echo ""
-  ${echo2} "${errorColor}Old plugin folder exists: ${oldJarFolder}${endColor}"
-  ${echo2} "${errorColor}This will interfere with the latest plugin that is installed.${endColor}"
-  ${echo2} "${errorColor}Remove the old version or move to 'plugins-old' in case need to restore.${endColor}"
+  echoStderr "${errorColor}Old plugin folder exists: ${oldJarFolder}${endColor}"
+  echoStderr "${errorColor}This will interfere with the latest plugin that is installed.${endColor}"
+  echoStderr "${errorColor}Remove the old version or move to 'plugins-old' in case need to restore.${endColor}"
 else
   echo ""
   echo "Old jar folder does not exist (OK): ${oldJarFolder}"
 fi
+
+# Copy jar file dependencies from Maven to the plugin 'dep' folder.
+copyMavenDependencies
 
 exit 0

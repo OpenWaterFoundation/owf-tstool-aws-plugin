@@ -1,0 +1,1 @@
+AwsS3(Profile="owf-steve",S3Command="ListBuckets",Region="us-west-2",OutputTableID="BucketList")
