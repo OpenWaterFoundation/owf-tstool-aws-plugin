@@ -1,9 +1,10 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Create the plugin jar file for installation in the deployed system
 # - the class files and manifest are jar'ed up
 # - the resulting Jar file is created in the user's (developer's)
 #   ./tstool/NN/plugins/owf-tstool-aws-plugin/ folder for use by TSTool
+# - dependencies are copied to the above folder's 'dep/' subfolder
 
 # Supporting functions, alphabetized.
 
@@ -66,12 +67,12 @@ configureEcho() {
 # Copy the maven dependencies into the plugin's 'dep' folder:
 # - remove the 'dep' folder contents before copy to avoid version conflicts
 copyMavenDependencies() {
-  # First delete the 'dep' folder contents.
+  # First delete the 'dep' folder contents, but leave the folder itself.
   if [ -d "${pluginDepFolder}" ]; then
-    # Remove all the files in the 'dep' folder.
-    rm "${pluginDepFolder}/*"
+    # Remove all the existing files in the 'dep' folder so only the latest are available at runtime.
+    rm ${pluginDepFolder}/*
   else
-    # Create the 'dep' folder.
+    # Dependency folder 'dep' does not exist.  Create it.
     mkdir -p "${pluginDepFolder}"
   fi
 
@@ -236,17 +237,6 @@ else
 fi
 # Do not put quotes around the following.
 ls -1 ${jarFolder}/*
-
-# Make sure that the plugins for the old name are not found.
-if [ -d "${oldJarFolder}" ]; then
-  echo ""
-  echoStderr "${errorColor}Old plugin folder exists: ${oldJarFolder}${endColor}"
-  echoStderr "${errorColor}This will interfere with the latest plugin that is installed.${endColor}"
-  echoStderr "${errorColor}Remove the old version or move to 'plugins-old' in case need to restore.${endColor}"
-else
-  echo ""
-  echo "Old jar folder does not exist (OK): ${oldJarFolder}"
-fi
 
 # Copy jar file dependencies from Maven to the plugin 'dep' folder.
 copyMavenDependencies

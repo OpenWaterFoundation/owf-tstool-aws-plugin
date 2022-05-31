@@ -20,13 +20,18 @@ OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
 
 NoticeEnd */
 
-package org.openwaterfoundation.tstool.plugin.aws.commands;
+package org.openwaterfoundation.tstool.plugin.aws.commands.s3;
 
 import java.io.File;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JFrame;
+
+import org.openwaterfoundation.tstool.plugin.aws.AwsS3CommandType;
+import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
 
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -34,6 +39,11 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Bucket;
 import software.amazon.awssdk.services.s3.model.ListBucketsRequest;
 import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
+import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsRequest.Builder;
+import software.amazon.awssdk.services.s3.model.ListObjectsResponse;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.S3Object;
 import rti.tscommandprocessor.core.TSCommandProcessor;
 import rti.tscommandprocessor.core.TSCommandProcessorUtil;
 import RTi.Util.IO.AbstractCommand;
@@ -52,9 +62,11 @@ import RTi.Util.IO.ObjectListProvider;
 import RTi.Util.IO.PropList;
 import RTi.Util.Message.Message;
 import RTi.Util.Message.MessageUtil;
+import RTi.Util.String.StringUtil;
 import RTi.Util.Table.DataTable;
 import RTi.Util.Table.TableField;
 import RTi.Util.Table.TableRecord;
+import RTi.Util.Time.DateTime;
 
 /**
 This class initializes, checks, and runs the AwsS3() command.
@@ -69,11 +81,6 @@ Data members used for parameter values.
 protected final String _Ignore = "Ignore";
 protected final String _Warn = "Warn";
 protected final String _Fail = "Fail";
-
-/**
- * Values for 'S3Command' parameter.
- */
-protected final String ListBuckets = "ListBuckets";
 
 /**
 Output file that is created by this command.
@@ -102,8 +109,13 @@ Check the command parameter for valid values, combination, etc.
 */
 public void checkCommandParameters ( PropList parameters, String command_tag, int warning_level )
 throws InvalidCommandParameterException
-{	String Region = parameters.getValue ( "Region" );
+{	String S3Command = parameters.getValue ( "S3Command" );
+	String Profile = parameters.getValue ( "Profile" );
+	String Region = parameters.getValue ( "Region" );
 	String InputFile = parameters.getValue ( "InputFile" );
+    String Bucket = parameters.getValue ( "Bucket" );
+    String MaxKeys = parameters.getValue ( "MaxKeys" );
+    String Prefix = parameters.getValue ( "Prefix" );
     String OutputFile = parameters.getValue ( "OutputFile" );
     String OutputTableID = parameters.getValue ( "OutputTableID" );
 	String IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
@@ -116,12 +128,55 @@ throws InvalidCommandParameterException
 	// The existence of the file to append is not checked during initialization
 	// because files may be created dynamically at runtime.
 
-	if ( (Region == null) || (Region.length() == 0) ) {
-		message = "The regioin must be specified.";
+	AwsS3CommandType s3Command = null;
+	if ( (S3Command == null) || S3Command.isEmpty() ) {
+		message = "The S3 command must be specified.";
+		warning += "\n" + message;
+		status.addToLog(CommandPhaseType.INITIALIZATION,
+			new CommandLogRecord(CommandStatusType.FAILURE,
+				message, "Specify the S3 command."));
+	}
+	else {
+		s3Command = AwsS3CommandType.valueOfIgnoreCase(S3Command);
+		if ( s3Command == null ) {
+			message = "The S3 command (" + S3Command + ") is invalid.";
+			warning += "\n" + message;
+			status.addToLog(CommandPhaseType.INITIALIZATION,
+				new CommandLogRecord(CommandStatusType.FAILURE,
+					message, "Specify a valid S3 command."));
+		}
+	}
+
+	if ( (Profile == null) || Profile.isEmpty() ) {
+		// Use the default profile.
+		Profile = AwsToolkit.getInstance().getDefaultProfile();
+	}
+
+	if ( (Region == null) || Region.isEmpty() ) {
+		message = "The region must be specified.";
 		warning += "\n" + message;
 		status.addToLog(CommandPhaseType.INITIALIZATION,
 			new CommandLogRecord(CommandStatusType.FAILURE,
 				message, "Specify the region."));
+	}
+	if ( (MaxKeys != null) && !MaxKeys.isEmpty() ) {
+		if ( !StringUtil.isInteger(MaxKeys) ) {
+			message = "The maximum keys (" + MaxKeys + ") is invalid.";
+			warning += "\n" + message;
+			status.addToLog(CommandPhaseType.INITIALIZATION,
+				new CommandLogRecord(CommandStatusType.FAILURE,
+					message, "Specify an integer 1 to 1000."));
+		}
+		else {
+			int maxKeys = Integer.parseInt(MaxKeys);
+			if ( (maxKeys < 0) || (maxKeys > 1000) ) {
+				message = "The maximum keys (" + MaxKeys + ") is invalid.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Specify an integer 1 to 1000."));
+			}
+		}
 	}
 	/*
 	if ( (InputFile == null) || (InputFile.length() == 0) ) {
@@ -150,12 +205,27 @@ throws InvalidCommandParameterException
 					_Fail + "."));
 		}
 	}
+
+	// Additional checks specific to a command.
+	if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+		if ( (Bucket == null) || Bucket.isEmpty() ) {
+			message = "The bucket must be specified.";
+			warning += "\n" + message;
+			status.addToLog(CommandPhaseType.INITIALIZATION,
+				new CommandLogRecord(CommandStatusType.FAILURE,
+					message, "Specify the bucket."));
+		}
+	}
+
 	// Check for invalid parameters.
-	List<String> validList = new ArrayList<>(7);
-	validList.add ( "Profile" );
+	List<String> validList = new ArrayList<>(10);
 	validList.add ( "S3Command" );
+	validList.add ( "Profile" );
 	validList.add ( "Region" );
 	validList.add ( "InputFile" );
+	validList.add ( "Bucket" );
+	validList.add ( "MaxKeys" );
+	validList.add ( "Prefix" );
 	validList.add ( "OutputFile" );
 	validList.add ( "OutputTableID" );
 	validList.add ( "IfInputNotFound" );
@@ -281,9 +351,29 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     setOutputFile ( null );
 	
 	String Profile = parameters.getValue ( "Profile" );
+	String profile = Profile;
+	if ( (Profile == null) || Profile.isEmpty() ) {
+		// Get the default.
+		profile = AwsToolkit.getInstance().getDefaultProfile();
+	}
 	String S3Command = parameters.getValue ( "S3Command" );
-	String Region_Parameter = parameters.getValue ( "Region" );
-	Region_Parameter = TSCommandProcessorUtil.expandParameterValue(processor,this,Region_Parameter);
+	AwsS3CommandType s3Command = AwsS3CommandType.valueOfIgnoreCase(S3Command);
+	String region = parameters.getValue ( "Region" );
+	region = TSCommandProcessorUtil.expandParameterValue(processor,this,region);
+	String bucket = parameters.getValue ( "Bucket" );
+	bucket = TSCommandProcessorUtil.expandParameterValue(processor,this,bucket);
+	String MaxKeys = parameters.getValue ( "MaxKeys" );
+	int maxKeys = -1; // Use default, which is 1000.
+	if ( MaxKeys != null && !MaxKeys.isEmpty() ) {
+		try {
+			maxKeys = Integer.parseInt(MaxKeys);
+		}
+		catch ( NumberFormatException e ) {
+			// Use default from above.
+		}
+	}
+	String Prefix = parameters.getValue ( "Prefix" );
+	Prefix = TSCommandProcessorUtil.expandParameterValue(processor,this,Prefix);
 	String InputFile = parameters.getValue ( "InputFile" ); // Expand below.
 	String OutputTableID = parameters.getValue ( "OutputTableID" );
 	OutputTableID = TSCommandProcessorUtil.expandParameterValue(processor,this,OutputTableID);
@@ -330,16 +420,12 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	// Handle credentials.
 	
 	ProfileCredentialsProvider credentialsProvider = null;
-	if ( (Profile == null) || Profile.isEmpty() ) {
-		credentialsProvider = ProfileCredentialsProvider.create();
-	}
-	else {
-		credentialsProvider = ProfileCredentialsProvider.create(Profile);
-	}
-	Region region = Region.of(Region_Parameter);
+	credentialsProvider = ProfileCredentialsProvider.create(profile);
+
+	Region regionO = Region.of(region);
 	
 	S3Client s3 = S3Client.builder()
-		.region(region)
+		.region(regionO)
 		.credentialsProvider(credentialsProvider)
 		.build();
 	
@@ -360,14 +446,37 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	    // Make sure the table has the columns that are needed.
 		boolean append = false;
 	    if ( commandPhase == CommandPhaseType.RUN ) {
+	    	// Column numbers are used later.
 	        int bucketNameCol = -1;
+	        int objectKeyCol = -1;
+    	    int objectSizeKbCol = -1;
+    	    int objectOwnerCol = -1;
+    	    int objectLastModifiedCol = -1;
     	    if ( (table == null) || !append ) {
-    	        // The table needs to be created.
+    	        // The table needs to be created:
+    	    	// - the table columns depend on the S3 command being executed
     	        List<TableField> columnList = new ArrayList<>();
-    	        columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "BucketName", -1) );
+    	        if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
+    	        	columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "BucketName", -1) );
+    	        }
+    	        else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+    	        	columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Key", -1) );
+    	        	columnList.add ( new TableField(TableField.DATA_TYPE_LONG, "SizeKb", -1) );
+    	        	columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Owner", -1) );
+    	        	columnList.add ( new TableField(TableField.DATA_TYPE_DATETIME, "LastModified", -1) );
+    	        }
                 table = new DataTable( columnList );
-                bucketNameCol = table.getFieldIndex("BucketName");
-                table.setTableID ( OutputTableID );
+                // Get the column numbers for later use.
+    	        if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
+    	        	bucketNameCol = table.getFieldIndex("BucketName");
+    	        }
+    	        else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+    	        	objectKeyCol = table.getFieldIndex("Key");
+    	        	objectSizeKbCol = table.getFieldIndex("SizeKb");
+    	        	objectOwnerCol = table.getFieldIndex("Owner");
+    	        	objectLastModifiedCol = table.getFieldIndex("LastModified");
+    	        }
+   	        	table.setTableID ( OutputTableID );
                 Message.printStatus(2, routine, "Was not able to match existing table \"" + OutputTableID + "\" so created new table.");
                 // Set the table in the processor.
                 request_params = new PropList ( "" );
@@ -386,32 +495,95 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    }
     	    else {
     	        // Make sure that the needed columns exist - otherwise add them.
-    	        bucketNameCol = table.getFieldIndex("BucketName");
-    	        if ( bucketNameCol < 0 ) {
-    	            bucketNameCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "BucketName", -1), "");
+    	        if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
+    	        	bucketNameCol = table.getFieldIndex("BucketName");
+    	        	if ( bucketNameCol < 0 ) {
+    	            	bucketNameCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "BucketName", -1), "");
+    	        	}
+    	        }
+    	        else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+    	        	objectKeyCol = table.getFieldIndex("Key");
+    	        	objectSizeKbCol = table.getFieldIndex("SizeKb");
+    	        	objectOwnerCol = table.getFieldIndex("Owner");
+    	        	objectLastModifiedCol = table.getFieldIndex("LastModified");
+    	        	if ( objectKeyCol < 0 ) {
+    	            	objectKeyCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "Key", -1), "");
+    	        	}
+    	        	if ( objectSizeKbCol < 0 ) {
+    	            	objectSizeKbCol = table.addField(new TableField(TableField.DATA_TYPE_LONG, "SizeKb", -1), "");
+    	        	}
+    	        	if ( objectOwnerCol < 0 ) {
+    	            	objectOwnerCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "Owner", -1), "");
+    	        	}
+    	        	if ( objectLastModifiedCol < 0 ) {
+    	            	objectLastModifiedCol = table.addField(new TableField(TableField.DATA_TYPE_DATETIME, "LastModified", -1), "");
+    	        	}
     	        }
     	    }
 
     	    // Call the service that was requested.
 		
-    	    if ( S3Command.equalsIgnoreCase(this.ListBuckets) ) {
-    	    	ListBucketsRequest request = ListBucketsRequest.builder().build();
+    	    if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
+    	    	ListBucketsRequest request = ListBucketsRequest
+    	    		.builder()
+    	    		.build();
     	    	ListBucketsResponse response = s3.listBuckets(request);
     	    	TableRecord rec = null;
     	    	boolean allowDuplicates = false;
-    	    	for ( Bucket bucket : response.buckets() ) {
+    	    	for ( Bucket bucketO : response.buckets() ) {
     	    		// Output to table and/or file, as requested.
     	    		if ( table != null ) {
     	    			if ( !allowDuplicates ) {
-    	    				// Try to match the TSID.
-    	    				rec = table.getRecord ( bucketNameCol, bucket.name() );
+    	    				// Try to match the bucket name, which is the unique identifier.
+    	    				rec = table.getRecord ( bucketNameCol, bucketO.name() );
     	    			}
     	    			if ( rec == null ) {
     	    				// Create a new record.
     	    				rec = table.addRecord(table.emptyRecord());
     	    			}
     	    			// Set the data in the record.
-    	    			rec.setFieldValue(bucketNameCol,bucket.name());
+    	    			rec.setFieldValue(bucketNameCol,bucketO.name());
+    	    		}
+    	    	}
+    	    }
+   	        else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+    	    	Builder builder = ListObjectsRequest
+    	    		.builder()
+    	    		.bucket(bucket);
+    	    	if ( maxKeys > 0 ) {
+    	    		// Set the maximum number of keys that will be returned.
+    	    		builder.maxKeys(maxKeys);
+    	    	}
+    	    	if ( (Prefix != null) && !Prefix.isEmpty() ) {
+    	    		// Set the key prefix to match.
+    	    		builder.prefix(Prefix);
+    	    	}
+    	    	
+    	    	ListObjectsRequest request = builder.build();
+    	    	ListObjectsResponse response = s3.listObjects(request);
+    	    	TableRecord rec = null;
+    	    	boolean allowDuplicates = false;
+    	    	int behaviorFlag = 0;
+    	    	// TODO smalers 2022-05-31 for now use UTC time.
+    	    	String timezone = "Z";
+    	    	ZoneId zoneId = ZoneId.of("Z");
+    	    	for ( S3Object s3Object : response.contents() ) {
+    	    		// Output to table and/or file, as requested.
+    	    		if ( table != null ) {
+    	    			if ( !allowDuplicates ) {
+    	    				// Try to match the object key, which is the unique identifier
+    	    				rec = table.getRecord ( objectKeyCol, s3Object.key() );
+    	    			}
+    	    			if ( rec == null ) {
+    	    				// Create a new record.
+    	    				rec = table.addRecord(table.emptyRecord());
+    	    			}
+    	    			// Set the data in the record.
+    	    			rec.setFieldValue(objectKeyCol,s3Object.key());
+    	    			rec.setFieldValue(objectSizeKbCol,s3Object.size());
+    	    			rec.setFieldValue(objectOwnerCol,s3Object.owner().displayName());
+    	    			rec.setFieldValue(objectLastModifiedCol,
+    	    				new DateTime(OffsetDateTime.ofInstant(s3Object.lastModified(), zoneId), behaviorFlag, timezone));
     	    		}
     	    	}
     	    }
@@ -451,10 +623,31 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	        setDiscoveryTable ( table );
 	    }
 	}
+    catch ( S3Exception e ) {
+  	    if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
+			message = "Unexpected error listing buckets (" + e.awsErrorDetails().errorMessage() + ").";
+		}
+        else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+			message = "Unexpected error listing bucket objects (" + e.awsErrorDetails().errorMessage() + ").";
+        }
+		else {
+			message = "Unexpected error for unknown S3 command (" + e.awsErrorDetails().errorMessage() + ": " + S3Command;
+		}
+		Message.printWarning ( warning_level, 
+			MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
+		Message.printWarning ( 3, routine, e );
+		status.addToLog(CommandPhaseType.RUN,
+			new CommandLogRecord(CommandStatusType.FAILURE,
+				message, "See the log file for details."));
+		throw new CommandException ( message );
+    }
     catch ( Exception e ) {
-		if ( S3Command.equalsIgnoreCase(this.ListBuckets) ) {
+  	    if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
 			message = "Unexpected error listing buckets (" + e + ").";
 		}
+        else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+			message = "Unexpected error listing bucket objects (" + e + ").";
+        }
 		else {
 			message = "Unexpected error for unknown S3 command: " + S3Command;
 		}
@@ -500,31 +693,52 @@ public String toString ( PropList parameters )
 {	if ( parameters == null ) {
 		return getCommandName() + "()";
 	}
-	String Profile = parameters.getValue("Profile");
 	String S3Command = parameters.getValue("S3Command");
+	String Profile = parameters.getValue("Profile");
 	String Region = parameters.getValue("Region");
 	String InputFile = parameters.getValue("InputFile");
+	String Bucket = parameters.getValue("Bucket");
+	String MaxKeys = parameters.getValue("MaxKeys");
+	String Prefix = parameters.getValue("Prefix");
 	String OutputTableID = parameters.getValue("OutputTableID");
 	String OutputFile = parameters.getValue("OutputFile");
 	String IfInputNotFound = parameters.getValue("IfInputNotFound");
 	StringBuffer b = new StringBuffer ();
-	if ( (Profile != null) && (Profile.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-		b.append ( "Profile=\"" + Profile + "\"" );
-	}
 	if ( (S3Command != null) && (S3Command.length() > 0) ) {
         if ( b.length() > 0 ) {
             b.append ( "," );
         }
 		b.append ( "S3Command=\"" + S3Command + "\"" );
 	}
+	if ( (Profile != null) && (Profile.length() > 0) ) {
+        if ( b.length() > 0 ) {
+            b.append ( "," );
+        }
+		b.append ( "Profile=\"" + Profile + "\"" );
+	}
 	if ( (Region != null) && (Region.length() > 0) ) {
         if ( b.length() > 0 ) {
             b.append ( "," );
         }
 		b.append ( "Region=\"" + Region + "\"" );
+	}
+	if ( (Bucket != null) && (Bucket.length() > 0) ) {
+        if ( b.length() > 0 ) {
+            b.append ( "," );
+        }
+		b.append ( "Bucket=\"" + Bucket + "\"" );
+	}
+	if ( (MaxKeys != null) && (MaxKeys.length() > 0) ) {
+        if ( b.length() > 0 ) {
+            b.append ( "," );
+        }
+		b.append ( "MaxKeys=" + MaxKeys );
+	}
+	if ( (Prefix != null) && (Prefix.length() > 0) ) {
+        if ( b.length() > 0 ) {
+            b.append ( "," );
+        }
+		b.append ( "Prefix=" + Prefix );
 	}
 	if ( (InputFile != null) && (InputFile.length() > 0) ) {
         if ( b.length() > 0 ) {

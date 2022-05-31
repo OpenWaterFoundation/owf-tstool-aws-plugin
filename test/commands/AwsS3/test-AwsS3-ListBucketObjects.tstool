@@ -1,0 +1,1 @@
+AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="software.openwaterfoundation.org",MaxKeys=500,OutputTableID="BucketObjects")
