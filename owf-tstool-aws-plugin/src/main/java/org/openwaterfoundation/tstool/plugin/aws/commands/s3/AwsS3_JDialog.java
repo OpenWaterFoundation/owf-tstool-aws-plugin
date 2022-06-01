@@ -93,9 +93,17 @@ private SimpleJComboBox __Bucket_JComboBox = null;
 private JTextField __InputFile_JTextField = null;
 private SimpleJComboBox __IfInputNotFound_JComboBox = null;
 
-// Bucket Objects tab.
+// Copy tab.
+private JTextField __CopySourceKey_JTextField = null;
+private JTextField __CopyDestKey_JTextField = null;
+
+// Delete tab.
+private JTextField __DeleteKey_JTextField = null;
+
+// List tab.
 private JTextField __MaxKeys_JTextField = null;
 private JTextField __Prefix_JTextField = null;
+private JTextField __MaxObjects_JTextField = null;
 
 // Output tab.
 private SimpleJComboBox __OutputTableID_JComboBox = null;
@@ -267,7 +275,11 @@ private void checkInput ()
 	String Region = getSelectedRegion();
 	//String InputFile = __InputFile_JTextField.getText().trim();
 	String Bucket = __Bucket_JComboBox.getSelected();
+	String CopySourceKey = __CopySourceKey_JTextField.getText().trim();
+	String CopyDestKey = __CopyDestKey_JTextField.getText().trim();
+	String DeleteKey = __DeleteKey_JTextField.getText().trim();
 	String MaxKeys = __MaxKeys_JTextField.getText().trim();
+	String MaxObjects = __MaxObjects_JTextField.getText().trim();
 	String Prefix = __Prefix_JTextField.getText().trim();
 	String OutputFile = __OutputFile_JTextField.getText().trim();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
@@ -285,8 +297,20 @@ private void checkInput ()
 	if ( (Bucket != null) && !Bucket.isEmpty() ) {
 		props.set ( "Bucket", Bucket );
 	}
+	if ( (CopySourceKey != null) && !CopySourceKey.isEmpty() ) {
+		props.set ( "CopySourceKey", CopySourceKey );
+	}
+	if ( (CopyDestKey != null) && !CopyDestKey.isEmpty() ) {
+		props.set ( "CopyDestKey", CopyDestKey );
+	}
+	if ( (DeleteKey != null) && !DeleteKey.isEmpty() ) {
+		props.set ( "DeleteKey", DeleteKey );
+	}
 	if ( (MaxKeys != null) && !MaxKeys.isEmpty() ) {
 		props.set ( "MaxKeys", MaxKeys );
+	}
+	if ( (MaxObjects != null) && !MaxObjects.isEmpty() ) {
+		props.set ( "MaxObjects", MaxObjects );
 	}
 	if ( (Prefix != null) && !Prefix.isEmpty() ) {
 		props.set ( "Prefix", Prefix );
@@ -325,7 +349,11 @@ private void commitEdits () {
 	String Region = getSelectedRegion();
 	//String InputFile = __InputFile_JTextField.getText().trim();
 	String Bucket = __Bucket_JComboBox.getSelected();
+	String CopySourceKey = __CopySourceKey_JTextField.getText().trim();
+	String CopyDestKey = __CopyDestKey_JTextField.getText().trim();
+	String DeleteKey = __DeleteKey_JTextField.getText().trim();
 	String MaxKeys = __MaxKeys_JTextField.getText().trim();
+	String MaxObjects = __MaxObjects_JTextField.getText().trim();
 	String Prefix = __Prefix_JTextField.getText().trim();
     String OutputFile = __OutputFile_JTextField.getText().trim();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
@@ -335,7 +363,11 @@ private void commitEdits () {
 	__command.setCommandParameter ( "Region", Region );
 	//__command.setCommandParameter ( "InputFile", InputFile );
 	__command.setCommandParameter ( "Bucket", Bucket );
+	__command.setCommandParameter ( "CopySourceKey", CopySourceKey );
+	__command.setCommandParameter ( "CopyDestKey", CopyDestKey );
+	__command.setCommandParameter ( "DeleteKey", DeleteKey );
 	__command.setCommandParameter ( "MaxKeys", MaxKeys );
+	__command.setCommandParameter ( "MaxObjects", MaxObjects );
 	__command.setCommandParameter ( "Prefix", Prefix );
 	__command.setCommandParameter ( "OutputFile", OutputFile );
 	__command.setCommandParameter ( "OutputTableID", OutputTableID );
@@ -482,12 +514,80 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(main_JPanel, __main_JTabbedPane,
         0, ++y, 7, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
      
-    // Panel for 'Bucket Objects' parameters:
+    // Panel for 'Copy' parameters:
+    // - specify original and copy
+    int yCopy = -1;
+    JPanel copy_JPanel = new JPanel();
+    copy_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "Copy", copy_JPanel );
+
+    JGUIUtil.addComponent(copy_JPanel, new JLabel ("Specify S3 objects to copy."),
+		0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(copy_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(copy_JPanel, new JLabel ( "Source key:"),
+        0, ++yCopy, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __CopySourceKey_JTextField = new JTextField ( "", 30 );
+    __CopySourceKey_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(copy_JPanel, __CopySourceKey_JTextField,
+        1, yCopy, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(copy_JPanel, new JLabel ( "Optional - Source key for object to copy."),
+        3, yCopy, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(copy_JPanel, new JLabel ( "Destination key:"),
+        0, ++yCopy, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __CopyDestKey_JTextField = new JTextField ( "", 30 );
+    __CopyDestKey_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(copy_JPanel, __CopyDestKey_JTextField,
+        1, yCopy, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(copy_JPanel, new JLabel ( "Optional - Dest key for object to copy."),
+        3, yCopy, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    // Panel for 'Delete' parameters:
+    // - specify S3 files and folders to delete
+    int yDelete = -1;
+    JPanel delete_JPanel = new JPanel();
+    delete_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "Delete", delete_JPanel );
+
+    JGUIUtil.addComponent(delete_JPanel, new JLabel ("Specify S3 objects to delete."),
+		0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(delete_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(delete_JPanel, new JLabel ( "Delete key:"),
+        0, ++yDelete, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __DeleteKey_JTextField = new JTextField ( "", 30 );
+    __DeleteKey_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(delete_JPanel, __DeleteKey_JTextField,
+        1, yDelete, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(delete_JPanel, new JLabel ( "Optional - Source key for object to copy."),
+        3, yDelete, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    // Panel for 'Download' parameters:
+    // - map bucket objects to files and folders
+    int yDownload = -1;
+    JPanel download_JPanel = new JPanel();
+    download_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "Download", download_JPanel );
+
+    JGUIUtil.addComponent(download_JPanel, new JLabel ("Specify files and folders to download."),
+		0, ++yDownload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(download_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yDownload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    // Panel for 'List' parameters:
     // - this includes filtering
     int yBucketObjects = -1;
     JPanel bucketObjects_JPanel = new JPanel();
     bucketObjects_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "Bucket Objects", bucketObjects_JPanel );
+
+    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ("Use the following to control listing S3 objects."),
+		0, ++yBucketObjects, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(bucketObjects_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yBucketObjects, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
     JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Maximum keys:"),
         0, ++yBucketObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
@@ -495,7 +595,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     __MaxKeys_JTextField.addKeyListener ( this );
     JGUIUtil.addComponent(bucketObjects_JPanel, __MaxKeys_JTextField,
         1, yBucketObjects, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Optional - Maximum number of object keys to return when reading (default=1000)."),
+    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Optional - Maximum number of object keys read per request (default=1000)."),
         3, yBucketObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Key prefix to match:"),
@@ -507,11 +607,39 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Optional - object key prefix to match (default=match all)."),
         3, yBucketObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
+    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Maximum objects:"),
+        0, ++yBucketObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __MaxObjects_JTextField = new JTextField ( "", 10 );
+    __MaxObjects_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(bucketObjects_JPanel, __MaxObjects_JTextField,
+        1, yBucketObjects, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Optional - Maximum number of object read (default=2000)."),
+        3, yBucketObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    // Panel for 'Upload' parameters:
+    // - map files and folders to bucket objects
+    int yUpload = -1;
+    JPanel upload_JPanel = new JPanel();
+    upload_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "Upload", upload_JPanel );
+
+    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Specify files and folders to upload."),
+		0, ++yUpload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(upload_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yUpload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
     // Panel for output.
     int yOutput = -1;
     JPanel output_JPanel = new JPanel();
     output_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "Output", output_JPanel );
+
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("The following are used for commands that generate bucket and bucket object lists."),
+		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("Specify the output file name with extension to indicate the format: 'csv"),
+		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(output_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
     /*
     JGUIUtil.addComponent(main_JPanel, new JLabel ("Input file:" ), 
@@ -732,8 +860,12 @@ private void refresh ()
 	String Region = "";
 	String InputFile = "";
 	String Bucket = "";
+	String CopySourceKey = "";
+	String CopyDestKey = "";
+	String DeleteKey = "";
 	String MaxKeys = "";
 	String Prefix = "";
+	String MaxObjects = "";
 	String OutputTableID = "";
 	String OutputFile = "";
 	String IfInputNotFound = "";
@@ -746,8 +878,12 @@ private void refresh ()
 		Region = parameters.getValue ( "Region" );
 		//InputFile = parameters.getValue ( "InputFile" );
 		Bucket = parameters.getValue ( "Bucket" );
+		CopySourceKey = parameters.getValue ( "CopySourceKey" );
+		CopyDestKey = parameters.getValue ( "CopyDestKey" );
+		DeleteKey = parameters.getValue ( "DeleteKey" );
 		MaxKeys = parameters.getValue ( "MaxKeys" );
 		Prefix = parameters.getValue ( "Prefix" );
+		MaxObjects = parameters.getValue ( "MaxObjects" );
 		OutputTableID = parameters.getValue ( "OutputTableID" );
 		OutputFile = parameters.getValue ( "OutputFile" );
 		IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
@@ -823,11 +959,23 @@ private void refresh ()
 				"Bucket parameter \"" + Bucket + "\".  Select a value or Cancel." );
 			}
 		}
+        if ( CopySourceKey != null ) {
+            __CopySourceKey_JTextField.setText ( CopySourceKey );
+        }
+        if ( CopyDestKey != null ) {
+            __CopyDestKey_JTextField.setText ( CopyDestKey );
+        }
+        if ( DeleteKey != null ) {
+            __DeleteKey_JTextField.setText ( DeleteKey );
+        }
         if ( MaxKeys != null ) {
             __MaxKeys_JTextField.setText ( MaxKeys );
         }
         if ( Prefix != null ) {
             __Prefix_JTextField.setText ( Prefix );
+        }
+        if ( MaxObjects != null ) {
+            __MaxObjects_JTextField.setText ( MaxObjects );
         }
         /*
 		if ( InputFile != null ) {
@@ -884,8 +1032,12 @@ private void refresh ()
 	if ( Bucket == null ) {
 		Bucket = "";
 	}
+	CopySourceKey = __CopySourceKey_JTextField.getText().trim();
+	CopyDestKey = __CopyDestKey_JTextField.getText().trim();
+	DeleteKey = __DeleteKey_JTextField.getText().trim();
 	MaxKeys = __MaxKeys_JTextField.getText().trim();
 	Prefix = __Prefix_JTextField.getText().trim();
+	MaxObjects = __MaxObjects_JTextField.getText().trim();
 	//InputFile = __InputFile_JTextField.getText().trim();
 	OutputFile = __OutputFile_JTextField.getText().trim();
 	OutputTableID = __OutputTableID_JComboBox.getSelected();
@@ -895,8 +1047,12 @@ private void refresh ()
 	props.add ( "Profile=" + Profile );
 	props.add ( "Region=" + Region );
 	props.add ( "Bucket=" + Bucket );
+	props.add ( "CopySourceKey=" + CopySourceKey );
+	props.add ( "CopyDestKey=" + CopyDestKey );
+	props.add ( "DeleteKey=" + DeleteKey );
 	props.add ( "MaxKeys=" + MaxKeys );
 	props.add ( "Prefix=" + Prefix );
+	props.add ( "MaxObjects=" + MaxObjects );
 	props.add ( "InputFile=" + InputFile );
 	props.add ( "OutputFile=" + OutputFile );
 	props.add ( "OutputTableID=" + OutputTableID );

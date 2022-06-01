@@ -37,11 +37,12 @@ import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Bucket;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListBucketsRequest;
 import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
-import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectsRequest.Builder;
-import software.amazon.awssdk.services.s3.model.ListObjectsResponse;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import rti.tscommandprocessor.core.TSCommandProcessor;
@@ -114,8 +115,12 @@ throws InvalidCommandParameterException
 	String Region = parameters.getValue ( "Region" );
 	String InputFile = parameters.getValue ( "InputFile" );
     String Bucket = parameters.getValue ( "Bucket" );
+    String CopySourceKey = parameters.getValue ( "CopySourceKey" );
+    String CopyDestKey = parameters.getValue ( "CopyDestKey" );
+    String DeleteKey = parameters.getValue ( "DeleteKey" );
     String MaxKeys = parameters.getValue ( "MaxKeys" );
     String Prefix = parameters.getValue ( "Prefix" );
+    String MaxObjects = parameters.getValue ( "MaxObjects" );
     String OutputFile = parameters.getValue ( "OutputFile" );
     String OutputTableID = parameters.getValue ( "OutputTableID" );
 	String IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
@@ -178,6 +183,13 @@ throws InvalidCommandParameterException
 			}
 		}
 	}
+	if ( (MaxObjects != null) && !MaxObjects.isEmpty() && !StringUtil.isInteger(MaxObjects) ) {
+		message = "The maximum keys (" + MaxObjects + ") is invalid.";
+		warning += "\n" + message;
+		status.addToLog(CommandPhaseType.INITIALIZATION,
+			new CommandLogRecord(CommandStatusType.FAILURE,
+				message, "Specify an integer."));
+	}
 	/*
 	if ( (InputFile == null) || (InputFile.length() == 0) ) {
 		message = "The input file must be specified.";
@@ -216,16 +228,45 @@ throws InvalidCommandParameterException
 					message, "Specify the bucket."));
 		}
 	}
+	else if ( s3Command == AwsS3CommandType.COPY_OBJECT ) {
+		if ( (CopySourceKey == null) || CopySourceKey.isEmpty() ) {
+			message = "The source key must be specified for the copy.";
+			warning += "\n" + message;
+			status.addToLog(CommandPhaseType.INITIALIZATION,
+				new CommandLogRecord(CommandStatusType.FAILURE,
+					message, "Specify the source key."));
+		}
+		if ( (CopyDestKey == null) || CopyDestKey.isEmpty() ) {
+			message = "The destination key must be specified for the copy.";
+			warning += "\n" + message;
+			status.addToLog(CommandPhaseType.INITIALIZATION,
+				new CommandLogRecord(CommandStatusType.FAILURE,
+					message, "Specify the destination key."));
+		}
+	}
+	else if ( s3Command == AwsS3CommandType.DELETE_OBJECT ) {
+		if ( (DeleteKey == null) || DeleteKey.isEmpty() ) {
+			message = "The key must be specified for the delete.";
+			warning += "\n" + message;
+			status.addToLog(CommandPhaseType.INITIALIZATION,
+				new CommandLogRecord(CommandStatusType.FAILURE,
+					message, "Specify the key to delete."));
+		}
+	}
 
 	// Check for invalid parameters.
-	List<String> validList = new ArrayList<>(10);
+	List<String> validList = new ArrayList<>(14);
 	validList.add ( "S3Command" );
 	validList.add ( "Profile" );
 	validList.add ( "Region" );
 	validList.add ( "InputFile" );
 	validList.add ( "Bucket" );
+	validList.add ( "CopySourceKey" );
+	validList.add ( "CopyDestKey" );
+	validList.add ( "DeleteKey" );
 	validList.add ( "MaxKeys" );
 	validList.add ( "Prefix" );
+	validList.add ( "MaxObjects" );
 	validList.add ( "OutputFile" );
 	validList.add ( "OutputTableID" );
 	validList.add ( "IfInputNotFound" );
@@ -362,11 +403,27 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	region = TSCommandProcessorUtil.expandParameterValue(processor,this,region);
 	String bucket = parameters.getValue ( "Bucket" );
 	bucket = TSCommandProcessorUtil.expandParameterValue(processor,this,bucket);
+	String CopySourceKey = parameters.getValue ( "CopySourceKey" );
+	CopySourceKey = TSCommandProcessorUtil.expandParameterValue(processor,this,CopySourceKey);
+	String DeleteKey = parameters.getValue ( "DeleteKey" );
+	DeleteKey = TSCommandProcessorUtil.expandParameterValue(processor,this,DeleteKey);
+	String CopyDestKey = parameters.getValue ( "CopyDestKey" );
+	CopyDestKey = TSCommandProcessorUtil.expandParameterValue(processor,this,CopyDestKey);
 	String MaxKeys = parameters.getValue ( "MaxKeys" );
 	int maxKeys = -1; // Use default, which is 1000.
 	if ( MaxKeys != null && !MaxKeys.isEmpty() ) {
 		try {
 			maxKeys = Integer.parseInt(MaxKeys);
+		}
+		catch ( NumberFormatException e ) {
+			// Use default from above.
+		}
+	}
+	String MaxObjects = parameters.getValue ( "MaxObjects" );
+	int maxObjects = 2000;
+	if ( MaxObjects != null && !MaxObjects.isEmpty() ) {
+		try {
+			maxObjects = Integer.parseInt(MaxObjects);
 		}
 		catch ( NumberFormatException e ) {
 			// Use default from above.
@@ -421,6 +478,9 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	
 	ProfileCredentialsProvider credentialsProvider = null;
 	credentialsProvider = ProfileCredentialsProvider.create(profile);
+	
+	// The following is used to create a temporary table before outputting to a file.
+	boolean useTempTable = false;
 
 	Region regionO = Region.of(region);
 	
@@ -465,7 +525,10 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	        	columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Owner", -1) );
     	        	columnList.add ( new TableField(TableField.DATA_TYPE_DATETIME, "LastModified", -1) );
     	        }
-                table = new DataTable( columnList );
+    	        if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
+    	        	(s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
+    	        	table = new DataTable( columnList );
+    	        }
                 // Get the column numbers for later use.
     	        if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
     	        	bucketNameCol = table.getFieldIndex("BucketName");
@@ -476,22 +539,25 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	        	objectOwnerCol = table.getFieldIndex("Owner");
     	        	objectLastModifiedCol = table.getFieldIndex("LastModified");
     	        }
-   	        	table.setTableID ( OutputTableID );
-                Message.printStatus(2, routine, "Was not able to match existing table \"" + OutputTableID + "\" so created new table.");
-                // Set the table in the processor.
-                request_params = new PropList ( "" );
-                request_params.setUsingObject ( "Table", table );
-                try {
-                    processor.processRequest( "SetTable", request_params);
-                }
-                catch ( Exception e ) {
-                    message = "Error requesting SetTable(Table=...) from processor.";
-                    Message.printWarning(warning_level,
-                        MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
-                    status.addToLog ( commandPhase,
-                        new CommandLogRecord(CommandStatusType.FAILURE,
-                           message, "Report problem to software support." ) );
-                }
+    	        if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
+    	        	(s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
+    	        	table.setTableID ( OutputTableID );
+                	Message.printStatus(2, routine, "Was not able to match existing table \"" + OutputTableID + "\" so created new table.");
+                	// Set the table in the processor.
+                	request_params = new PropList ( "" );
+                	request_params.setUsingObject ( "Table", table );
+                	try {
+                    	processor.processRequest( "SetTable", request_params);
+                	}
+                	catch ( Exception e ) {
+                    	message = "Error requesting SetTable(Table=...) from processor.";
+                    	Message.printWarning(warning_level,
+                        	MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
+                    	status.addToLog ( commandPhase,
+                        	new CommandLogRecord(CommandStatusType.FAILURE,
+                           	message, "Report problem to software support." ) );
+                	}
+    	        }
     	    }
     	    else {
     	        // Make sure that the needed columns exist - otherwise add them.
@@ -523,7 +589,25 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 
     	    // Call the service that was requested.
 		
-    	    if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
+    	    if ( s3Command == AwsS3CommandType.COPY_OBJECT ) {
+    	    	CopyObjectRequest request = CopyObjectRequest
+    	    		.builder()
+    	    		.sourceBucket(bucket)
+    	    		.sourceKey(CopySourceKey)
+    	    		.destinationBucket(bucket)
+    	    		.destinationKey(CopyDestKey)
+    	    		.build();
+    	    	s3.copyObject(request);
+    	    }
+    	    else if ( s3Command == AwsS3CommandType.DELETE_OBJECT ) {
+    	    	DeleteObjectRequest request = DeleteObjectRequest
+    	    		.builder()
+    	    		.bucket(bucket)
+    	    		.key(DeleteKey)
+    	    		.build();
+    	    	s3.deleteObject(request);
+    	    }
+    	    else if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
     	    	ListBucketsRequest request = ListBucketsRequest
     	    		.builder()
     	    		.build();
@@ -547,8 +631,9 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    	}
     	    }
    	        else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
-    	    	Builder builder = ListObjectsRequest
+   	        	software.amazon.awssdk.services.s3.model.ListObjectsV2Request.Builder builder = ListObjectsV2Request
     	    		.builder()
+    	    		.fetchOwner(Boolean.TRUE)
     	    		.bucket(bucket);
     	    	if ( maxKeys > 0 ) {
     	    		// Set the maximum number of keys that will be returned.
@@ -559,32 +644,54 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    		builder.prefix(Prefix);
     	    	}
     	    	
-    	    	ListObjectsRequest request = builder.build();
-    	    	ListObjectsResponse response = s3.listObjects(request);
+    	    	ListObjectsV2Request request = builder.build();
+    	    	ListObjectsV2Response response = null;
     	    	TableRecord rec = null;
     	    	boolean allowDuplicates = false;
     	    	int behaviorFlag = 0;
     	    	// TODO smalers 2022-05-31 for now use UTC time.
     	    	String timezone = "Z";
     	    	ZoneId zoneId = ZoneId.of("Z");
-    	    	for ( S3Object s3Object : response.contents() ) {
-    	    		// Output to table and/or file, as requested.
-    	    		if ( table != null ) {
-    	    			if ( !allowDuplicates ) {
-    	    				// Try to match the object key, which is the unique identifier
-    	    				rec = table.getRecord ( objectKeyCol, s3Object.key() );
+    	    	boolean done = false;
+    	    	int objectCount = 0;
+    	    	while ( !done ) {
+    	    		response = s3.listObjectsV2(request);
+    	    		for ( S3Object s3Object : response.contents() ) {
+    	    			// Check the maximum object count, to protect against runaway processes.
+    	    			if ( objectCount >= maxObjects ) {
+    	    				break;
     	    			}
-    	    			if ( rec == null ) {
-    	    				// Create a new record.
-    	    				rec = table.addRecord(table.emptyRecord());
+    	    			// Output to table and/or file, as requested.
+    	    			if ( table != null ) {
+    	    				if ( !allowDuplicates ) {
+    	    					// Try to match the object key, which is the unique identifier.
+    	    					rec = table.getRecord ( objectKeyCol, s3Object.key() );
+    	    				}
+    	    				if ( rec == null ) {
+    	    					// Create a new record.
+    	    					rec = table.addRecord(table.emptyRecord());
+    	    				}
+    	    				// Set the data in the record.
+    	    				rec.setFieldValue(objectKeyCol,s3Object.key());
+    	    				rec.setFieldValue(objectSizeKbCol,s3Object.size());
+    	    				if ( s3Object.owner() == null ) {
+    	    					rec.setFieldValue(objectOwnerCol,"");
+    	    				}
+    	    				else {
+    	    					rec.setFieldValue(objectOwnerCol,s3Object.owner().displayName());
+    	    				}
+    	    				rec.setFieldValue(objectLastModifiedCol,
+    	    					new DateTime(OffsetDateTime.ofInstant(s3Object.lastModified(), zoneId), behaviorFlag, timezone));
+    	    				// Increment the count of objects processed.
+    	    				++objectCount;
     	    			}
-    	    			// Set the data in the record.
-    	    			rec.setFieldValue(objectKeyCol,s3Object.key());
-    	    			rec.setFieldValue(objectSizeKbCol,s3Object.size());
-    	    			rec.setFieldValue(objectOwnerCol,s3Object.owner().displayName());
-    	    			rec.setFieldValue(objectLastModifiedCol,
-    	    				new DateTime(OffsetDateTime.ofInstant(s3Object.lastModified(), zoneId), behaviorFlag, timezone));
     	    		}
+    	    		if ( response.nextContinuationToken() == null ) {
+    	    			done = true;
+    	    		}
+    	    		request = request.toBuilder()
+   	    				.continuationToken(response.nextContinuationToken())
+   	    				.build();
     	    	}
     	    }
 		
@@ -614,17 +721,26 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	     */
 	    }
 	    else if ( commandPhase == CommandPhaseType.DISCOVERY ) {
-	        if ( table == null ) {
-	            // Did not find table so is being created in this command.
-	            // Create an empty table and set the ID.
-	            table = new DataTable();
-	            table.setTableID ( OutputTableID );
-	        }
-	        setDiscoveryTable ( table );
+   	        if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
+   	        	(s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
+   	        	if ( table == null ) {
+	               	// Did not find table so is being created in this command.
+	               	// Create an empty table and set the ID.
+	               	table = new DataTable();
+	               	table.setTableID ( OutputTableID );
+	           	}
+	           	setDiscoveryTable ( table );
+   	        }
 	    }
 	}
     catch ( S3Exception e ) {
-  	    if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
+  	    if ( s3Command == AwsS3CommandType.COPY_OBJECT ) {
+			message = "Unexpected error copying object (" + e.awsErrorDetails().errorMessage() + ").";
+		}
+  	    else if ( s3Command == AwsS3CommandType.DELETE_OBJECT ) {
+			message = "Unexpected error deleting object (" + e.awsErrorDetails().errorMessage() + ").";
+		}
+  	    else if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
 			message = "Unexpected error listing buckets (" + e.awsErrorDetails().errorMessage() + ").";
 		}
         else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
@@ -642,7 +758,13 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 		throw new CommandException ( message );
     }
     catch ( Exception e ) {
-  	    if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
+  	    if ( s3Command == AwsS3CommandType.COPY_OBJECT ) {
+			message = "Unexpected error copying object (" + e + ").";
+		}
+  	    else if ( s3Command == AwsS3CommandType.DELETE_OBJECT ) {
+			message = "Unexpected error deleting object (" + e + ").";
+		}
+  	    else if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
 			message = "Unexpected error listing buckets (" + e + ").";
 		}
         else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
@@ -698,8 +820,12 @@ public String toString ( PropList parameters )
 	String Region = parameters.getValue("Region");
 	String InputFile = parameters.getValue("InputFile");
 	String Bucket = parameters.getValue("Bucket");
+	String CopySourceKey = parameters.getValue("CopySourceKey");
+	String CopyDestKey = parameters.getValue("CopyDestKey");
+	String DeleteKey = parameters.getValue("DeleteKey");
 	String MaxKeys = parameters.getValue("MaxKeys");
 	String Prefix = parameters.getValue("Prefix");
+	String MaxObjects = parameters.getValue("MaxObjects");
 	String OutputTableID = parameters.getValue("OutputTableID");
 	String OutputFile = parameters.getValue("OutputFile");
 	String IfInputNotFound = parameters.getValue("IfInputNotFound");
@@ -728,6 +854,24 @@ public String toString ( PropList parameters )
         }
 		b.append ( "Bucket=\"" + Bucket + "\"" );
 	}
+	if ( (CopySourceKey != null) && (CopySourceKey.length() > 0) ) {
+        if ( b.length() > 0 ) {
+            b.append ( "," );
+        }
+		b.append ( "CopySourceKey=\"" + CopySourceKey + "\"");
+	}
+	if ( (CopyDestKey != null) && (CopyDestKey.length() > 0) ) {
+        if ( b.length() > 0 ) {
+            b.append ( "," );
+        }
+		b.append ( "CopyDestKey=\"" + CopyDestKey + "\"");
+	}
+	if ( (DeleteKey != null) && (DeleteKey.length() > 0) ) {
+        if ( b.length() > 0 ) {
+            b.append ( "," );
+        }
+		b.append ( "DeleteKey=\"" + DeleteKey + "\"");
+	}
 	if ( (MaxKeys != null) && (MaxKeys.length() > 0) ) {
         if ( b.length() > 0 ) {
             b.append ( "," );
@@ -739,6 +883,12 @@ public String toString ( PropList parameters )
             b.append ( "," );
         }
 		b.append ( "Prefix=" + Prefix );
+	}
+	if ( (MaxObjects != null) && (MaxObjects.length() > 0) ) {
+        if ( b.length() > 0 ) {
+            b.append ( "," );
+        }
+		b.append ( "MaxObjects=" + MaxObjects );
 	}
 	if ( (InputFile != null) && (InputFile.length() > 0) ) {
         if ( b.length() > 0 ) {
