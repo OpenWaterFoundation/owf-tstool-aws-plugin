@@ -8,3 +8,7 @@ AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="software.openwate
 AwsS3(S3Command="CopyObject",Region="us-west-2",Bucket="owf-test",CopySourceKey="index.html",CopyDestKey="test-index.html")
 # Delete an object on the test bucket.
 AwsS3(S3Command="DeleteObject",Region="us-west-2",Bucket="owf-test",DeleteKey="test-index.html")
+# Test download of a single file and directory.
+AwsS3(S3Command="DownloadObjects",Region="us-west-2",Bucket="owf-test",DownloadDirectories="test-folder:results/test-folder",DownloadFiles="index.html:results/index.html,error.html:results/error.html")
+# Test upload of a single file and directory.
+AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="owf-test",UploadDirectories="data/testfolder1:tstool/test/commands/AwsS3/results/testfolder1/",UploadFiles="data/testfile1.txt:tstool/test/commands/AwsS3/results/testfile1.txt,data/testfile2.txt:tstool/test/commands/AwsS3/results/testfile2.txt")

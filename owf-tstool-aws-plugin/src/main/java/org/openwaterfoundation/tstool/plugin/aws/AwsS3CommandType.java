@@ -40,6 +40,11 @@ public enum AwsS3CommandType {
 	DELETE_OBJECT ( "DeleteObject", "Delete an S3 object" ),
 
 	/**
+	Download files.
+	*/
+	DOWNLOAD_OBJECTS ( "DownloadObjects", "Download one or more S3 objects to files and/or folders" ),
+
+	/**
 	List S3 buckets.
 	*/
 	LIST_BUCKETS ( "ListBuckets", "List S3 buckets" ),
@@ -47,7 +52,12 @@ public enum AwsS3CommandType {
 	/**
 	List S3 bucket objects.
 	*/
-	LIST_BUCKET_OBJECTS ( "ListBucketObjects", "List S3 bucket objects" );
+	LIST_BUCKET_OBJECTS ( "ListBucketObjects", "List S3 bucket objects" ),
+
+	/**
+	Upload files and/or folders.
+	*/
+	UPLOAD_OBJECTS ( "UploadObjects", "Upload one or more files and/or folders to S3 objects" );
 
 	/**
 	The name that is used for choices and other technical code (terse).
@@ -77,8 +87,10 @@ public enum AwsS3CommandType {
     	List<AwsS3CommandType> choices = new ArrayList<AwsS3CommandType>();
     	choices.add ( AwsS3CommandType.COPY_OBJECT );
     	choices.add ( AwsS3CommandType.DELETE_OBJECT );
+    	choices.add ( AwsS3CommandType.DOWNLOAD_OBJECTS );
     	choices.add ( AwsS3CommandType.LIST_BUCKETS );
     	choices.add ( AwsS3CommandType.LIST_BUCKET_OBJECTS );
+    	choices.add ( AwsS3CommandType.UPLOAD_OBJECTS );
     	return choices;
 	}
 

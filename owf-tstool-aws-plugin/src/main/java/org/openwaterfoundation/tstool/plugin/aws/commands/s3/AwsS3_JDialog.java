@@ -57,6 +57,7 @@ import org.openwaterfoundation.tstool.plugin.aws.AwsS3CommandType;
 import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
 import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
 
+import RTi.Util.GUI.DictionaryJDialog;
 import RTi.Util.GUI.JFileChooserFactory;
 import RTi.Util.GUI.JGUIUtil;
 import RTi.Util.GUI.SimpleJButton;
@@ -78,8 +79,6 @@ implements ActionListener, ChangeListener, ItemListener, KeyListener, WindowList
 private final String __AddWorkingDirectory = "Abs";
 private final String __RemoveWorkingDirectory = "Rel";
 
-private SimpleJButton __browseInput_JButton = null;
-private SimpleJButton __pathInput_JButton = null;
 private SimpleJButton __browseOutput_JButton = null;
 private SimpleJButton __pathOutput_JButton = null;
 private SimpleJButton __cancel_JButton = null;
@@ -90,7 +89,6 @@ private SimpleJComboBox __Profile_JComboBox = null;
 private SimpleJComboBox __S3Command_JComboBox = null;
 private SimpleJComboBox __Region_JComboBox = null;
 private SimpleJComboBox __Bucket_JComboBox = null;
-private JTextField __InputFile_JTextField = null;
 private SimpleJComboBox __IfInputNotFound_JComboBox = null;
 
 // Copy tab.
@@ -100,10 +98,18 @@ private JTextField __CopyDestKey_JTextField = null;
 // Delete tab.
 private JTextField __DeleteKey_JTextField = null;
 
+// Download tab.
+private JTextArea __DownloadFiles_JTextArea = null;
+private JTextArea __DownloadDirectories_JTextArea = null;
+
 // List tab.
 private JTextField __MaxKeys_JTextField = null;
 private JTextField __Prefix_JTextField = null;
 private JTextField __MaxObjects_JTextField = null;
+
+// Upload tab.
+private JTextArea __UploadFiles_JTextArea = null;
+private JTextArea __UploadDirectories_JTextArea = null;
 
 // Output tab.
 private SimpleJComboBox __OutputTableID_JComboBox = null;
@@ -116,6 +122,7 @@ private boolean __first_time = true;
 private AwsS3_Command __command = null;
 private boolean __ok = false; // Whether the user has pressed OK to close the dialog.
 private boolean ignoreEvents = false; // Ignore events when initializing, to avoid infinite loop.
+private JFrame __parent = null;
 
 // AWS session used to interact with AWS:
 // - will be null until the profile is set, which will happen when refresh() is called once
@@ -143,40 +150,7 @@ public void actionPerformed( ActionEvent event )
 
 	Object o = event.getSource();
 
-	if ( o == __browseInput_JButton ) {
-		String last_directory_selected = JGUIUtil.getLastFileDialogDirectory();
-		JFileChooser fc = null;
-		if ( last_directory_selected != null ) {
-			fc = JFileChooserFactory.createJFileChooser(last_directory_selected );
-		}
-		else {
-		    fc = JFileChooserFactory.createJFileChooser(__working_dir );
-		}
-		fc.setDialogTitle( "Select Input File");
-		
-		if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-			String directory = fc.getSelectedFile().getParent();
-			String filename = fc.getSelectedFile().getName(); 
-			String path = fc.getSelectedFile().getPath(); 
-	
-			if (filename == null || filename.equals("")) {
-				return;
-			}
-	
-			if (path != null) {
-				// Convert path to relative path by default.
-				try {
-					__InputFile_JTextField.setText(IOUtil.toRelativePath(__working_dir, path));
-				}
-				catch ( Exception e ) {
-					Message.printWarning ( 1,"CopyFile_JDialog", "Error converting file to relative path." );
-				}
-				JGUIUtil.setLastFileDialogDirectory(directory);
-				refresh();
-			}
-		}
-	}
-	else if ( o == __browseOutput_JButton ) {
+	if ( o == __browseOutput_JButton ) {
         String last_directory_selected = JGUIUtil.getLastFileDialogDirectory();
         JFileChooser fc = null;
         if ( last_directory_selected != null ) {
@@ -212,6 +186,44 @@ public void actionPerformed( ActionEvent event )
 	else if ( o == __cancel_JButton ) {
 		response ( false );
 	}
+    else if ( event.getActionCommand().equalsIgnoreCase("EditDownloadDirectories") ) {
+        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
+        String DownloadDirectories = __DownloadDirectories_JTextArea.getText().trim();
+        String [] notes = {
+            "Specify the S3 bucket object prefix (e.g., topfolder/childfolder/) to download a directory (folder).",
+            "Only directories can be downloaded. Specify files to download with the 'DownloadFiles' command parameter.",
+            "A trailing / in the bucket prefix (S3 directory path) is optional (typically include to indicate a directory).",
+            "A leading / in the bucket prefix (S3 directory path) is optional (typically omit since relative to the bucket).",
+            "The local folder is relative to the working folder:",
+            "  " + this.__working_dir,
+            "${Property} notation can be used for all values to expand at run time."
+        };
+        String dict = (new DictionaryJDialog ( __parent, true, DownloadDirectories,
+            "Edit DownloadDirectories Parameter", notes, "Bucket Prefix (S3 directory path)", "Local Folder",10)).response();
+        if ( dict != null ) {
+            __DownloadDirectories_JTextArea.setText ( dict );
+            refresh();
+        }
+    }
+    else if ( event.getActionCommand().equalsIgnoreCase("EditDownloadFiles") ) {
+        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
+        String DownloadFiles = __DownloadFiles_JTextArea.getText().trim();
+        String [] notes = {
+            "Specify the bucket object S3 key (S3 file path) to download a file.",
+            "Only files can be downloaded.  Specify directories (folders) to download with the 'DownloadDirectories' command parameter.",
+            "The key is the full path for the the bucket object.",
+            "A leading / in the S3 key is optional (typically omit since relative to the bucket).",
+            "The local file is relative to the working folder:",
+            "  " + this.__working_dir,
+            "${Property} notation can be used for all values to expand at run time."
+        };
+        String dict = (new DictionaryJDialog ( __parent, true, DownloadFiles,
+            "Edit DownloadFiles Parameter", notes, "Bucket Key (S3 object path)", "Local File",10)).response();
+        if ( dict != null ) {
+            __DownloadFiles_JTextArea.setText ( dict );
+            refresh();
+        }
+    }
 	else if ( o == __help_JButton ) {
 		HelpViewer.getInstance().showHelp("command", "CopyFile");
 	}
@@ -221,22 +233,6 @@ public void actionPerformed( ActionEvent event )
 		if ( !__error_wait ) {
 			response ( true );
 		}
-	}
-	else if ( o == __pathInput_JButton ) {
-		if ( __pathInput_JButton.getText().equals(__AddWorkingDirectory) ) {
-			__InputFile_JTextField.setText (IOUtil.toAbsolutePath(__working_dir,__InputFile_JTextField.getText() ) );
-		}
-		else if ( __pathInput_JButton.getText().equals(__RemoveWorkingDirectory) ) {
-			try {
-                __InputFile_JTextField.setText ( IOUtil.toRelativePath ( __working_dir,
-                        __InputFile_JTextField.getText() ) );
-			}
-			catch ( Exception e ) {
-				Message.printWarning ( 1,"CopyFile_JDialog",
-				"Error converting input file name to relative path." );
-			}
-		}
-		refresh ();
 	}
     else if ( o == __pathOutput_JButton ) {
         if ( __pathOutput_JButton.getText().equals(__AddWorkingDirectory) ) {
@@ -253,6 +249,45 @@ public void actionPerformed( ActionEvent event )
             }
         }
         refresh ();
+    }
+    else if ( event.getActionCommand().equalsIgnoreCase("EditUploadDirectories") ) {
+        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
+        String UploadDirectories = __UploadDirectories_JTextArea.getText().trim();
+        String [] notes = {
+            "The local folder is relative to the working folder:",
+            "  " + this.__working_dir,
+            "Specify the bucket object prefix (e.g., topfolder/childfolder/) to upload a directory (folder).",
+            "The S3 location will be created if it does not exist, or overwritten if it does exist.",
+            "Only directories can be uploaded. Specify files to upload with the 'UploadFiles' command parameter.",
+            "A trailing / in the bucket prefix (S3 directory path) is optional (typically include to indicate a directory).",
+            "A leading / in the bucket prefix (S3 directory path) is optional (typically omit since relative to the bucket).",
+            "${Property} notation can be used for all values to expand at run time."
+        };
+        String dict = (new DictionaryJDialog ( __parent, true, UploadDirectories,
+            "Edit UploadDirectories Parameter", notes, "Local Folder", "Bucket Prefix (S3 directory path)", 10)).response();
+        if ( dict != null ) {
+            __UploadDirectories_JTextArea.setText ( dict );
+            refresh();
+        }
+    }
+    else if ( event.getActionCommand().equalsIgnoreCase("EditUploadFiles") ) {
+        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
+        String UploadFiles = __UploadFiles_JTextArea.getText().trim();
+        String [] notes = {
+            "The local file is relative to the working folder:",
+            "  " + this.__working_dir,
+            "Specify the bucket object key (S3 file path) to upload a file.",
+            "Only files can be uploaded. Specify directories (folder) to upload with the 'UploadDirectories' command parameter.",
+            "The key is the full path for the the bucket object.",
+            "A leading / in the S3 key is optional (typically omit since relative to the bucket).",
+            "${Property} notation can be used for all values to expand at run time."
+        };
+        String dict = (new DictionaryJDialog ( __parent, true, UploadFiles,
+            "Edit UploadFiles Parameter", notes, "Local File", "Bucket Key (S3 object path)", 10)).response();
+        if ( dict != null ) {
+            __UploadFiles_JTextArea.setText ( dict );
+            refresh();
+        }
     }
 	else {
 		// Choices.
@@ -273,14 +308,17 @@ private void checkInput ()
 	String S3Command = __S3Command_JComboBox.getSelected();
 	String Profile = __Profile_JComboBox.getSelected();
 	String Region = getSelectedRegion();
-	//String InputFile = __InputFile_JTextField.getText().trim();
 	String Bucket = __Bucket_JComboBox.getSelected();
 	String CopySourceKey = __CopySourceKey_JTextField.getText().trim();
 	String CopyDestKey = __CopyDestKey_JTextField.getText().trim();
+	String DownloadDirectories = __DownloadDirectories_JTextArea.getText().trim().replace("\n"," ");
+	String DownloadFiles = __DownloadFiles_JTextArea.getText().trim().replace("\n"," ");
 	String DeleteKey = __DeleteKey_JTextField.getText().trim();
 	String MaxKeys = __MaxKeys_JTextField.getText().trim();
 	String MaxObjects = __MaxObjects_JTextField.getText().trim();
 	String Prefix = __Prefix_JTextField.getText().trim();
+	String UploadDirectories = __UploadDirectories_JTextArea.getText().trim().replace("\n"," ");
+	String UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
 	String OutputFile = __OutputFile_JTextField.getText().trim();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
 	String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
@@ -306,6 +344,15 @@ private void checkInput ()
 	if ( (DeleteKey != null) && !DeleteKey.isEmpty() ) {
 		props.set ( "DeleteKey", DeleteKey );
 	}
+	if ( (DownloadDirectories != null) && !DownloadDirectories.isEmpty() ) {
+		props.set ( "DownloadDirectories", DownloadDirectories );
+	}
+	if ( (DownloadFiles != null) && !DownloadFiles.isEmpty() ) {
+		props.set ( "DownloadFiles", DownloadFiles );
+	}
+	if ( (DeleteKey != null) && !DeleteKey.isEmpty() ) {
+		props.set ( "DeleteKey", DeleteKey );
+	}
 	if ( (MaxKeys != null) && !MaxKeys.isEmpty() ) {
 		props.set ( "MaxKeys", MaxKeys );
 	}
@@ -315,17 +362,18 @@ private void checkInput ()
 	if ( (Prefix != null) && !Prefix.isEmpty() ) {
 		props.set ( "Prefix", Prefix );
 	}
+	if ( (UploadDirectories != null) && !UploadDirectories.isEmpty() ) {
+		props.set ( "UploadDirectories", UploadDirectories );
+	}
+	if ( (UploadFiles != null) && !UploadFiles.isEmpty() ) {
+		props.set ( "UploadFiles", UploadFiles );
+	}
     if ( OutputFile.length() > 0 ) {
         props.set ( "OutputFile", OutputFile );
     }
     if ( OutputTableID.length() > 0 ) {
         props.set ( "OutputTableID", OutputTableID );
     }
-	/*
-	if ( InputFile.length() > 0 ) {
-		props.set ( "InputFile", InputFile );
-	}
-    */
 	if ( IfInputNotFound.length() > 0 ) {
 		props.set ( "IfInputNotFound", IfInputNotFound );
 	}
@@ -347,28 +395,34 @@ private void commitEdits () {
 	String S3Command = __S3Command_JComboBox.getSelected();
 	String Profile = __Profile_JComboBox.getSelected();
 	String Region = getSelectedRegion();
-	//String InputFile = __InputFile_JTextField.getText().trim();
 	String Bucket = __Bucket_JComboBox.getSelected();
 	String CopySourceKey = __CopySourceKey_JTextField.getText().trim();
 	String CopyDestKey = __CopyDestKey_JTextField.getText().trim();
 	String DeleteKey = __DeleteKey_JTextField.getText().trim();
+	String DownloadDirectories = __DownloadDirectories_JTextArea.getText().trim().replace("\n"," ");
+	String DownloadFiles = __DownloadFiles_JTextArea.getText().trim().replace("\n"," ");
 	String MaxKeys = __MaxKeys_JTextField.getText().trim();
 	String MaxObjects = __MaxObjects_JTextField.getText().trim();
 	String Prefix = __Prefix_JTextField.getText().trim();
+	String UploadDirectories = __UploadDirectories_JTextArea.getText().trim().replace("\n"," ");
+	String UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
     String OutputFile = __OutputFile_JTextField.getText().trim();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
 	String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
 	__command.setCommandParameter ( "S3Command", S3Command );
 	__command.setCommandParameter ( "Profile", Profile );
 	__command.setCommandParameter ( "Region", Region );
-	//__command.setCommandParameter ( "InputFile", InputFile );
 	__command.setCommandParameter ( "Bucket", Bucket );
 	__command.setCommandParameter ( "CopySourceKey", CopySourceKey );
 	__command.setCommandParameter ( "CopyDestKey", CopyDestKey );
 	__command.setCommandParameter ( "DeleteKey", DeleteKey );
+	__command.setCommandParameter ( "DownloadDirectories", DownloadDirectories );
+	__command.setCommandParameter ( "DownloadFiles", DownloadFiles );
 	__command.setCommandParameter ( "MaxKeys", MaxKeys );
 	__command.setCommandParameter ( "MaxObjects", MaxObjects );
 	__command.setCommandParameter ( "Prefix", Prefix );
+	__command.setCommandParameter ( "UploadDirectories", UploadDirectories );
+	__command.setCommandParameter ( "UploadFiles", UploadFiles );
 	__command.setCommandParameter ( "OutputFile", OutputFile );
 	__command.setCommandParameter ( "OutputTableID", OutputTableID );
 	__command.setCommandParameter ( "IfInputNotFound", IfInputNotFound );
@@ -406,7 +460,8 @@ Instantiates the GUI components.
 @param tableIDChoices list of tables to choose from, used if appending
 */
 private void initialize ( JFrame parent, AwsS3_Command command, List<String> tableIDChoices )
-{	__command = command;
+{	this.__command = command;
+	this.__parent = parent;
 	CommandProcessor processor =__command.getCommandProcessor();
 	
 	__working_dir = TSCommandProcessorUtil.getWorkingDirForCommand ( processor, __command );
@@ -521,7 +576,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     copy_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "Copy", copy_JPanel );
 
-    JGUIUtil.addComponent(copy_JPanel, new JLabel ("Specify S3 objects to copy."),
+    JGUIUtil.addComponent(copy_JPanel, new JLabel ("Specify S3 object to copy."),
 		0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(copy_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -551,7 +606,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     delete_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "Delete", delete_JPanel );
 
-    JGUIUtil.addComponent(delete_JPanel, new JLabel ("Specify S3 objects to delete."),
+    JGUIUtil.addComponent(delete_JPanel, new JLabel ("Specify S3 object to delete."),
 		0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(delete_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -574,15 +629,45 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 
     JGUIUtil.addComponent(download_JPanel, new JLabel ("Specify files and folders to download."),
 		0, ++yDownload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(download_JPanel, new JLabel ("Use the 'Edit' button to view information about local and S3 file and folder paths."),
+		0, ++yDownload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(download_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yDownload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(download_JPanel, new JLabel ("Download directories:"),
+        0, ++yDownload, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __DownloadDirectories_JTextArea = new JTextArea (6,35);
+    __DownloadDirectories_JTextArea.setLineWrap ( true );
+    __DownloadDirectories_JTextArea.setWrapStyleWord ( true );
+    __DownloadDirectories_JTextArea.setToolTipText("Key1:Folder1,Key2:Folder2,...");
+    __DownloadDirectories_JTextArea.addKeyListener (this);
+    JGUIUtil.addComponent(download_JPanel, new JScrollPane(__DownloadDirectories_JTextArea),
+        1, yDownload, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(download_JPanel, new JLabel ("S3 bucket key(s) (prefix) and local folder(s)."),
+        3, yDownload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+    JGUIUtil.addComponent(download_JPanel, new SimpleJButton ("Edit","EditDownloadDirectories",this),
+        3, ++yDownload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+    JGUIUtil.addComponent(download_JPanel, new JLabel ("Download files:"),
+        0, ++yDownload, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __DownloadFiles_JTextArea = new JTextArea (6,35);
+    __DownloadFiles_JTextArea.setLineWrap ( true );
+    __DownloadFiles_JTextArea.setWrapStyleWord ( true );
+    __DownloadFiles_JTextArea.setToolTipText("Key1:File1,Key2:File2,...");
+    __DownloadFiles_JTextArea.addKeyListener (this);
+    JGUIUtil.addComponent(download_JPanel, new JScrollPane(__DownloadFiles_JTextArea),
+        1, yDownload, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(download_JPanel, new JLabel ("S3 bucket key(s) (prefix) and local file(s)."),
+        3, yDownload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+    JGUIUtil.addComponent(download_JPanel, new SimpleJButton ("Edit","EditDownloadFiles",this),
+        3, ++yDownload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
     // Panel for 'List' parameters:
     // - this includes filtering
     int yBucketObjects = -1;
     JPanel bucketObjects_JPanel = new JPanel();
     bucketObjects_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "Bucket Objects", bucketObjects_JPanel );
+    __main_JTabbedPane.addTab ( "List", bucketObjects_JPanel );
 
     JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ("Use the following to control listing S3 objects."),
 		0, ++yBucketObjects, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -623,10 +708,40 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     upload_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "Upload", upload_JPanel );
 
-    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Specify files and folders to upload."),
+    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Specify files and directories (folders) to upload."),
+		0, ++yUpload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Use the 'Edit' button to view information about local and S3 file and folder paths."),
 		0, ++yUpload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(upload_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yUpload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Upload directories:"),
+        0, ++yUpload, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __UploadDirectories_JTextArea = new JTextArea (6,35);
+    __UploadDirectories_JTextArea.setLineWrap ( true );
+    __UploadDirectories_JTextArea.setWrapStyleWord ( true );
+    __UploadDirectories_JTextArea.setToolTipText("Folder1:Key1,Folder2:Key2,...");
+    __UploadDirectories_JTextArea.addKeyListener (this);
+    JGUIUtil.addComponent(upload_JPanel, new JScrollPane(__UploadDirectories_JTextArea),
+        1, yUpload, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Local folder(s) and S3 bucket key(s) (prefix)."),
+        3, yUpload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+    JGUIUtil.addComponent(upload_JPanel, new SimpleJButton ("Edit","EditUploadDirectories",this),
+        3, ++yUpload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Upload files:"),
+        0, ++yUpload, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __UploadFiles_JTextArea = new JTextArea (6,35);
+    __UploadFiles_JTextArea.setLineWrap ( true );
+    __UploadFiles_JTextArea.setWrapStyleWord ( true );
+    __UploadFiles_JTextArea.setToolTipText("File1:Key1,File2:Key2,...");
+    __UploadFiles_JTextArea.addKeyListener (this);
+    JGUIUtil.addComponent(upload_JPanel, new JScrollPane(__UploadFiles_JTextArea),
+        1, yUpload, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Local file(s) and S3 bucket key(s)."),
+        3, yUpload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+    JGUIUtil.addComponent(upload_JPanel, new SimpleJButton ("Edit","EditUploadFiles",this),
+        3, ++yUpload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
     // Panel for output.
     int yOutput = -1;
@@ -640,31 +755,6 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-    /*
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("Input file:" ), 
-		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-	__InputFile_JTextField = new JTextField ( 50 );
-	__InputFile_JTextField.setToolTipText("Specify the input file to copy, can use ${Property} notation.");
-	__InputFile_JTextField.addKeyListener ( this );
-    // Input file layout fights back with other rows so put in its own panel.
-	JPanel InputFile_JPanel = new JPanel();
-	InputFile_JPanel.setLayout(new GridBagLayout());
-    JGUIUtil.addComponent(InputFile_JPanel, __InputFile_JTextField,
-		0, 0, 1, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-	__browseInput_JButton = new SimpleJButton ( "...", this );
-	__browseInput_JButton.setToolTipText("Browse for file");
-    JGUIUtil.addComponent(InputFile_JPanel, __browseInput_JButton,
-		1, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.CENTER);
-	if ( __working_dir != null ) {
-		// Add the button to allow conversion to/from relative path.
-		__pathInput_JButton = new SimpleJButton(	__RemoveWorkingDirectory,this);
-		JGUIUtil.addComponent(InputFile_JPanel, __pathInput_JButton,
-			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-	}
-	JGUIUtil.addComponent(main_JPanel, InputFile_JPanel,
-		1, y, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-		*/
 
     JGUIUtil.addComponent(output_JPanel, new JLabel ("Output file:" ), 
         0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
@@ -858,14 +948,17 @@ private void refresh ()
 	String S3Command = "";
 	String Profile = "";
 	String Region = "";
-	String InputFile = "";
 	String Bucket = "";
 	String CopySourceKey = "";
 	String CopyDestKey = "";
 	String DeleteKey = "";
+	String DownloadDirectories = "";
+	String DownloadFiles = "";
 	String MaxKeys = "";
 	String Prefix = "";
 	String MaxObjects = "";
+	String UploadDirectories = "";
+	String UploadFiles = "";
 	String OutputTableID = "";
 	String OutputFile = "";
 	String IfInputNotFound = "";
@@ -876,14 +969,17 @@ private void refresh ()
 		S3Command = parameters.getValue ( "S3Command" );
 		Profile = parameters.getValue ( "Profile" );
 		Region = parameters.getValue ( "Region" );
-		//InputFile = parameters.getValue ( "InputFile" );
 		Bucket = parameters.getValue ( "Bucket" );
 		CopySourceKey = parameters.getValue ( "CopySourceKey" );
 		CopyDestKey = parameters.getValue ( "CopyDestKey" );
 		DeleteKey = parameters.getValue ( "DeleteKey" );
+		DownloadDirectories = parameters.getValue ( "DownloadDirectories" );
+		DownloadFiles = parameters.getValue ( "DownloadFiles" );
 		MaxKeys = parameters.getValue ( "MaxKeys" );
 		Prefix = parameters.getValue ( "Prefix" );
 		MaxObjects = parameters.getValue ( "MaxObjects" );
+		UploadDirectories = parameters.getValue ( "UploadDirectories" );
+		UploadFiles = parameters.getValue ( "UploadFiles" );
 		OutputTableID = parameters.getValue ( "OutputTableID" );
 		OutputFile = parameters.getValue ( "OutputFile" );
 		IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
@@ -968,6 +1064,12 @@ private void refresh ()
         if ( DeleteKey != null ) {
             __DeleteKey_JTextField.setText ( DeleteKey );
         }
+        if ( DownloadDirectories != null ) {
+            __DownloadDirectories_JTextArea.setText ( DownloadDirectories );
+        }
+        if ( DownloadFiles != null ) {
+            __DownloadFiles_JTextArea.setText ( DownloadFiles );
+        }
         if ( MaxKeys != null ) {
             __MaxKeys_JTextField.setText ( MaxKeys );
         }
@@ -977,11 +1079,12 @@ private void refresh ()
         if ( MaxObjects != null ) {
             __MaxObjects_JTextField.setText ( MaxObjects );
         }
-        /*
-		if ( InputFile != null ) {
-			__InputFile_JTextField.setText ( InputFile );
-		}
-		*/
+        if ( UploadDirectories != null ) {
+            __UploadDirectories_JTextArea.setText ( UploadDirectories );
+        }
+        if ( UploadFiles != null ) {
+            __UploadFiles_JTextArea.setText ( UploadFiles );
+        }
         if ( OutputFile != null ) {
             __OutputFile_JTextField.setText ( OutputFile );
         }
@@ -1035,10 +1138,13 @@ private void refresh ()
 	CopySourceKey = __CopySourceKey_JTextField.getText().trim();
 	CopyDestKey = __CopyDestKey_JTextField.getText().trim();
 	DeleteKey = __DeleteKey_JTextField.getText().trim();
+	DownloadDirectories = __DownloadDirectories_JTextArea.getText().trim().replace("\n"," ");
+	DownloadFiles = __DownloadFiles_JTextArea.getText().trim().replace("\n"," ");
 	MaxKeys = __MaxKeys_JTextField.getText().trim();
 	Prefix = __Prefix_JTextField.getText().trim();
 	MaxObjects = __MaxObjects_JTextField.getText().trim();
-	//InputFile = __InputFile_JTextField.getText().trim();
+	UploadDirectories = __UploadDirectories_JTextArea.getText().trim().replace("\n"," ");
+	UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
 	OutputFile = __OutputFile_JTextField.getText().trim();
 	OutputTableID = __OutputTableID_JComboBox.getSelected();
 	IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
@@ -1050,32 +1156,18 @@ private void refresh ()
 	props.add ( "CopySourceKey=" + CopySourceKey );
 	props.add ( "CopyDestKey=" + CopyDestKey );
 	props.add ( "DeleteKey=" + DeleteKey );
+	props.add ( "DownloadDirectories=" + DownloadDirectories );
+	props.add ( "DownloadFiles=" + DownloadFiles );
 	props.add ( "MaxKeys=" + MaxKeys );
 	props.add ( "Prefix=" + Prefix );
 	props.add ( "MaxObjects=" + MaxObjects );
-	props.add ( "InputFile=" + InputFile );
+	props.add ( "UploadDirectories=" + UploadDirectories );
+	props.add ( "UploadFiles=" + UploadFiles );
 	props.add ( "OutputFile=" + OutputFile );
 	props.add ( "OutputTableID=" + OutputTableID );
 	props.add ( "IfInputNotFound=" + IfInputNotFound );
 	__command_JTextArea.setText( __command.toString(props) );
 	// Check the path and determine what the label on the path button should be.
-	if ( __pathInput_JButton != null ) {
-		if ( (InputFile != null) && !InputFile.isEmpty() ) {
-			__pathInput_JButton.setEnabled ( true );
-			File f = new File ( InputFile );
-			if ( f.isAbsolute() ) {
-				__pathInput_JButton.setText ( __RemoveWorkingDirectory );
-				__pathInput_JButton.setToolTipText("Change path to relative to command file");
-			}
-			else {
-		    	__pathInput_JButton.setText ( __AddWorkingDirectory );
-		    	__pathInput_JButton.setToolTipText("Change path to absolute");
-			}
-		}
-		else {
-			__pathInput_JButton.setEnabled(false);
-		}
-	}
     if ( __pathOutput_JButton != null ) {
 		if ( (OutputFile != null) && !OutputFile.isEmpty() ) {
 			__pathOutput_JButton.setEnabled ( true );
