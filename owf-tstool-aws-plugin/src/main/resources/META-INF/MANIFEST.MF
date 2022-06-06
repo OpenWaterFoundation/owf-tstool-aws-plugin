@@ -8,5 +8,7 @@ Comment9: Class-Path contains the dep/ folder for dependency jar files.
 manifest-Version: 1.0
 Command-Class1: org.openwaterfoundation.tstool.plugin.aws.
  commands.s3.AwsS3_Command
+Command-Class2: org.openwaterfoundation.tstool.plugin.aws.
+ commands.cloudfront.AwsCloudFront_Command
 Class-Path: dep/
 
