@@ -214,8 +214,7 @@ fi
 
 cd ${devBinFolder}
 "${javaInstallHome}/bin/jar" -cvfm ${jarFile} ${manifestFile} *
-if [ ! "$?" = "0" ]
-then
+if [ ! "$?" = "0" ]; then
   echoStderr "${errorColor}Error creating jar file.  Exiting.${endColor}"
   exit 1
 fi

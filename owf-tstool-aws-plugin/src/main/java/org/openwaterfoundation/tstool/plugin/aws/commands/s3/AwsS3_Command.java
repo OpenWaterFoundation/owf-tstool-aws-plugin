@@ -33,7 +33,6 @@ import java.util.Map;
 
 import javax.swing.JFrame;
 
-import org.openwaterfoundation.tstool.plugin.aws.AwsS3CommandType;
 import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
 
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
@@ -491,8 +490,12 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
             uploadFiles.put(parts[0].trim(), parts[1].trim() );
         }
     }
+	boolean doTable = false;
 	String OutputTableID = parameters.getValue ( "OutputTableID" );
 	OutputTableID = TSCommandProcessorUtil.expandParameterValue(processor,this,OutputTableID);
+	if ( (OutputTableID != null) && !OutputTableID.isEmpty() ) {
+		doTable = true;
+	}
 	String OutputFile = parameters.getValue ( "OutputFile" ); // Expand below.
 	String IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
 	if ( (IfInputNotFound == null) || IfInputNotFound.equals("")) {
@@ -561,85 +564,87 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 		// Create the table if it does not exist.
 
 	    // Make sure the table has the columns that are needed.
-		boolean append = false;
 	    if ( commandPhase == CommandPhaseType.RUN ) {
-	    	// Column numbers are used later.
-	        int bucketNameCol = -1;
-	        int objectKeyCol = -1;
-    	    int objectSizeKbCol = -1;
-    	    int objectOwnerCol = -1;
-    	    int objectLastModifiedCol = -1;
-    	    if ( (table == null) || !append ) {
-    	        // The table needs to be created:
-    	    	// - the table columns depend on the S3 command being executed
-    	        List<TableField> columnList = new ArrayList<>();
-    	        if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
-    	        	columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "BucketName", -1) );
-    	        }
-    	        else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
-    	        	columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Key", -1) );
-    	        	columnList.add ( new TableField(TableField.DATA_TYPE_LONG, "SizeKb", -1) );
-    	        	columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Owner", -1) );
-    	        	columnList.add ( new TableField(TableField.DATA_TYPE_DATETIME, "LastModified", -1) );
-    	        }
-    	        if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
-    	        	(s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
-    	        	table = new DataTable( columnList );
-    	        }
-                // Get the column numbers for later use.
-    	        if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
-    	        	bucketNameCol = table.getFieldIndex("BucketName");
-    	        }
-    	        else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
-    	        	objectKeyCol = table.getFieldIndex("Key");
-    	        	objectSizeKbCol = table.getFieldIndex("SizeKb");
-    	        	objectOwnerCol = table.getFieldIndex("Owner");
-    	        	objectLastModifiedCol = table.getFieldIndex("LastModified");
-    	        }
-    	        if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
-    	        	(s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
-    	        	table.setTableID ( OutputTableID );
-                	Message.printStatus(2, routine, "Was not able to match existing table \"" + OutputTableID + "\" so created new table.");
-                	// Set the table in the processor.
-                	request_params = new PropList ( "" );
-                	request_params.setUsingObject ( "Table", table );
-                	try {
-                    	processor.processRequest( "SetTable", request_params);
-                	}
-                	catch ( Exception e ) {
-                    	message = "Error requesting SetTable(Table=...) from processor.";
-                    	Message.printWarning(warning_level,
-                        	MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
-                    	status.addToLog ( commandPhase,
-                        	new CommandLogRecord(CommandStatusType.FAILURE,
-                           	message, "Report problem to software support." ) );
-                	}
-    	        }
-    	    }
-    	    else {
-    	        // Make sure that the needed columns exist - otherwise add them.
-    	        if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
-    	        	bucketNameCol = table.getFieldIndex("BucketName");
-    	        	if ( bucketNameCol < 0 ) {
-    	            	bucketNameCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "BucketName", -1), "");
+	    	boolean append = false;
+    		// Column numbers are used later.
+        	int bucketNameCol = -1;
+        	int objectKeyCol = -1;
+   	    	int objectSizeKbCol = -1;
+   	    	int objectOwnerCol = -1;
+   	    	int objectLastModifiedCol = -1;
+	    	if ( doTable ) {
+    	    	if ( (table == null) || !append ) {
+    	        	// The table needs to be created:
+    	    		// - the table columns depend on the S3 command being executed
+    	        	List<TableField> columnList = new ArrayList<>();
+    	        	if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
+    	        		columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "BucketName", -1) );
     	        	}
-    	        }
-    	        else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
-    	        	objectKeyCol = table.getFieldIndex("Key");
-    	        	objectSizeKbCol = table.getFieldIndex("SizeKb");
-    	        	objectOwnerCol = table.getFieldIndex("Owner");
-    	        	objectLastModifiedCol = table.getFieldIndex("LastModified");
-    	        	if ( objectKeyCol < 0 ) {
-    	            	objectKeyCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "Key", -1), "");
+    	        	else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+    	        		columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Key", -1) );
+    	        		columnList.add ( new TableField(TableField.DATA_TYPE_LONG, "SizeKb", -1) );
+    	        		columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Owner", -1) );
+    	        		columnList.add ( new TableField(TableField.DATA_TYPE_DATETIME, "LastModified", -1) );
     	        	}
-    	        	if ( objectSizeKbCol < 0 ) {
-    	            	objectSizeKbCol = table.addField(new TableField(TableField.DATA_TYPE_LONG, "SizeKb", -1), "");
+    	        	if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
+    	        		(s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
+    	        		table = new DataTable( columnList );
     	        	}
-    	        	if ( objectOwnerCol < 0 ) {
-    	            	objectOwnerCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "Owner", -1), "");
+                	// Get the column numbers for later use.
+    	        	if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
+    	        		bucketNameCol = table.getFieldIndex("BucketName");
     	        	}
-    	        	if ( objectLastModifiedCol < 0 ) {
-    	            	objectLastModifiedCol = table.addField(new TableField(TableField.DATA_TYPE_DATETIME, "LastModified", -1), "");
+    	        	else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+    	        		objectKeyCol = table.getFieldIndex("Key");
+    	        		objectSizeKbCol = table.getFieldIndex("SizeKb");
+    	        		objectOwnerCol = table.getFieldIndex("Owner");
+    	        		objectLastModifiedCol = table.getFieldIndex("LastModified");
+    	        	}
+    	        	if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
+    	        		(s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
+    	        		table.setTableID ( OutputTableID );
+                		Message.printStatus(2, routine, "Was not able to match existing table \"" + OutputTableID + "\" so created new table.");
+                		// Set the table in the processor.
+                		request_params = new PropList ( "" );
+                		request_params.setUsingObject ( "Table", table );
+                		try {
+                    		processor.processRequest( "SetTable", request_params);
+                		}
+                		catch ( Exception e ) {
+                    		message = "Error requesting SetTable(Table=...) from processor.";
+                    		Message.printWarning(warning_level,
+                        		MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
+                    		status.addToLog ( commandPhase,
+                        		new CommandLogRecord(CommandStatusType.FAILURE,
+                           		message, "Report problem to software support." ) );
+                		}
+    	        	}
+    	    	}
+    	    	else {
+    	        	// Make sure that the needed columns exist - otherwise add them.
+    	        	if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
+    	        		bucketNameCol = table.getFieldIndex("BucketName");
+    	        		if ( bucketNameCol < 0 ) {
+    	            		bucketNameCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "BucketName", -1), "");
+    	        		}
+    	        	}
+    	        	else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+    	        		objectKeyCol = table.getFieldIndex("Key");
+    	        		objectSizeKbCol = table.getFieldIndex("SizeKb");
+    	        		objectOwnerCol = table.getFieldIndex("Owner");
+    	        		objectLastModifiedCol = table.getFieldIndex("LastModified");
+    	        		if ( objectKeyCol < 0 ) {
+    	            		objectKeyCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "Key", -1), "");
+    	        		}
+    	        		if ( objectSizeKbCol < 0 ) {
+    	            		objectSizeKbCol = table.addField(new TableField(TableField.DATA_TYPE_LONG, "SizeKb", -1), "");
+    	        		}
+    	        		if ( objectOwnerCol < 0 ) {
+    	            		objectOwnerCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "Owner", -1), "");
+    	        		}
+    	        		if ( objectLastModifiedCol < 0 ) {
+    	            		objectLastModifiedCol = table.addField(new TableField(TableField.DATA_TYPE_DATETIME, "LastModified", -1), "");
+    	        		}
     	        	}
     	        }
     	    }
@@ -849,10 +854,10 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    	ListObjectsV2Response response = null;
     	    	TableRecord rec = null;
     	    	boolean allowDuplicates = false;
-    	    	int behaviorFlag = 0;
     	    	// TODO smalers 2022-05-31 for now use UTC time.
     	    	String timezone = "Z";
     	    	ZoneId zoneId = ZoneId.of("Z");
+    	    	int behaviorFlag = 0;
     	    	boolean done = false;
     	    	int objectCount = 0;
     	    	while ( !done ) {

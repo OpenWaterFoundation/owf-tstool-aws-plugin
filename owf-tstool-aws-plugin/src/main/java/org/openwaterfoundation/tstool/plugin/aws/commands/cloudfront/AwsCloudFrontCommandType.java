@@ -1,4 +1,4 @@
-// AwsS3CommandType - AWS command enumeration
+// AwsCloudFrontCommandType - AWS CloudFront command enumeration
 
 /* NoticeStart
 
@@ -20,7 +20,7 @@ OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
 
 NoticeEnd */
 
-package org.openwaterfoundation.tstool.plugin.aws;
+package org.openwaterfoundation.tstool.plugin.aws.commands.cloudfront;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,36 +28,21 @@ import java.util.List;
 /**
 AWS S3 commands, as enumeration to simplify code.
 */
-public enum AwsS3CommandType {
+public enum AwsCloudFrontCommandType {
 	/**
-	List S3 buckets.
+	Invalidate CloudFront distribution objects.
 	*/
-	COPY_OBJECT ( "CopyObject", "Copy an S3 object" ),
+	INVALIDATE_DISTRIBUTION ( "InvalidateDistribution", "Invalidate CloudFront distribution" ),
 
 	/**
-	List S3 buckets.
+	List CloudFront distributions.
 	*/
-	DELETE_OBJECT ( "DeleteObject", "Delete an S3 object" ),
+	LIST_DISTRIBUTIONS ( "ListDistributions", "List CloudFront distributions" ),
 
 	/**
-	Download files.
+	List CloudFront invalidations.
 	*/
-	DOWNLOAD_OBJECTS ( "DownloadObjects", "Download one or more S3 objects to files and/or folders" ),
-
-	/**
-	List S3 buckets.
-	*/
-	LIST_BUCKETS ( "ListBuckets", "List S3 buckets" ),
-
-	/**
-	List S3 bucket objects.
-	*/
-	LIST_BUCKET_OBJECTS ( "ListBucketObjects", "List S3 bucket objects" ),
-
-	/**
-	Upload files and/or folders.
-	*/
-	UPLOAD_OBJECTS ( "UploadObjects", "Upload one or more files and/or folders to S3 objects" );
+	LIST_INVALIDATIONS ( "ListInvalidations", "List CloudFront invalidations" );
 
 	/**
 	The name that is used for choices and other technical code (terse).
@@ -74,7 +59,7 @@ public enum AwsS3CommandType {
 	@param name name that should be displayed in choices, etc.
 	@param descritpion command description.
 	*/
-	private AwsS3CommandType(String name, String description ) {
+	private AwsCloudFrontCommandType(String name, String description ) {
     	this.name = name;
     	this.description = description;
 	}
@@ -83,14 +68,11 @@ public enum AwsS3CommandType {
 	Get the list of command types, in appropriate order.
 	@return the list of command types.
 	*/
-	public static List<AwsS3CommandType> getChoices() {
-    	List<AwsS3CommandType> choices = new ArrayList<AwsS3CommandType>();
-    	choices.add ( AwsS3CommandType.COPY_OBJECT );
-    	choices.add ( AwsS3CommandType.DELETE_OBJECT );
-    	choices.add ( AwsS3CommandType.DOWNLOAD_OBJECTS );
-    	choices.add ( AwsS3CommandType.LIST_BUCKETS );
-    	choices.add ( AwsS3CommandType.LIST_BUCKET_OBJECTS );
-    	choices.add ( AwsS3CommandType.UPLOAD_OBJECTS );
+	public static List<AwsCloudFrontCommandType> getChoices() {
+    	List<AwsCloudFrontCommandType> choices = new ArrayList<AwsCloudFrontCommandType>();
+    	choices.add ( AwsCloudFrontCommandType.INVALIDATE_DISTRIBUTION );
+    	choices.add ( AwsCloudFrontCommandType.LIST_DISTRIBUTIONS );
+    	choices.add ( AwsCloudFrontCommandType.LIST_INVALIDATIONS );
     	return choices;
 	}
 
@@ -100,10 +82,10 @@ public enum AwsS3CommandType {
 	@param includeNote Currently not implemented.
 	*/
 	public static List<String> getChoicesAsStrings( boolean includeNote ) {
-    	List<AwsS3CommandType> choices = getChoices();
+    	List<AwsCloudFrontCommandType> choices = getChoices();
     	List<String> stringChoices = new ArrayList<>();
     	for ( int i = 0; i < choices.size(); i++ ) {
-        	AwsS3CommandType choice = choices.get(i);
+        	AwsCloudFrontCommandType choice = choices.get(i);
         	String choiceString = "" + choice;
         	//if ( includeNote ) {
             //	choiceString = choiceString + " - " + choice.toStringVerbose();
@@ -127,12 +109,12 @@ public enum AwsS3CommandType {
 	@param name the name to match
 	@return the enumeration value given a string name (case-independent), or null if not matched.
 	*/
-	public static AwsS3CommandType valueOfIgnoreCase (String name) {
+	public static AwsCloudFrontCommandType valueOfIgnoreCase (String name) {
 	    if ( name == null ) {
         	return null;
     	}
-    	AwsS3CommandType [] values = values();
-    	for ( AwsS3CommandType t : values ) {
+    	AwsCloudFrontCommandType [] values = values();
+    	for ( AwsCloudFrontCommandType t : values ) {
         	if ( name.equalsIgnoreCase(t.toString()) )  {
             	return t;
         	}

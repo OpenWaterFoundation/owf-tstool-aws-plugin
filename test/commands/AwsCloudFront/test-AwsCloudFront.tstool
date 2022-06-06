@@ -1,0 +1,7 @@
+StartLog(LogFile="results/test-AwsCloudFront.tstool.log")
+# List all CloudFront distributions.
+AwsCloudFront(CloudFrontCommand="ListDistributions",Region="aws-global",OutputTableID="DistributionsTable")
+# Invalidate all files in a distribution.
+AwsCloudFront(CloudFrontCommand="InvalidateDistribution",Region="aws-global",Comment="*test.openwaterfoundation.org*",InvalidationPaths="/*")
+# List invalidations.
+AwsCloudFront(CloudFrontCommand="ListInvalidations",Region="aws-global",OutputTableID="InvalidationsTable")

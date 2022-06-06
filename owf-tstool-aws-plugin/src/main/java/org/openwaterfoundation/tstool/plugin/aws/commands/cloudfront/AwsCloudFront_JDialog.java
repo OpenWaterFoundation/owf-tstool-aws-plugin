@@ -1,4 +1,4 @@
-// AwsS3_JDialog - editor for AwsS3 command
+// AwsCloudFront_JDialog - editor for AwsCloudFront command
 
 /* NoticeStart
 
@@ -20,7 +20,7 @@ OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
 
 NoticeEnd */
 
-package org.openwaterfoundation.tstool.plugin.aws.commands.s3;
+package org.openwaterfoundation.tstool.plugin.aws.commands.cloudfront;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -56,7 +56,6 @@ import javax.swing.event.ChangeListener;
 import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
 import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
 
-import RTi.Util.GUI.DictionaryJDialog;
 import RTi.Util.GUI.JFileChooserFactory;
 import RTi.Util.GUI.JGUIUtil;
 import RTi.Util.GUI.SimpleJButton;
@@ -69,10 +68,10 @@ import RTi.Util.Message.Message;
 import rti.tscommandprocessor.core.TSCommandProcessorUtil;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.RegionMetadata;
-import software.amazon.awssdk.services.s3.model.Bucket;
+import software.amazon.awssdk.services.cloudfront.model.DistributionSummary;
 
 @SuppressWarnings("serial")
-public class AwsS3_JDialog extends JDialog
+public class AwsCloudFront_JDialog extends JDialog
 implements ActionListener, ChangeListener, ItemListener, KeyListener, WindowListener
 {
 private final String __AddWorkingDirectory = "Abs";
@@ -85,30 +84,18 @@ private SimpleJButton __ok_JButton = null;
 private SimpleJButton __help_JButton = null;
 private JTabbedPane __main_JTabbedPane = null;
 private SimpleJComboBox __Profile_JComboBox = null;
-private SimpleJComboBox __S3Command_JComboBox = null;
+private SimpleJComboBox __CloudFrontCommand_JComboBox = null;
 private SimpleJComboBox __Region_JComboBox = null;
-private SimpleJComboBox __Bucket_JComboBox = null;
+private SimpleJComboBox __DistributionId_JComboBox = null;
+private JTextField __Comment_JTextField = null;
 private SimpleJComboBox __IfInputNotFound_JComboBox = null;
 
-// Copy tab.
-private JTextField __CopySourceKey_JTextField = null;
-private JTextField __CopyDestKey_JTextField = null;
+// Invalidate tab.
+private JTextArea __InvalidationPaths_JTextArea = null;
+private JTextField __CallerReference_JTextField = null;
+private SimpleJComboBox __WaitForCompletion_JComboBox = null;
 
-// Delete tab.
-private JTextField __DeleteKey_JTextField = null;
-
-// Download tab.
-private JTextArea __DownloadFiles_JTextArea = null;
-private JTextArea __DownloadDirectories_JTextArea = null;
-
-// List tab.
-private JTextField __MaxKeys_JTextField = null;
-private JTextField __Prefix_JTextField = null;
-private JTextField __MaxObjects_JTextField = null;
-
-// Upload tab.
-private JTextArea __UploadFiles_JTextArea = null;
-private JTextArea __UploadDirectories_JTextArea = null;
+// List tab - currently no parameters.
 
 // Output tab.
 private SimpleJComboBox __OutputTableID_JComboBox = null;
@@ -118,10 +105,10 @@ private JTextArea __command_JTextArea = null;
 private String __working_dir = null;
 private boolean __error_wait = false;
 private boolean __first_time = true;
-private AwsS3_Command __command = null;
+private AwsCloudFront_Command __command = null;
 private boolean __ok = false; // Whether the user has pressed OK to close the dialog.
 private boolean ignoreEvents = false; // Ignore events when initializing, to avoid infinite loop.
-private JFrame __parent = null;
+//private JFrame __parent = null;
 
 // AWS session used to interact with AWS:
 // - will be null until the profile is set, which will happen when refresh() is called once
@@ -133,7 +120,7 @@ Command editor constructor.
 @param command Command to edit.
 @param tableIDChoices list of tables to choose from, used if appending
 */
-public AwsS3_JDialog ( JFrame parent, AwsS3_Command command, List<String> tableIDChoices )
+public AwsCloudFront_JDialog ( JFrame parent, AwsCloudFront_Command command, List<String> tableIDChoices )
 {	super(parent, true);
 	initialize ( parent, command, tableIDChoices );
 }
@@ -143,7 +130,7 @@ Responds to ActionEvents.
 @param event ActionEvent object
 */
 public void actionPerformed( ActionEvent event )
-{	String routine = getClass().getSimpleName() + ".actionPeformed";
+{	String routine = getClass().getSimpleName() + ".actionPerformed";
 	if ( this.ignoreEvents ) {
         return; // Startup.
     }
@@ -186,46 +173,8 @@ public void actionPerformed( ActionEvent event )
 	else if ( o == __cancel_JButton ) {
 		response ( false );
 	}
-    else if ( event.getActionCommand().equalsIgnoreCase("EditDownloadDirectories") ) {
-        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
-        String DownloadDirectories = __DownloadDirectories_JTextArea.getText().trim();
-        String [] notes = {
-            "Specify the S3 bucket object prefix (e.g., topfolder/childfolder/) to download a directory (folder).",
-            "Only directories can be downloaded. Specify files to download with the 'DownloadFiles' command parameter.",
-            "A trailing / in the bucket prefix (S3 directory path) is optional (typically include to indicate a directory).",
-            "A leading / in the bucket prefix (S3 directory path) is optional (typically omit since relative to the bucket).",
-            "The local folder is relative to the working folder:",
-            "  " + this.__working_dir,
-            "${Property} notation can be used for all values to expand at run time."
-        };
-        String dict = (new DictionaryJDialog ( __parent, true, DownloadDirectories,
-            "Edit DownloadDirectories Parameter", notes, "Bucket Prefix (S3 directory path)", "Local Folder",10)).response();
-        if ( dict != null ) {
-            __DownloadDirectories_JTextArea.setText ( dict );
-            refresh();
-        }
-    }
-    else if ( event.getActionCommand().equalsIgnoreCase("EditDownloadFiles") ) {
-        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
-        String DownloadFiles = __DownloadFiles_JTextArea.getText().trim();
-        String [] notes = {
-            "Specify the bucket object S3 key (S3 file path) to download a file.",
-            "Only files can be downloaded.  Specify directories (folders) to download with the 'DownloadDirectories' command parameter.",
-            "The key is the full path for the the bucket object.",
-            "A leading / in the S3 key is optional (typically omit since relative to the bucket).",
-            "The local file is relative to the working folder:",
-            "  " + this.__working_dir,
-            "${Property} notation can be used for all values to expand at run time."
-        };
-        String dict = (new DictionaryJDialog ( __parent, true, DownloadFiles,
-            "Edit DownloadFiles Parameter", notes, "Bucket Key (S3 object path)", "Local File",10)).response();
-        if ( dict != null ) {
-            __DownloadFiles_JTextArea.setText ( dict );
-            refresh();
-        }
-    }
 	else if ( o == __help_JButton ) {
-		HelpViewer.getInstance().showHelp("command", "AwsS3");
+		HelpViewer.getInstance().showHelp("command", "AwsCloudFront");
 	}
 	else if ( o == __ok_JButton ) {
 		refresh ();
@@ -250,45 +199,6 @@ public void actionPerformed( ActionEvent event )
         }
         refresh ();
     }
-    else if ( event.getActionCommand().equalsIgnoreCase("EditUploadDirectories") ) {
-        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
-        String UploadDirectories = __UploadDirectories_JTextArea.getText().trim();
-        String [] notes = {
-            "The local folder is relative to the working folder:",
-            "  " + this.__working_dir,
-            "Specify the bucket object prefix (e.g., topfolder/childfolder/) to upload a directory (folder).",
-            "The S3 location will be created if it does not exist, or overwritten if it does exist.",
-            "Only directories can be uploaded. Specify files to upload with the 'UploadFiles' command parameter.",
-            "A trailing / in the bucket prefix (S3 directory path) is optional (typically include to indicate a directory).",
-            "A leading / in the bucket prefix (S3 directory path) is optional (typically omit since relative to the bucket).",
-            "${Property} notation can be used for all values to expand at run time."
-        };
-        String dict = (new DictionaryJDialog ( __parent, true, UploadDirectories,
-            "Edit UploadDirectories Parameter", notes, "Local Folder", "Bucket Prefix (S3 directory path)", 10)).response();
-        if ( dict != null ) {
-            __UploadDirectories_JTextArea.setText ( dict );
-            refresh();
-        }
-    }
-    else if ( event.getActionCommand().equalsIgnoreCase("EditUploadFiles") ) {
-        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
-        String UploadFiles = __UploadFiles_JTextArea.getText().trim();
-        String [] notes = {
-            "The local file is relative to the working folder:",
-            "  " + this.__working_dir,
-            "Specify the bucket object key (S3 file path) to upload a file.",
-            "Only files can be uploaded. Specify directories (folder) to upload with the 'UploadDirectories' command parameter.",
-            "The key is the full path for the the bucket object.",
-            "A leading / in the S3 key is optional (typically omit since relative to the bucket).",
-            "${Property} notation can be used for all values to expand at run time."
-        };
-        String dict = (new DictionaryJDialog ( __parent, true, UploadFiles,
-            "Edit UploadFiles Parameter", notes, "Local File", "Bucket Key (S3 object path)", 10)).response();
-        if ( dict != null ) {
-            __UploadFiles_JTextArea.setText ( dict );
-            refresh();
-        }
-    }
 	else {
 		// Choices.
 		refresh();
@@ -305,26 +215,20 @@ private void checkInput ()
     }
 	// Put together a list of parameters to check.
 	PropList props = new PropList ( "" );
-	String S3Command = __S3Command_JComboBox.getSelected();
+	String CloudFrontCommand = __CloudFrontCommand_JComboBox.getSelected();
 	String Profile = __Profile_JComboBox.getSelected();
 	String Region = getSelectedRegion();
-	String Bucket = __Bucket_JComboBox.getSelected();
-	String CopySourceKey = __CopySourceKey_JTextField.getText().trim();
-	String CopyDestKey = __CopyDestKey_JTextField.getText().trim();
-	String DownloadDirectories = __DownloadDirectories_JTextArea.getText().trim().replace("\n"," ");
-	String DownloadFiles = __DownloadFiles_JTextArea.getText().trim().replace("\n"," ");
-	String DeleteKey = __DeleteKey_JTextField.getText().trim();
-	String MaxKeys = __MaxKeys_JTextField.getText().trim();
-	String MaxObjects = __MaxObjects_JTextField.getText().trim();
-	String Prefix = __Prefix_JTextField.getText().trim();
-	String UploadDirectories = __UploadDirectories_JTextArea.getText().trim().replace("\n"," ");
-	String UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
+	String DistributionId = __DistributionId_JComboBox.getSelected();
+	String Comment = __Comment_JTextField.getText().trim();
+	String InvalidationPaths = __InvalidationPaths_JTextArea.getText().trim().replace("\n"," ");
+	String CallerReference = __CallerReference_JTextField.getText().trim();
+    String WaitForCompletion = __WaitForCompletion_JComboBox.getSelected();
 	String OutputFile = __OutputFile_JTextField.getText().trim();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
 	String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
 	__error_wait = false;
-	if ( S3Command.length() > 0 ) {
-		props.set ( "S3Command", S3Command );
+	if ( CloudFrontCommand.length() > 0 ) {
+		props.set ( "CloudFrontCommand", CloudFrontCommand );
 	}
 	if ( Profile.length() > 0 ) {
 		props.set ( "Profile", Profile );
@@ -332,41 +236,20 @@ private void checkInput ()
 	if ( Region.length() > 0 ) {
 		props.set ( "Region", Region );
 	}
-	if ( (Bucket != null) && !Bucket.isEmpty() ) {
-		props.set ( "Bucket", Bucket );
+	if ( (DistributionId != null) && !DistributionId.isEmpty() ) {
+		props.set ( "DistributionId", DistributionId );
 	}
-	if ( (CopySourceKey != null) && !CopySourceKey.isEmpty() ) {
-		props.set ( "CopySourceKey", CopySourceKey );
+	if ( (Comment != null) && !Comment.isEmpty() ) {
+		props.set ( "Comment", Comment );
 	}
-	if ( (CopyDestKey != null) && !CopyDestKey.isEmpty() ) {
-		props.set ( "CopyDestKey", CopyDestKey );
+	if ( (InvalidationPaths != null) && !InvalidationPaths.isEmpty() ) {
+		props.set ( "InvalidationPaths", InvalidationPaths );
 	}
-	if ( (DeleteKey != null) && !DeleteKey.isEmpty() ) {
-		props.set ( "DeleteKey", DeleteKey );
+	if ( (CallerReference != null) && !CallerReference.isEmpty() ) {
+		props.set ( "CallerReference", CallerReference );
 	}
-	if ( (DownloadDirectories != null) && !DownloadDirectories.isEmpty() ) {
-		props.set ( "DownloadDirectories", DownloadDirectories );
-	}
-	if ( (DownloadFiles != null) && !DownloadFiles.isEmpty() ) {
-		props.set ( "DownloadFiles", DownloadFiles );
-	}
-	if ( (DeleteKey != null) && !DeleteKey.isEmpty() ) {
-		props.set ( "DeleteKey", DeleteKey );
-	}
-	if ( (MaxKeys != null) && !MaxKeys.isEmpty() ) {
-		props.set ( "MaxKeys", MaxKeys );
-	}
-	if ( (MaxObjects != null) && !MaxObjects.isEmpty() ) {
-		props.set ( "MaxObjects", MaxObjects );
-	}
-	if ( (Prefix != null) && !Prefix.isEmpty() ) {
-		props.set ( "Prefix", Prefix );
-	}
-	if ( (UploadDirectories != null) && !UploadDirectories.isEmpty() ) {
-		props.set ( "UploadDirectories", UploadDirectories );
-	}
-	if ( (UploadFiles != null) && !UploadFiles.isEmpty() ) {
-		props.set ( "UploadFiles", UploadFiles );
+	if ( (WaitForCompletion != null) && !WaitForCompletion.isEmpty() ) {
+		props.set ( "WaitForCompletion", WaitForCompletion );
 	}
     if ( OutputFile.length() > 0 ) {
         props.set ( "OutputFile", OutputFile );
@@ -392,37 +275,25 @@ Commit the edits to the command.  In this case the command parameters have
 already been checked and no errors were detected.
 */
 private void commitEdits () {
-	String S3Command = __S3Command_JComboBox.getSelected();
+	String CloudFrontCommand = __CloudFrontCommand_JComboBox.getSelected();
 	String Profile = __Profile_JComboBox.getSelected();
 	String Region = getSelectedRegion();
-	String Bucket = __Bucket_JComboBox.getSelected();
-	String CopySourceKey = __CopySourceKey_JTextField.getText().trim();
-	String CopyDestKey = __CopyDestKey_JTextField.getText().trim();
-	String DeleteKey = __DeleteKey_JTextField.getText().trim();
-	String DownloadDirectories = __DownloadDirectories_JTextArea.getText().trim().replace("\n"," ");
-	String DownloadFiles = __DownloadFiles_JTextArea.getText().trim().replace("\n"," ");
-	String MaxKeys = __MaxKeys_JTextField.getText().trim();
-	String MaxObjects = __MaxObjects_JTextField.getText().trim();
-	String Prefix = __Prefix_JTextField.getText().trim();
-	String UploadDirectories = __UploadDirectories_JTextArea.getText().trim().replace("\n"," ");
-	String UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
+	String DistributionId = __DistributionId_JComboBox.getSelected();
+	String Comment = __Comment_JTextField.getText().trim();
+	String InvalidationPaths = __InvalidationPaths_JTextArea.getText().trim().replace("\n"," ");
+	String CallerReference = __CallerReference_JTextField.getText().trim();
+    String WaitForCompletion = __WaitForCompletion_JComboBox.getSelected();
     String OutputFile = __OutputFile_JTextField.getText().trim();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
 	String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
-	__command.setCommandParameter ( "S3Command", S3Command );
+	__command.setCommandParameter ( "CloudFrontCommand", CloudFrontCommand );
 	__command.setCommandParameter ( "Profile", Profile );
 	__command.setCommandParameter ( "Region", Region );
-	__command.setCommandParameter ( "Bucket", Bucket );
-	__command.setCommandParameter ( "CopySourceKey", CopySourceKey );
-	__command.setCommandParameter ( "CopyDestKey", CopyDestKey );
-	__command.setCommandParameter ( "DeleteKey", DeleteKey );
-	__command.setCommandParameter ( "DownloadDirectories", DownloadDirectories );
-	__command.setCommandParameter ( "DownloadFiles", DownloadFiles );
-	__command.setCommandParameter ( "MaxKeys", MaxKeys );
-	__command.setCommandParameter ( "MaxObjects", MaxObjects );
-	__command.setCommandParameter ( "Prefix", Prefix );
-	__command.setCommandParameter ( "UploadDirectories", UploadDirectories );
-	__command.setCommandParameter ( "UploadFiles", UploadFiles );
+	__command.setCommandParameter ( "DistributionId", DistributionId );
+	__command.setCommandParameter ( "Comment", Comment );
+	__command.setCommandParameter ( "InvalidationPaths", InvalidationPaths );
+	__command.setCommandParameter ( "CallerReference", CallerReference );
+	__command.setCommandParameter ( "WaitForCompletion", WaitForCompletion );
 	__command.setCommandParameter ( "OutputFile", OutputFile );
 	__command.setCommandParameter ( "OutputTableID", OutputTableID );
 	__command.setCommandParameter ( "IfInputNotFound", IfInputNotFound );
@@ -459,9 +330,9 @@ Instantiates the GUI components.
 @param command Command to edit.
 @param tableIDChoices list of tables to choose from, used if appending
 */
-private void initialize ( JFrame parent, AwsS3_Command command, List<String> tableIDChoices )
+private void initialize ( JFrame parent, AwsCloudFront_Command command, List<String> tableIDChoices )
 {	this.__command = command;
-	this.__parent = parent;
+	//this.__parent = parent;
 	CommandProcessor processor =__command.getCommandProcessor();
 	
 	__working_dir = TSCommandProcessorUtil.getWorkingDirForCommand ( processor, __command );
@@ -477,14 +348,16 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 	getContentPane().add ( "North", main_JPanel );
 	int y = -1;
 
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("Execute Amazon S3 commands." ),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("Execute Amazon CloudFront commands." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("S3 manages 'objects' (files) in 'buckets' (similar to a top-level folder)." ),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("CloudFront uses 'distributions' to manage files in a content delivery network (CDN)." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("A bucket may be associated with a CloudFront distribution, which allows invalidation for quick access to objects."),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("CloudFront distributions are often associated with files stored in an S3 bucket." ),
+		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("The 'aws-global' region may need to be used to find a distribution." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel (
-        "Filenames can use the notation ${Property} to use global processor properties." ),
+        "It is recommended to specify a distribution by matching a comment rather than identifier for readability."),
         0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     if ( __working_dir != null ) {
     	JGUIUtil.addComponent(main_JPanel, new JLabel (
@@ -498,17 +371,17 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 
    	this.ignoreEvents = true; // So that a full pass of initialization can occur.
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "S3 command:"),
+   JGUIUtil.addComponent(main_JPanel, new JLabel ( "CloudFront command:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-	__S3Command_JComboBox = new SimpleJComboBox ( false );
-	__S3Command_JComboBox.setToolTipText("S3 command to execute.");
-	List<String> commandChoices = AwsS3CommandType.getChoicesAsStrings(false);
-	__S3Command_JComboBox.setData(commandChoices);
-	__S3Command_JComboBox.select ( 0 );
-	__S3Command_JComboBox.addActionListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __S3Command_JComboBox,
+	__CloudFrontCommand_JComboBox = new SimpleJComboBox ( false );
+	__CloudFrontCommand_JComboBox.setToolTipText("CloudFront command to execute.");
+	List<String> commandChoices = AwsCloudFrontCommandType.getChoicesAsStrings(false);
+	__CloudFrontCommand_JComboBox.setData(commandChoices);
+	__CloudFrontCommand_JComboBox.select ( 0 );
+	__CloudFrontCommand_JComboBox.addActionListener ( this );
+   JGUIUtil.addComponent(main_JPanel, __CloudFrontCommand_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel("Required - S3 command to run."),
+    JGUIUtil.addComponent(main_JPanel, new JLabel("Required - CloudFront command to run."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Profile:"),
@@ -532,7 +405,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Region:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__Region_JComboBox = new SimpleJComboBox ( false );
-	__Region_JComboBox.setToolTipText("AWS region to run service.");
+	__Region_JComboBox.setToolTipText("AWS region that server requests should be sent to.");
 	List<Region> regions = Region.regions();
 	List<String> regionChoices = new ArrayList<>();
 	for ( Region region : regions ) {
@@ -553,118 +426,97 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
    JGUIUtil.addComponent(main_JPanel, __Region_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel(
-		"Optional - AWS region (default=determined by service)."),
+		"Optional - AWS region (default=from user's ~/.aws/config file)."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Bucket:"),
+   JGUIUtil.addComponent(main_JPanel, new JLabel ( "DistributionId:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-	__Bucket_JComboBox = new SimpleJComboBox ( false );
-	__Bucket_JComboBox.setToolTipText("AWS S3 bucket.");
+	__DistributionId_JComboBox = new SimpleJComboBox ( false );
+	__DistributionId_JComboBox.setToolTipText("AWS CloudFront distribution ID.");
 	// Choices will be populated when refreshed, based on profile.
-	__Bucket_JComboBox.addActionListener ( this );
-    JGUIUtil.addComponent(main_JPanel, __Bucket_JComboBox,
+	__DistributionId_JComboBox.addActionListener ( this );
+    JGUIUtil.addComponent(main_JPanel, __DistributionId_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel(
-		"Optional - S3 bucket (required by some services)."),
+		"Optional - distribution ID (specify the distribution using ID or comment)."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Comment:"),
+        0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __Comment_JTextField = new JTextField ( "", 20 );
+    __Comment_JTextField.setToolTipText("Distribution comment to match, use * for wildcard, ${Property} can be used.");
+    __Comment_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(main_JPanel, __Comment_JTextField,
+        1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Optional - comment to match (specify the distribution using ID or comment)."),
+        3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     __main_JTabbedPane = new JTabbedPane ();
     __main_JTabbedPane.addChangeListener(this);
     JGUIUtil.addComponent(main_JPanel, __main_JTabbedPane,
         0, ++y, 7, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
      
-    // Panel for 'Copy' parameters:
-    // - specify original and copy
-    int yCopy = -1;
-    JPanel copy_JPanel = new JPanel();
-    copy_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "Copy", copy_JPanel );
+    // Panel for 'Invalidate' parameters.
+    int yInvalidate = -1;
+    JPanel invalidate_JPanel = new JPanel();
+    invalidate_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "Invalidate", invalidate_JPanel );
 
-    JGUIUtil.addComponent(copy_JPanel, new JLabel ("Specify S3 object to copy."),
-		0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(copy_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
-    	0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("Specify paths to invalidate, separated by commas."),
+		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("Paths should start with / and match the S3 bucket key for the CloudFront distribution." +
+    	"Use * for a wildcard to match patterns."),
+		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("   /* - invalidate all files in a distribution"),
+		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("   /path/* - invalidate all files in a directory"),
+		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("   /path* - invalidate all files in a directory and subdirectories, recursively"),
+		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("   /path/filename.* - invalidate all files in a directory matching an extension"),
+		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("   /path/filename* - invalidate all files in a directory matching any extension"),
+		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(invalidate_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(copy_JPanel, new JLabel ( "Source key:"),
-        0, ++yCopy, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __CopySourceKey_JTextField = new JTextField ( "", 30 );
-    __CopySourceKey_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(copy_JPanel, __CopySourceKey_JTextField,
-        1, yCopy, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(copy_JPanel, new JLabel ( "Optional - Source key for object to copy."),
-        3, yCopy, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("Invalidation paths:"),
+        0, ++yInvalidate, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __InvalidationPaths_JTextArea = new JTextArea (6,35);
+    __InvalidationPaths_JTextArea.setLineWrap ( true );
+    __InvalidationPaths_JTextArea.setWrapStyleWord ( true );
+    __InvalidationPaths_JTextArea.setToolTipText("Key1:Folder1,Key2:Folder2,...");
+    __InvalidationPaths_JTextArea.addKeyListener (this);
+    JGUIUtil.addComponent(invalidate_JPanel, new JScrollPane(__InvalidationPaths_JTextArea),
+        1, yInvalidate, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("Cloudfront paths, separated by commas."),
+        3, yInvalidate, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
-    JGUIUtil.addComponent(copy_JPanel, new JLabel ( "Destination key:"),
-        0, ++yCopy, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __CopyDestKey_JTextField = new JTextField ( "", 30 );
-    __CopyDestKey_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(copy_JPanel, __CopyDestKey_JTextField,
-        1, yCopy, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(copy_JPanel, new JLabel ( "Optional - Dest key for object to copy."),
-        3, yCopy, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    yInvalidate += 6;
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ( "Caller reference:"),
+        0, ++yInvalidate, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __CallerReference_JTextField = new JTextField ( "", 30 );
+    __CallerReference_JTextField.setToolTipText("Unique identifier for invalidation, to avoid duplicates, ${Property} can be used.");
+    __CallerReference_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(invalidate_JPanel, __CallerReference_JTextField,
+        1, yInvalidate, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ( "Optional - caller reference (default=user and current time)."),
+        3, yInvalidate, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-    // Panel for 'Delete' parameters:
-    // - specify S3 files and folders to delete
-    int yDelete = -1;
-    JPanel delete_JPanel = new JPanel();
-    delete_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "Delete", delete_JPanel );
-
-    JGUIUtil.addComponent(delete_JPanel, new JLabel ("Specify S3 object to delete."),
-		0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(delete_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
-    	0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(delete_JPanel, new JLabel ( "Delete key:"),
-        0, ++yDelete, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __DeleteKey_JTextField = new JTextField ( "", 30 );
-    __DeleteKey_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(delete_JPanel, __DeleteKey_JTextField,
-        1, yDelete, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(delete_JPanel, new JLabel ( "Optional - Source key for object to copy."),
-        3, yDelete, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
-    // Panel for 'Download' parameters:
-    // - map bucket objects to files and folders
-    int yDownload = -1;
-    JPanel download_JPanel = new JPanel();
-    download_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "Download", download_JPanel );
-
-    JGUIUtil.addComponent(download_JPanel, new JLabel ("Specify files and folders to download."),
-		0, ++yDownload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(download_JPanel, new JLabel ("Use the 'Edit' button to view information about local and S3 file and folder paths."),
-		0, ++yDownload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(download_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
-    	0, ++yDownload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(download_JPanel, new JLabel ("Download directories:"),
-        0, ++yDownload, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __DownloadDirectories_JTextArea = new JTextArea (6,35);
-    __DownloadDirectories_JTextArea.setLineWrap ( true );
-    __DownloadDirectories_JTextArea.setWrapStyleWord ( true );
-    __DownloadDirectories_JTextArea.setToolTipText("Key1:Folder1,Key2:Folder2,...");
-    __DownloadDirectories_JTextArea.addKeyListener (this);
-    JGUIUtil.addComponent(download_JPanel, new JScrollPane(__DownloadDirectories_JTextArea),
-        1, yDownload, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(download_JPanel, new JLabel ("S3 bucket key(s) (prefix) and local folder(s)."),
-        3, yDownload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
-    JGUIUtil.addComponent(download_JPanel, new SimpleJButton ("Edit","EditDownloadDirectories",this),
-        3, ++yDownload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
-
-    JGUIUtil.addComponent(download_JPanel, new JLabel ("Download files:"),
-        0, ++yDownload, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __DownloadFiles_JTextArea = new JTextArea (6,35);
-    __DownloadFiles_JTextArea.setLineWrap ( true );
-    __DownloadFiles_JTextArea.setWrapStyleWord ( true );
-    __DownloadFiles_JTextArea.setToolTipText("Key1:File1,Key2:File2,...");
-    __DownloadFiles_JTextArea.addKeyListener (this);
-    JGUIUtil.addComponent(download_JPanel, new JScrollPane(__DownloadFiles_JTextArea),
-        1, yDownload, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(download_JPanel, new JLabel ("S3 bucket key(s) (prefix) and local file(s)."),
-        3, yDownload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
-    JGUIUtil.addComponent(download_JPanel, new SimpleJButton ("Edit","EditDownloadFiles",this),
-        3, ++yDownload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("Wait for completion?:"),
+        0, ++yInvalidate, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    // Allow edits.
+    __WaitForCompletion_JComboBox = new SimpleJComboBox ( true );
+    __WaitForCompletion_JComboBox.add ( "" );
+    __WaitForCompletion_JComboBox.add ( __command._False );
+    __WaitForCompletion_JComboBox.add ( __command._True );
+    __WaitForCompletion_JComboBox.addItemListener ( this );
+    __WaitForCompletion_JComboBox.addKeyListener ( this );
+        JGUIUtil.addComponent(invalidate_JPanel, __WaitForCompletion_JComboBox,
+        1, yInvalidate, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel (
+        "Optional - wait for invalidation to complete (default=" + __command._True + ")."),
+        3, yInvalidate, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
     // Panel for 'List' parameters:
     // - this includes filtering
@@ -673,81 +525,12 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     bucketObjects_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "List", bucketObjects_JPanel );
 
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ("Use the following to control creation of the S3 object list."),
+    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ("Use a CloudFront command to list distributions and invalidations."),
 		0, ++yBucketObjects, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ("Use the 'Output' tab to specify the output table name and/or file for the list."),
 		0, ++yBucketObjects, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(bucketObjects_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yBucketObjects, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Maximum keys:"),
-        0, ++yBucketObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __MaxKeys_JTextField = new JTextField ( "", 10 );
-    __MaxKeys_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(bucketObjects_JPanel, __MaxKeys_JTextField,
-        1, yBucketObjects, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Optional - Maximum number of object keys read per request (default=1000)."),
-        3, yBucketObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Key prefix to match:"),
-        0, ++yBucketObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __Prefix_JTextField = new JTextField ( "", 30 );
-    __Prefix_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(bucketObjects_JPanel, __Prefix_JTextField,
-        1, yBucketObjects, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Optional - object key prefix to match (default=match all)."),
-        3, yBucketObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Maximum objects:"),
-        0, ++yBucketObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __MaxObjects_JTextField = new JTextField ( "", 10 );
-    __MaxObjects_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(bucketObjects_JPanel, __MaxObjects_JTextField,
-        1, yBucketObjects, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Optional - Maximum number of object read (default=2000)."),
-        3, yBucketObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
-    // Panel for 'Upload' parameters:
-    // - map files and folders to bucket objects
-    int yUpload = -1;
-    JPanel upload_JPanel = new JPanel();
-    upload_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "Upload", upload_JPanel );
-
-    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Specify files and directories (folders) to upload."),
-		0, ++yUpload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Use the 'Edit' button to view information about local and S3 file and folder paths."),
-		0, ++yUpload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(upload_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
-    	0, ++yUpload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Upload directories:"),
-        0, ++yUpload, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __UploadDirectories_JTextArea = new JTextArea (6,35);
-    __UploadDirectories_JTextArea.setLineWrap ( true );
-    __UploadDirectories_JTextArea.setWrapStyleWord ( true );
-    __UploadDirectories_JTextArea.setToolTipText("Folder1:Key1,Folder2:Key2,...");
-    __UploadDirectories_JTextArea.addKeyListener (this);
-    JGUIUtil.addComponent(upload_JPanel, new JScrollPane(__UploadDirectories_JTextArea),
-        1, yUpload, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Local folder(s) and S3 bucket key(s) (prefix)."),
-        3, yUpload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
-    JGUIUtil.addComponent(upload_JPanel, new SimpleJButton ("Edit","EditUploadDirectories",this),
-        3, ++yUpload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
-
-    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Upload files:"),
-        0, ++yUpload, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __UploadFiles_JTextArea = new JTextArea (6,35);
-    __UploadFiles_JTextArea.setLineWrap ( true );
-    __UploadFiles_JTextArea.setWrapStyleWord ( true );
-    __UploadFiles_JTextArea.setToolTipText("File1:Key1,File2:Key2,...");
-    __UploadFiles_JTextArea.addKeyListener (this);
-    JGUIUtil.addComponent(upload_JPanel, new JScrollPane(__UploadFiles_JTextArea),
-        1, yUpload, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Local file(s) and S3 bucket key(s)."),
-        3, yUpload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
-    JGUIUtil.addComponent(upload_JPanel, new SimpleJButton ("Edit","EditUploadFiles",this),
-        3, ++yUpload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
     // Panel for output.
     int yOutput = -1;
@@ -755,7 +538,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     output_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "Output", output_JPanel );
 
-    JGUIUtil.addComponent(output_JPanel, new JLabel ("The following are used for commands that generate bucket and bucket object lists."),
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("The following are used for commands that generate CloudFront distribution lists."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JLabel ("Specify the output file name with extension to indicate the format: 'csv"),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -863,10 +646,10 @@ public void itemStateChanged ( ItemEvent e ) {
     }
 	Object o = e.getSource();
     if ( o == this.__Profile_JComboBox ) {
-		populateBucketChoices();
+		populateDistributionIdChoices();
 	}
 	else if ( o == this.__Region_JComboBox ) {
-		populateBucketChoices();
+		populateDistributionIdChoices();
 	}
 	refresh();
 }
@@ -898,49 +681,49 @@ public boolean ok ()
 /**
  * Populate the Bucket choices based no other selections.
  */
-private void populateBucketChoices() {
-	String routine = getClass().getSimpleName() + ".populateBucketChoices";
+private void populateDistributionIdChoices() {
+	String routine = getClass().getSimpleName() + ".populateDistributionIdChoices";
 	boolean debug = true;
 	if ( awsSession == null ) {
 		// Startup - can't populate the buckets.
 		if ( debug ) {
-			Message.printStatus(2, routine, "Startup - not populating the list of buckets." );
+			Message.printStatus(2, routine, "Startup - not populating the list of distributions." );
 		}
 		return;
 	}
 	else {
 		if ( debug ) {
-			Message.printStatus(2, routine, "Getting the list of buckets." );
+			Message.printStatus(2, routine, "Getting the list of distributions." );
 		}
 		// Get the list of buckets.
 		String region = getSelectedRegion();
 		if ( region == null ) {
 			// Startup - can't populate the buckets.
 			if ( debug ) {
-				Message.printStatus(2, routine, "Region is null - can't populate the list of buckets." );
+				Message.printStatus(2, routine, "Region is null - can't populate the list of distributions." );
 			}
 			return;
 		}
 		else {
 			// Have a region.
 			if ( debug ) {
-				Message.printStatus(2, routine, "Region is \"" + region + "\" - populating the list of buckets." );
+				Message.printStatus(2, routine, "Region is \"" + region + "\" - populating the list of distributions." );
 			}	
-			List<Bucket> buckets = AwsToolkit.getInstance().getS3Buckets(awsSession, region);
-			List<String> bucketChoices = new ArrayList<>();
-			for ( Bucket bucket : buckets ) {
-				bucketChoices.add ( bucket.name() );
+			List<DistributionSummary> distributions = AwsToolkit.getInstance().getCloudFrontDistributions(awsSession, region);
+			List<String> distributionIdChoices = new ArrayList<>();
+			for ( DistributionSummary distribution : distributions ) {
+				distributionIdChoices.add ( distribution.id() );
 				if ( debug ) {
-					Message.printStatus(2, routine, "Populated bucket: " + bucket.name() );
+					Message.printStatus(2, routine, "Populated distributions: " + distribution.comment() );
 				}
 			}
-			Collections.sort(bucketChoices);
-			// Add a blank because some services don't use
-			bucketChoices.add(0,"");
-			__Bucket_JComboBox.setData(bucketChoices);
-			if ( __Bucket_JComboBox.getItemCount() > 0 ) {
+			Collections.sort(distributionIdChoices);
+			// Add a blank because may specify a different way.
+			distributionIdChoices.add(0,"");
+			__DistributionId_JComboBox.setData(distributionIdChoices);
+			if ( __DistributionId_JComboBox.getItemCount() > 0 ) {
 				// Select the first bucket by default.
-				__Bucket_JComboBox.select ( 0 );
+				__DistributionId_JComboBox.select ( 0 );
 			}
 		}
 	}
@@ -951,20 +734,14 @@ Refresh the command from the other text field contents.
 */
 private void refresh ()
 {	String routine = getClass().getSimpleName() + ".refresh";
-	String S3Command = "";
+	String CloudFrontCommand = "";
 	String Profile = "";
 	String Region = "";
-	String Bucket = "";
-	String CopySourceKey = "";
-	String CopyDestKey = "";
-	String DeleteKey = "";
-	String DownloadDirectories = "";
-	String DownloadFiles = "";
-	String MaxKeys = "";
-	String Prefix = "";
-	String MaxObjects = "";
-	String UploadDirectories = "";
-	String UploadFiles = "";
+	String DistributionId = "";
+	String Comment = "";
+	String InvalidationPaths = "";
+	String CallerReference = "";
+	String WaitForCompletion = "";
 	String OutputTableID = "";
 	String OutputFile = "";
 	String IfInputNotFound = "";
@@ -972,36 +749,30 @@ private void refresh ()
 	if ( __first_time ) {
 		__first_time = false;
         parameters = __command.getCommandParameters();
-		S3Command = parameters.getValue ( "S3Command" );
+		CloudFrontCommand = parameters.getValue ( "CloudFrontCommand" );
 		Profile = parameters.getValue ( "Profile" );
 		Region = parameters.getValue ( "Region" );
-		Bucket = parameters.getValue ( "Bucket" );
-		CopySourceKey = parameters.getValue ( "CopySourceKey" );
-		CopyDestKey = parameters.getValue ( "CopyDestKey" );
-		DeleteKey = parameters.getValue ( "DeleteKey" );
-		DownloadDirectories = parameters.getValue ( "DownloadDirectories" );
-		DownloadFiles = parameters.getValue ( "DownloadFiles" );
-		MaxKeys = parameters.getValue ( "MaxKeys" );
-		Prefix = parameters.getValue ( "Prefix" );
-		MaxObjects = parameters.getValue ( "MaxObjects" );
-		UploadDirectories = parameters.getValue ( "UploadDirectories" );
-		UploadFiles = parameters.getValue ( "UploadFiles" );
+		DistributionId = parameters.getValue ( "DistributionId" );
+		Comment = parameters.getValue ( "Comment" );
+		InvalidationPaths = parameters.getValue ( "InvalidationPaths" );
+		CallerReference = parameters.getValue ( "CallerReference" );
+		WaitForCompletion = parameters.getValue ( "WaitForCompletion" );
 		OutputTableID = parameters.getValue ( "OutputTableID" );
 		OutputFile = parameters.getValue ( "OutputFile" );
 		IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
-		if ( JGUIUtil.isSimpleJComboBoxItem(__S3Command_JComboBox, S3Command,JGUIUtil.NONE, null, null ) ) {
-			__S3Command_JComboBox.select ( S3Command );
+		if ( JGUIUtil.isSimpleJComboBoxItem(__CloudFrontCommand_JComboBox, CloudFrontCommand,JGUIUtil.NONE, null, null ) ) {
+			__CloudFrontCommand_JComboBox.select ( CloudFrontCommand );
 		}
 		else {
-            if ( (S3Command == null) ||	S3Command.equals("") ) {
+            if ( (CloudFrontCommand == null) ||	CloudFrontCommand.equals("") ) {
 				// New command...select the default.
-				__S3Command_JComboBox.select ( 0 );
+				__CloudFrontCommand_JComboBox.select ( 0 );
 			}
 			else {
 				// Bad user command.
 				Message.printWarning ( 1, routine,
 				"Existing command references an invalid\n"+
-				"S3Command parameter \"" + S3Command + "\".  Select a value or Cancel." );
+				"CloudFrontCommand parameter \"" + CloudFrontCommand + "\".  Select a value or Cancel." );
 			}
 		}
 		if ( JGUIUtil.isSimpleJComboBoxItem(__Profile_JComboBox, Profile,JGUIUtil.NONE, null, null ) ) {
@@ -1071,53 +842,49 @@ private void refresh ()
             Message.printWarning ( 1, routine, "Existing command references an invalid\n"+
                 "Region parameter \"" + Region + "\".  Select a\ndifferent value or Cancel." );
         }
-        populateBucketChoices();
-		if ( JGUIUtil.isSimpleJComboBoxItem(__Bucket_JComboBox, Bucket,JGUIUtil.NONE, null, null ) ) {
-			__Bucket_JComboBox.select ( Bucket );
+        populateDistributionIdChoices();
+		if ( JGUIUtil.isSimpleJComboBoxItem(__DistributionId_JComboBox, DistributionId,JGUIUtil.NONE, null, null ) ) {
+			__DistributionId_JComboBox.select ( DistributionId );
 		}
 		else {
-            if ( (Bucket == null) || Bucket.equals("") ) {
+            if ( (DistributionId == null) || DistributionId.equals("") ) {
 				// New command...select the default.
-            	if ( __Bucket_JComboBox.getItemCount() > 0 ) {
-            		__Bucket_JComboBox.select ( 0 );
+            	if ( __DistributionId_JComboBox.getItemCount() > 0 ) {
+            		__DistributionId_JComboBox.select ( 0 );
             	}
 			}
 			else {
 				// Bad user command.
 				Message.printWarning ( 1, routine,
 				"Existing command references an invalid\n"+
-				"Bucket parameter \"" + Bucket + "\".  Select a value or Cancel." );
+				"DistributionId parameter \"" + DistributionId + "\".  Select a value or Cancel." );
 			}
 		}
-        if ( CopySourceKey != null ) {
-            __CopySourceKey_JTextField.setText ( CopySourceKey );
+        if ( Comment != null ) {
+            __Comment_JTextField.setText ( Comment );
         }
-        if ( CopyDestKey != null ) {
-            __CopyDestKey_JTextField.setText ( CopyDestKey );
+        if ( InvalidationPaths != null ) {
+            __InvalidationPaths_JTextArea.setText ( InvalidationPaths );
         }
-        if ( DeleteKey != null ) {
-            __DeleteKey_JTextField.setText ( DeleteKey );
+        if ( CallerReference != null ) {
+            __CallerReference_JTextField.setText ( CallerReference );
         }
-        if ( DownloadDirectories != null ) {
-            __DownloadDirectories_JTextArea.setText ( DownloadDirectories );
+        if ( WaitForCompletion == null ) {
+            // Select default.
+            if ( __WaitForCompletion_JComboBox.getItemCount() > 0 ) {
+                __WaitForCompletion_JComboBox.select ( 0 );
+            }
         }
-        if ( DownloadFiles != null ) {
-            __DownloadFiles_JTextArea.setText ( DownloadFiles );
-        }
-        if ( MaxKeys != null ) {
-            __MaxKeys_JTextField.setText ( MaxKeys );
-        }
-        if ( Prefix != null ) {
-            __Prefix_JTextField.setText ( Prefix );
-        }
-        if ( MaxObjects != null ) {
-            __MaxObjects_JTextField.setText ( MaxObjects );
-        }
-        if ( UploadDirectories != null ) {
-            __UploadDirectories_JTextArea.setText ( UploadDirectories );
-        }
-        if ( UploadFiles != null ) {
-            __UploadFiles_JTextArea.setText ( UploadFiles );
+        else {
+            if ( JGUIUtil.isSimpleJComboBoxItem( __WaitForCompletion_JComboBox,WaitForCompletion, JGUIUtil.NONE, null, null ) ) {
+                __WaitForCompletion_JComboBox.select ( WaitForCompletion );
+            }
+            else {
+                Message.printWarning ( 1, routine,
+                "Existing command references an invalid WaitForCompletion value \"" + WaitForCompletion +
+                "\".  Select a different value or Cancel.");
+                __error_wait = true;
+            }
         }
         if ( OutputFile != null ) {
             __OutputFile_JTextField.setText ( OutputFile );
@@ -1157,64 +924,43 @@ private void refresh ()
 			}
 		}
 		// Set the tab to the input.
-		AwsS3CommandType command = AwsS3CommandType.valueOfIgnoreCase(S3Command);
-		if ( command == AwsS3CommandType.COPY_OBJECT ) {
+		AwsCloudFrontCommandType command = AwsCloudFrontCommandType.valueOfIgnoreCase(CloudFrontCommand);
+		if ( command == AwsCloudFrontCommandType.INVALIDATE_DISTRIBUTION ) {
 			__main_JTabbedPane.setSelectedIndex(0);
 		}
-		else if ( command == AwsS3CommandType.DELETE_OBJECT ) {
-			__main_JTabbedPane.setSelectedIndex(1);
-		}
-		else if ( command == AwsS3CommandType.DOWNLOAD_OBJECTS ) {
-			__main_JTabbedPane.setSelectedIndex(2);
-		}
-		else if ( (command == AwsS3CommandType.LIST_BUCKETS) ||
-			(command == AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
-			__main_JTabbedPane.setSelectedIndex(3);
-		}
-		else if ( command == AwsS3CommandType.UPLOAD_OBJECTS ) {
-			__main_JTabbedPane.setSelectedIndex(4);
+		else if ( (command == AwsCloudFrontCommandType.LIST_DISTRIBUTIONS) ||
+			(command == AwsCloudFrontCommandType.LIST_INVALIDATIONS) ) {
+			__main_JTabbedPane.setSelectedIndex(0);
 		}
 	}
 	// Regardless, reset the command from the fields.
 	// This is only  visible information that has not been committed in the command.
-	S3Command = __S3Command_JComboBox.getSelected();
+	CloudFrontCommand = __CloudFrontCommand_JComboBox.getSelected();
 	Profile = __Profile_JComboBox.getSelected();
 	if ( Profile == null ) {
 		Profile = "";
 	}
 	Region = getSelectedRegion();
-	Bucket = __Bucket_JComboBox.getSelected();
-	if ( Bucket == null ) {
-		Bucket = "";
+	DistributionId = __DistributionId_JComboBox.getSelected();
+	if ( DistributionId == null ) {
+		DistributionId = "";
 	}
-	CopySourceKey = __CopySourceKey_JTextField.getText().trim();
-	CopyDestKey = __CopyDestKey_JTextField.getText().trim();
-	DeleteKey = __DeleteKey_JTextField.getText().trim();
-	DownloadDirectories = __DownloadDirectories_JTextArea.getText().trim().replace("\n"," ");
-	DownloadFiles = __DownloadFiles_JTextArea.getText().trim().replace("\n"," ");
-	MaxKeys = __MaxKeys_JTextField.getText().trim();
-	Prefix = __Prefix_JTextField.getText().trim();
-	MaxObjects = __MaxObjects_JTextField.getText().trim();
-	UploadDirectories = __UploadDirectories_JTextArea.getText().trim().replace("\n"," ");
-	UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
+	Comment = __Comment_JTextField.getText().trim();
+	InvalidationPaths = __InvalidationPaths_JTextArea.getText().trim().replace("\n","");
+	CallerReference = __CallerReference_JTextField.getText().trim();
+	WaitForCompletion = __WaitForCompletion_JComboBox.getSelected();
 	OutputFile = __OutputFile_JTextField.getText().trim();
 	OutputTableID = __OutputTableID_JComboBox.getSelected();
 	IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
 	PropList props = new PropList ( __command.getCommandName() );
-	props.add ( "S3Command=" + S3Command );
+	props.add ( "CloudFrontCommand=" + CloudFrontCommand );
 	props.add ( "Profile=" + Profile );
 	props.add ( "Region=" + Region );
-	props.add ( "Bucket=" + Bucket );
-	props.add ( "CopySourceKey=" + CopySourceKey );
-	props.add ( "CopyDestKey=" + CopyDestKey );
-	props.add ( "DeleteKey=" + DeleteKey );
-	props.add ( "DownloadDirectories=" + DownloadDirectories );
-	props.add ( "DownloadFiles=" + DownloadFiles );
-	props.add ( "MaxKeys=" + MaxKeys );
-	props.add ( "Prefix=" + Prefix );
-	props.add ( "MaxObjects=" + MaxObjects );
-	props.add ( "UploadDirectories=" + UploadDirectories );
-	props.add ( "UploadFiles=" + UploadFiles );
+	props.add ( "DistributionId=" + DistributionId );
+	props.add ( "Comment=" + Comment );
+	props.add ( "InvalidationPaths=" + InvalidationPaths );
+	props.add ( "CallerReference=" + CallerReference );
+	props.add ( "WaitForCompletion=" + WaitForCompletion );
 	props.add ( "OutputFile=" + OutputFile );
 	props.add ( "OutputTableID=" + OutputTableID );
 	props.add ( "IfInputNotFound=" + IfInputNotFound );
