@@ -1,14 +1,28 @@
+# Test AWS S3 commands:
+# - use the 'test.openwaterfoundation.org' bucket
+# - AWS permissiosn are required to run the tests
+# - the default profile is used
+#
+# List the buckets.
+AwsS3(S3Command="ListBuckets",Region="us-west-2",OutputTableID="BucketListTable")
+#
 # Read up to 500 objects.
 AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="software.openwaterfoundation.org",MaxKeys=500,Prefix=cdss-app-snodas-tools-doc-dev,OutputTableID="BucketObjectsUsingPrefix")
+#
 # Only read keys starting with the prefix, including a slash.
 AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="software.openwaterfoundation.org",MaxKeys=500,Prefix=cdss-app-snodas-tools-doc-dev/software-design,OutputTableID="BucketObjectsUsingLongPrefix")
+#
 # Try to read all objects in a bucket up to to the maximum limit.
 AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="software.openwaterfoundation.org",MaxObjects=8000,OutputTableID="BucketObjectsDefaultMaxObjects")
+#
 # Copy an object on the test bucket.
 AwsS3(S3Command="CopyObject",Region="us-west-2",Bucket="owf-test",CopySourceKey="index.html",CopyDestKey="test-index.html")
+#
 # Delete an object on the test bucket.
 AwsS3(S3Command="DeleteObject",Region="us-west-2",Bucket="owf-test",DeleteKey="test-index.html")
+#
 # Test download of a single file and directory.
 AwsS3(S3Command="DownloadObjects",Region="us-west-2",Bucket="owf-test",DownloadDirectories="test-folder/:results/test-folder",DownloadFiles="index.html:results/index.html,error.html:results/error.html")
+#
 # Test upload of a single file and directory.
 AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="owf-test",UploadDirectories="data/testfolder1:tstool/test/commands/AwsS3/results/testfolder1/",UploadFiles="data/testfile1.txt:tstool/test/commands/AwsS3/results/testfile1.txt,data/testfile2.txt:tstool/test/commands/AwsS3/results/testfile2.txt")

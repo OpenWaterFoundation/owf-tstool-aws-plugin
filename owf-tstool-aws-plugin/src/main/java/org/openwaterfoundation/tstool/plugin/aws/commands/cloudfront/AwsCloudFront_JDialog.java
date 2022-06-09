@@ -53,6 +53,7 @@ import javax.swing.SwingConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
+import org.openwaterfoundation.tstool.plugin.aws.Aws;
 import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
 import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
 
@@ -174,7 +175,7 @@ public void actionPerformed( ActionEvent event )
 		response ( false );
 	}
 	else if ( o == __help_JButton ) {
-		HelpViewer.getInstance().showHelp("command", "AwsCloudFront");
+		HelpViewer.getInstance().showHelp("command", "AwsCloudFront", Aws.documentationRootUrl() );
 	}
 	else if ( o == __ok_JButton ) {
 		refresh ();

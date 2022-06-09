@@ -392,6 +392,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     setOutputFile ( null );
 	
 	String Profile = parameters.getValue ( "Profile" );
+	Profile = TSCommandProcessorUtil.expandParameterValue(processor,this,Profile);
 	String profile = Profile;
 	if ( (Profile == null) || Profile.isEmpty() ) {
 		// Get the default.

@@ -1,7 +1,14 @@
 StartLog(LogFile="results/test-AwsCloudFront.tstool.log")
+# Test CloudFront commands:
+# - use the 'test.openwaterfoundation.org' distribution
+# - AWS permissiosn are required to run the tests
+# - the default profile is used
+#
 # List all CloudFront distributions.
 AwsCloudFront(CloudFrontCommand="ListDistributions",Region="aws-global",OutputTableID="DistributionsTable")
+#
 # Invalidate all files in a distribution.
 AwsCloudFront(CloudFrontCommand="InvalidateDistribution",Region="aws-global",Comment="*test.openwaterfoundation.org*",InvalidationPaths="/*")
+#
 # List invalidations.
 AwsCloudFront(CloudFrontCommand="ListInvalidations",Region="aws-global",OutputTableID="InvalidationsTable")
