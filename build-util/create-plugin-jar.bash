@@ -69,7 +69,8 @@ configureEcho() {
 copyMavenDependencies() {
   # First delete the 'dep' folder contents, but leave the folder itself.
   if [ -d "${pluginDepFolder}" ]; then
-    # Remove all the existing files in the 'dep' folder so only the latest are available at runtime.
+    # Remove all the existing files in the 'dep' folder so only the latest are available at runtime:
+    # - do not use double quotes around the following
     rm ${pluginDepFolder}/*
   else
     # Dependency folder 'dep' does not exist.  Create it.

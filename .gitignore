@@ -19,6 +19,11 @@
 
 *.log
 
+# Distribution builds.
+
+/dist/**
+!/dist/README.md
+
 # Target files created by Eclipse/Maven.
 
-target/*
+/owf-tstool-aws-plugin/target/**

@@ -27,5 +27,16 @@ public class Aws {
 	 * Plugin version.
 	 */
 	public static final String VERSION = "1.0.0 (2022-05-27)";
+	
+	/**
+	 * Get the documentation root Url, used for command help.
+	 * This should be the folder in which the index.html file exists, for example:
+	 *	  https://software.openwaterfoundation.org/owf-tstool-aws-plugin/latest/doc-user/
+	 */
+	public static String documentationRootUrl() {
+		// Hard code for now until figure out how to configure in the META
+		String url = "https://software.openwaterfoundation.org/owf-tstool-aws-plugin/latest/doc-user/";
+		return url;
+	}
 
 }
