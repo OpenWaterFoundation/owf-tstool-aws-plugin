@@ -47,17 +47,13 @@ C:\Users\user\                      User's files on windows.
 
 ## Repository Dependencies ##
 
-Repository dependencies fall into three categories as indicated below.
-
-### TSTool Repository Dependencies ###
-
 This project is configured using Maven, which manages third-party dependencies, such as AWS packages.
 
 Additionally, the following table lists Eclipse project dependencies that are not managed by Maven.
 
-|**Repository**|*Description**|
+|**Repository**|**Description**|
 |------------------------------------------------------------------------------------------|----------------------------------------------------|
-|[`cdss-lib-common-java`](https://github.com/OpenCDSS/cdss-lib-common-java)                |Library of core utility code used by multiple repos.|
+|[`cdss-lib-common-java`](https://github.com/OpenCDSS/cdss-lib-common-java)                |Library of core utility code used by multiple TSTool repositories (projects).|
 |[`cdss-lib-processor-ts-java`](https://github.com/OpenCDSS/cdss-lib-processor-ts-java)    |Library containing processor code for TSTool commands.|
 
 ## Contributing ##
