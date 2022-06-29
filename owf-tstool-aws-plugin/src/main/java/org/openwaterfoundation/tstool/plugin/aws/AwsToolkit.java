@@ -24,6 +24,7 @@ package org.openwaterfoundation.tstool.plugin.aws;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,6 +43,9 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Bucket;
 import software.amazon.awssdk.services.s3.model.ListBucketsRequest;
 import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
+import software.amazon.awssdk.transfer.s3.FileDownload;
+import software.amazon.awssdk.transfer.s3.FileUpload;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
 
 public class AwsToolkit {
 	/**
@@ -57,6 +61,36 @@ public class AwsToolkit {
 	}
 	
 	// -----------------------------------------------------------------------------
+
+	/**
+	 * Download a file from S3.
+	 * @param tm S3TransferManager to use for download
+	 * @param bucket S3 bucket to download from
+	 * @param downloadKey S3 key for the file
+	 * @param localFile path to the local file
+	 * @param problems list of problems encountered
+	 */
+	public void downloadFileFromS3 ( S3TransferManager tm, String bucket, String downloadKey, String localFile, List<String> problems ) {
+    	if ( (localFile == null) || localFile.trim().isEmpty() ) {
+    		// Don't allow default.
+    		problems.add("No local file given - cannot download file.");
+    		return;
+    	}
+    	if ( (downloadKey == null) || downloadKey.trim().isEmpty() ) {
+    	    // Don't allow default because could cause problems identifying S3 files.
+    	    problems.add("No S3 key given - cannot download file \"" + downloadKey + "\"");
+    	    return;
+    	}
+    	localFile = localFile.trim();
+    	downloadKey = downloadKey.trim();
+    	final String downloadKeyFinal = downloadKey;
+    	final String localFileFinal = localFile;
+
+    	FileDownload download = tm
+   	    	.downloadFile(d -> d.getObjectRequest(g -> g.bucket(bucket).key(downloadKeyFinal))
+    		.destination(Paths.get(localFileFinal)));
+    	    download.completionFuture().join();
+    }
 
 	/**
 	 * Get the CloudFront distribution ID to use for CloudFront commands.
@@ -320,5 +354,42 @@ public class AwsToolkit {
 		}
 		return new ArrayList<Bucket>();
 	}
+	
+	/**
+	 * Invalidate a list of files in a CloudFront distribution.
+	 * Currently this does nothing.
+	 */
+    public void invalidateCloudFrontDistribution ( List<String> invalidationList ) {
+    	
+    }
+
+	/**
+	 * Upload a file to S3.
+	 * @param tm S3TransferManager to use for upload
+	 * @param bucket S3 bucket to upload to
+	 * @param localFile file to upload
+	 * @param uploadKey S3 key for the file
+	 * @param problems list of problems encountered
+	 */
+	public void uploadFileToS3 ( S3TransferManager tm, String bucket, String localFile, String uploadKey, List<String> problems ) {
+    	if ( (localFile == null) || localFile.trim().isEmpty() ) {
+    		// Don't allow default because could cause problems clobbering S3 files.
+    		problems.add("No local file given - cannot upload file.");
+    		return;
+    	}
+    	if ( (uploadKey == null) || uploadKey.trim().isEmpty() ) {
+    	    // Don't allow default because could cause problems clobbering S3 files.
+    	    problems.add("No S3 key given - cannot upload file \"" + localFile + "\"");
+    	    return;
+    	}
+    	localFile = localFile.trim();
+    	uploadKey = uploadKey.trim();
+    	final String uploadKeyFinal = uploadKey;
+    	final String localFileFinal = localFile;
+    	FileUpload upload = tm
+   	    	.uploadFile(d -> d.putObjectRequest(g -> g.bucket(bucket).key(uploadKeyFinal))
+    		.source(Paths.get(localFileFinal)));
+    	upload.completionFuture().join();
+    }
 	
 }

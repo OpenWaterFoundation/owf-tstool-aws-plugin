@@ -1,0 +1,14 @@
+{
+  "parentDatasetFile": "../dataset.json",
+  "version": "2022-06-12",
+  "modified": "2022-06-12",
+  "distribution": [
+    {
+      "accessURL": "https://test.openwaterfoundation.org/data/state/co/datasetC/2022-06-12/example.geojson",
+      "byteSize": null,
+      "description": "GeoJSON example file stored in version folder",
+      "format": "application/geo+json",
+      "title": "Example in version folder"
+    }
+  ]
+}

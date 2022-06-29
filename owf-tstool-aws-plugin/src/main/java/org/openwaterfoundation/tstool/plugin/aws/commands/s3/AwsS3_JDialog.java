@@ -245,7 +245,7 @@ public void actionPerformed( ActionEvent event )
                         __OutputFile_JTextField.getText() ) );
             }
             catch ( Exception e ) {
-                Message.printWarning ( 1,"CopyFile_JDialog",
+                Message.printWarning ( 1,"AwsS3_JDialog",
                 "Error converting output file name to relative path." );
             }
         }
@@ -669,44 +669,44 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 
     // Panel for 'List' parameters:
     // - this includes filtering
-    int yBucketObjects = -1;
-    JPanel bucketObjects_JPanel = new JPanel();
-    bucketObjects_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "List", bucketObjects_JPanel );
+    int yList = -1;
+    JPanel list_JPanel = new JPanel();
+    list_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "List", list_JPanel );
 
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ("Use the following to control creation of the S3 object list."),
-		0, ++yBucketObjects, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ("Use the 'Output' tab to specify the output table name and/or file for the list."),
-		0, ++yBucketObjects, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
-    	0, ++yBucketObjects, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, new JLabel ("Use the following to control creation of the S3 object list."),
+		0, ++yList, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, new JLabel ("Use the 'Output' tab to specify the output table name and/or file for the list."),
+		0, ++yList, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yList, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Maximum keys:"),
-        0, ++yBucketObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    JGUIUtil.addComponent(list_JPanel, new JLabel ( "Maximum keys:"),
+        0, ++yList, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __MaxKeys_JTextField = new JTextField ( "", 10 );
     __MaxKeys_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(bucketObjects_JPanel, __MaxKeys_JTextField,
-        1, yBucketObjects, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Optional - Maximum number of object keys read per request (default=1000)."),
-        3, yBucketObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, __MaxKeys_JTextField,
+        1, yList, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, new JLabel ( "Optional - Maximum number of object keys read per request (default=1000)."),
+        3, yList, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Key prefix to match:"),
-        0, ++yBucketObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    JGUIUtil.addComponent(list_JPanel, new JLabel ( "Key prefix to match:"),
+        0, ++yList, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __Prefix_JTextField = new JTextField ( "", 30 );
     __Prefix_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(bucketObjects_JPanel, __Prefix_JTextField,
-        1, yBucketObjects, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Optional - object key prefix to match (default=match all)."),
-        3, yBucketObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, __Prefix_JTextField,
+        1, yList, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, new JLabel ( "Optional - object key prefix to match (default=match all)."),
+        3, yList, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Maximum objects:"),
-        0, ++yBucketObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    JGUIUtil.addComponent(list_JPanel, new JLabel ( "Maximum objects:"),
+        0, ++yList, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __MaxObjects_JTextField = new JTextField ( "", 10 );
     __MaxObjects_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(bucketObjects_JPanel, __MaxObjects_JTextField,
-        1, yBucketObjects, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ( "Optional - Maximum number of object read (default=2000)."),
-        3, yBucketObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, __MaxObjects_JTextField,
+        1, yList, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, new JLabel ( "Optional - Maximum number of object read (default=2000)."),
+        3, yList, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     // Panel for 'Upload' parameters:
     // - map files and folders to bucket objects

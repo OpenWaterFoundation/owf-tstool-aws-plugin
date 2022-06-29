@@ -194,7 +194,7 @@ public void actionPerformed( ActionEvent event )
                         __OutputFile_JTextField.getText() ) );
             }
             catch ( Exception e ) {
-                Message.printWarning ( 1,"CopyFile_JDialog",
+                Message.printWarning ( 1,"AwsCloudFront_JDialog",
                 "Error converting output file name to relative path." );
             }
         }
@@ -521,17 +521,17 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 
     // Panel for 'List' parameters:
     // - this includes filtering
-    int yBucketObjects = -1;
-    JPanel bucketObjects_JPanel = new JPanel();
-    bucketObjects_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "List", bucketObjects_JPanel );
+    int yList = -1;
+    JPanel list_JPanel = new JPanel();
+    list_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "List", list_JPanel );
 
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ("Use a CloudFront command to list distributions and invalidations."),
-		0, ++yBucketObjects, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JLabel ("Use the 'Output' tab to specify the output table name and/or file for the list."),
-		0, ++yBucketObjects, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(bucketObjects_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
-    	0, ++yBucketObjects, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, new JLabel ("Use a CloudFront command to list distributions and invalidations."),
+		0, ++yList, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, new JLabel ("Use the 'Output' tab to specify the output table name and/or file for the list."),
+		0, ++yList, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yList, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
     // Panel for output.
     int yOutput = -1;

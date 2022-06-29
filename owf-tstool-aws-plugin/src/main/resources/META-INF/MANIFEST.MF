@@ -9,6 +9,8 @@ manifest-Version: 1.0
 Command-Class1: org.openwaterfoundation.tstool.plugin.aws.
  commands.s3.AwsS3_Command
 Command-Class2: org.openwaterfoundation.tstool.plugin.aws.
+ commands.s3.AwsS3Catalog_Command
+Command-Class3: org.openwaterfoundation.tstool.plugin.aws.
  commands.cloudfront.AwsCloudFront_Command
 Class-Path: dep/
 

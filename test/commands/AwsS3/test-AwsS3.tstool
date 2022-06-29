@@ -1,4 +1,4 @@
-# Test AWS S3 commands:
+# Test AwsS3 command:
 # - use the 'test.openwaterfoundation.org' bucket
 # - AWS permissiosn are required to run the tests
 # - the default profile is used

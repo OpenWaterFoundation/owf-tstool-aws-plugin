@@ -1,0 +1,15 @@
+{
+  "title": "DatasetC",
+  "description": "Example datasetC.",
+  "identifier": "owf-data-co-datasetC",
+  "landingPage": "https://test.openwaterfoundation.org/data/state/co/datasetC/",
+  "issued": "2022-06-09",
+  "keyword": [
+    "line",
+    "continental-divide"
+  ],
+  "publisher": {
+    "name": "Open Water Foundation",
+    "mbox": "info@openwaterfoundation.org"
+  }
+}

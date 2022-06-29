@@ -1,0 +1,24 @@
+{
+  "title": "DatasetB",
+  "description": "Example datasetB.",
+  "identifier": "owf-data-co-datasetB",
+  "landingPage": "https://test.openwaterfoundation.org/data/state/co/datasetB/",
+  "issued": "2022-06-09",
+  "keyword": [
+    "line",
+    "continental-divide"
+  ],
+  "publisher": {
+    "name": "Open Water Foundation",
+    "mbox": "info@openwaterfoundation.org"
+  },
+  "distribution": [
+    {
+      "accessURL": "https://test.openwaterfoundation.org/data/state/co/datasetB/latest/",
+      "byteSize": null,
+      "description": "Example dataset stored in latest foler.",
+      "format": "application/geo+json",
+      "title": "Example in latest"
+    }
+  ]
+}

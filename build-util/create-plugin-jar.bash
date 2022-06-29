@@ -140,6 +140,8 @@ setJavaInstallHome() {
     echoStderr "${errorColor}Unable to determine Java location.  Exiting,${endColor}"
     exit 1
   fi
+  # Also set JAVA_HOME, needed by Maven.
+  export JAVA_HOME="${javaInstallHome}"
 }
 
 # Main entry point.

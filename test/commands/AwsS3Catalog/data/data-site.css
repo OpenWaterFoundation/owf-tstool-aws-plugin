@@ -1,0 +1,97 @@
+/* Styles for the Open Water Foundation data.openwaterfoundation.org website
+ * used with dataset landing pages.
+ */
+
+@media screen {
+#titles {
+  font-weight:bold;
+  color:#303044
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Trebuchet MS", Arial;
+}
+table {
+  background-color:black;
+  text-align:left;
+  border:1;
+  bordercolor:black;
+  cellspacing:1;
+  cellpadding:1
+}
+th {
+  background-color:#333366;
+  text-align:center;
+  vertical-align:bottom;
+  color:white
+}
+tr {
+  valign:bottom;
+  halign:right
+}
+td {
+  background-color:white;
+  x-text-align:right;
+  vertical-align:bottom;
+  font-style:normal;
+  x-font-family:courier;
+  font-family: "Trebuchet MS", Arial;
+  x-font-size:.75em
+}
+body {
+  text-align:left;
+  x-font-size:12pt;
+  font-family: "Trebuchet MS", Arial;
+}
+pre {
+  x-font-size:12pt;
+  margin: 0px
+}
+p {
+  x-font-size:12pt;
+}
+} /* End @media screen */
+
+@media print {
+#titles {
+  font-weight:bold;
+  color:#303044
+}
+table {
+  border-collapse: collapse;
+  background-color:white;
+  text-align:left;
+  border:1pt solid #000000;
+  cellspacing:2pt;
+  cellpadding:2pt
+}
+th {
+  background-color:white;
+  text-align:center;
+  vertical-align:bottom;
+  color:black
+}
+tr {
+  valign:bottom;
+  halign:right;
+}
+td {
+  background-color:white;
+  border: 1pt solid #000000;
+  x-text-align:right;
+  vertical-align:bottom;
+  font-style:normal;   font-family:courier;
+  x-font-size:11pt;
+  padding: 2pt;
+}
+body {
+  text-align:left;
+  x-font-size:11pt;
+}
+pre {
+  x-font-size:11pt;
+  margin: 0px
+}
+p {
+  x-font-size:11pt;
+}
+} /* End @media print */

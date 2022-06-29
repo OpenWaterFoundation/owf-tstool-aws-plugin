@@ -120,6 +120,7 @@ throws InvalidCommandParameterException
 	String Region = parameters.getValue ( "Region" );
     String DistributionId = parameters.getValue ( "DistributionId" );
     String Comment = parameters.getValue ( "Comment" );
+    String InvalidationPaths = parameters.getValue ( "InvalidationPaths" );
     String WaitForCompletion = parameters.getValue ( "WaitForCompletion" );
     String OutputFile = parameters.getValue ( "OutputFile" );
     String OutputTableID = parameters.getValue ( "OutputTableID" );
@@ -183,6 +184,30 @@ throws InvalidCommandParameterException
 			status.addToLog(CommandPhaseType.INITIALIZATION,
 				new CommandLogRecord(CommandStatusType.FAILURE,
 					message, "Specify the distribution ID or comment."));
+		}
+	}
+
+	if ( (InvalidationPaths != null) && !InvalidationPaths.isEmpty() ) {
+		// Make sure that invalidation paths start with /.
+		List<String> invalidationPathsList = null;
+		if ( InvalidationPaths.indexOf(",") > 0 ) {
+			// Split the paths.
+			invalidationPathsList = StringUtil.breakStringList(InvalidationPaths, ",", StringUtil.DELIM_SKIP_BLANKS);
+		}
+		else {
+			// Use as is.
+			invalidationPathsList = new ArrayList<>();
+			invalidationPathsList.add(InvalidationPaths.trim());
+		}
+		for ( String path : invalidationPathsList ) {
+			path = path.trim();
+			if ( !path.startsWith("/") ) {
+				message = "The invalidation path (" + path + ") does not start with /.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Specify the invalidation path starting with /."));
+			}
 		}
 	}
 
