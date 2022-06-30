@@ -22,7 +22,10 @@ NoticeEnd */
 
 package org.openwaterfoundation.tstool.plugin.aws.commands.s3;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+import RTi.Util.Time.DateTime;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -108,26 +111,51 @@ public class DcatDataset {
 
 	/**
 	 * This is an OWF extension.
+	 * Cloud storage last modified time.
+	 */
+	@JsonIgnore
+	private DateTime cloudLastModified = null;
+
+	/**
+	 * This is an OWF extension.
+	 * Cloud storage owner.
+	 */
+	@JsonIgnore
+	private String cloudOwner = null;
+
+	/**
+	 * This is an OWF extension.
 	 * Cloud storage path such as AWS bucket key used when manipulating remote path.
 	 */
+	@JsonIgnore
 	private String cloudPath = null;
+
+	/**
+	 * This is an OWF extension.
+	 * Cloud object size, KB (for the dataset file).
+	 */
+	@JsonIgnore
+	private Long cloudSizeKb = null;
 
 	/**
 	 * This is an OWF extension.
 	 * Local JSON file used as Markdown input to the index file "Dataset Details" section.
 	 */
+	@JsonIgnore
 	private String localMarkdownPath = null;
 
 	/**
 	 * This is an OWF extension.
 	 * Local JSON file used as input to the index file.
 	 */
+	@JsonIgnore
 	private String localImagePath = null;
 
 	/**
 	 * This is an OWF extension.
 	 * Local storage path to file, use to locate a local file, which may be a temporary file from a cloud download.
 	 */
+	@JsonIgnore
 	private String localPath = null;
 
 	// ----------------- End OWF extensions --------------------------------
@@ -139,11 +167,67 @@ public class DcatDataset {
 	}
 
 	/**
+	 * Copy the parent dataset's properties into this dataset, if not set.
+	 * @param parentDataset parent dataset to copy
+	 */
+   	public void copyParent ( DcatDataset parentDataset ) {
+   		if ( parentDataset == null ) {
+   			return;
+   		}
+   		// Alphabetize.
+   		if ( (this.description == null) || this.description.isEmpty() && (parentDataset.getDescription() != null) ) {
+   			this.description = parentDataset.getDescription();
+   		}
+   		if ( (this.identifier == null) || this.identifier.isEmpty() && (parentDataset.getIdentifier() != null) ) {
+   			this.identifier = parentDataset.getIdentifier();
+   		}
+   		if ( (this.issued == null) || this.issued.isEmpty() && (parentDataset.getIssued() != null) ) {
+   			this.issued = parentDataset.getIssued();
+   		}
+   		if ( (this.keyword == null) || (this.keyword.size() == 0) && (parentDataset.getKeyword() != null) ) {
+   			this.keyword = new ArrayList<>();
+   			this.keyword.addAll(parentDataset.getKeyword());
+   		}
+   		// landingPage is specific to the dataset.
+   		if ( (this.modified == null) || this.modified.isEmpty() && (parentDataset.getModified() != null) ) {
+   			this.modified = parentDataset.getModified();
+   		}
+   		if ( (this.publisher == null) && (parentDataset.getIssued() != null) ) {
+   			// Don't need to do a deep copy.
+   			this.publisher = parentDataset.getPublisher();
+   		}
+   		if ( (this.title == null) || this.title.isEmpty() && (parentDataset.getTitle() != null) ) {
+   			this.title = parentDataset.getTitle();
+   		}
+   	}
+
+	/**
+	 * Return the last modification time of the cloud resource file.
+	 */
+	public DateTime getCloudLastModified() {
+		return this.cloudLastModified;
+	}
+
+	/**
+	 * Return the owner of the cloud resource file.
+	 */
+	public String getCloudOwner() {
+		return this.cloudOwner;
+	}
+
+	/**
 	 * Return the path to the cloud resource file,
-	 * for example the path to a bucket file.
+	 * for example the key (path) to a bucket file.
 	 */
 	public String getCloudPath() {
 		return this.cloudPath;
+	}
+
+	/**
+	 * Return the size of the cloud resource file, KB
+	 */
+	public Long getCloudSizeKb() {
+		return this.cloudSizeKb;
 	}
 
 	/**
@@ -248,10 +332,31 @@ public class DcatDataset {
 	}
 	
 	/**
-	 * Set the cloud path to the dataset file.
+	 * Set the cloud last modified for the dataset file.
+	 */
+	public void setCloudLastModified ( DateTime cloudLastModified ) {
+		this.cloudLastModified = cloudLastModified;
+	}
+
+	/**
+	 * Set the cloud owner for the dataset file.
+	 */
+	public void setCloudOwner ( String cloudOwner ) {
+		this.cloudOwner = cloudOwner;
+	}
+
+	/**
+	 * Set the cloud path for the dataset file.
 	 */
 	public void setCloudPath ( String cloudPath ) {
 		this.cloudPath = cloudPath;
+	}
+
+	/**
+	 * Set the cloud size (KB) for the dataset file.
+	 */
+	public void setCloudSizeKb ( Long cloudSizeKb ) {
+		this.cloudSizeKb = cloudSizeKb;
 	}
 
 	/**

@@ -24,10 +24,15 @@ StartLog(LogFile="results/test-AwsS3Catalog.tstool.log")
 #         *.geojson
 #
 # Uncomment the following to upload test data to S3.
-# AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",UploadFiles="data/datasetA.json:data/state/co/datasetA/dataset.json,data/example.geojson:data/state/co/datasetA/example.geojson,data/datasetB.json:data/state/co/datasetB/latest/dataset.json,data/example.geojson:data/state/co/datasetB/latest/example.geojson,data/datasetC-latest.json:data/state/co/datasetC/latest/dataset.json,data/example.geojson:data/state/co/datasetC/latest/example.geojson,data/datasetC-version.json:data/state/co/datasetC/2022-06-12/dataset.json,data/example.geojson:data/state/co/datasetC/2022-06-12/example.geojson,data/datasetC.json:data/state/co/datasetC/dataset.json,data/datasetA.md:data/state/co/datasetA/dataset.md,data/owf-logo.png:data/state/co/datasetA/dataset.png")
+# AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",UploadFiles="data/datasetA.json:data/state/co/datasetA/dataset.json,data/example.geojson:data/state/co/datasetA/example.geojson,data/datasetB.json:data/state/co/datasetB/latest/dataset.json,data/example.geojson:data/state/co/datasetB/latest/example.geojson,data/datasetC-latest.json:data/state/co/datasetC/latest/dataset.json,data/example.geojson:data/state/co/datasetC/latest/example.geojson,data/datasetC-version.json:data/state/co/datasetC/2022-06-12/dataset.json,data/example.geojson:data/state/co/datasetC/2022-06-12/example.geojson,data/datasetC-parent.json:data/state/co/datasetC/dataset.json,data/datasetA.md:data/state/co/datasetA/dataset.md,data/owf-logo.png:data/state/co/datasetA/dataset.png,data/owf-logo.png:data/state/co/datasetB/dataset.png,data/owf-logo.png:data/state/co/datasetC/dataset.png")
 #
 # Generate a single index.html file for one dataset.
 # Use website CSS
 # AwsS3Catalog(Region="us-west-2",Bucket="test.openwaterfoundation.org",StartingPrefix="data/state/co",DatasetIndexFile="Temp",CssUrl="https://test.openwaterfoundation.org/css/data-site.css",OutputTableID="Datasets",KeepFiles=True,UploadFiles=False)
-# Use Temp folder CSS.
-AwsS3Catalog(Region="us-west-2",Bucket="test.openwaterfoundation.org",StartingPrefix="data/state/co",DatasetIndexFile="Temp",CssUrl="data-site.css",OutputTableID="Datasets",KeepFiles=True,UploadFiles=False)
+# Use the following for local review:
+# - use Temp folder CSS
+# AwsS3Catalog(Region="us-west-2",Bucket="test.openwaterfoundation.org",StartingPrefix="data/state/co",DatasetIndexFile="Temp",CssUrl="data-site.css",OutputTableID="Datasets",KeepFiles=True,UploadFiles=True)
+#
+# Use the following for production upload:
+# - CSS file is at the root of the server
+AwsS3Catalog(Region="us-west-2",Bucket="test.openwaterfoundation.org",StartingPrefix="data/state/co",DistributionId="*test.openwaterfoundation.org*",DatasetIndexFile="Temp",CssUrl="/css/data-site.css",OutputTableID="Datasets",KeepFiles=True,UploadFiles=True)

@@ -30,10 +30,14 @@ import java.util.List;
 
 import RTi.Util.IO.IOUtil;
 import RTi.Util.Message.Message;
+import RTi.Util.Time.TimeUtil;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudfront.CloudFrontClient;
+import software.amazon.awssdk.services.cloudfront.model.CreateInvalidationRequest;
+import software.amazon.awssdk.services.cloudfront.model.CreateInvalidationResponse;
 import software.amazon.awssdk.services.cloudfront.model.DistributionSummary;
+import software.amazon.awssdk.services.cloudfront.model.InvalidationBatch;
 import software.amazon.awssdk.services.cloudfront.model.InvalidationSummary;
 import software.amazon.awssdk.services.cloudfront.model.ListDistributionsRequest;
 import software.amazon.awssdk.services.cloudfront.model.ListDistributionsResponse;
@@ -357,10 +361,71 @@ public class AwsToolkit {
 	
 	/**
 	 * Invalidate a list of files in a CloudFront distribution.
-	 * Currently this does nothing.
+	 * @param distributionId CloudFront distribution ID to invalidate
+	 * @param invalicationPathsList list of files to invalidate
+	 * @param callerReference unique string to identify the CloudFront invalidation
 	 */
-    public void invalidateCloudFrontDistribution ( List<String> invalidationList ) {
-    	
+    public void invalidateCloudFrontDistribution ( AwsSession awsSession,
+    	String regionS,
+    	String distributionId, List<String> invalidationPathsList, String callerReference ) {
+    	String routine = getClass().getSimpleName() + ".invalidateCloudFrontDistribution";
+   	    // Invalidate:
+   	    // - see:  https://stackoverflow.com/questions/28527188/how-to-invalidate-a-fileto-be-refreshed-served-from-cloudfront-cdn-via-java-aw
+   	    // - exception will be caught below
+   	    for ( String path : invalidationPathsList ) {
+   	        Message.printStatus(2, routine, "Invalidating path \"" + path + "\".");
+   	    }
+   	    
+   	    String profile = awsSession.getProfile();
+   	    
+   	    // Get the region object from the string.
+   	    Region regionO = Region.of(regionS);
+
+   	    ProfileCredentialsProvider credentialsProvider0 = null;
+	  	    credentialsProvider0 = ProfileCredentialsProvider.create(profile);
+	  	    ProfileCredentialsProvider credentialsProvider = credentialsProvider0;
+
+   	    CloudFrontClient cloudfront = CloudFrontClient.builder()
+		  	.region(regionO)
+		  	.credentialsProvider(credentialsProvider)
+		  	.build();
+
+   	    software.amazon.awssdk.services.cloudfront.model.Paths invalidationPaths =
+   	    				software.amazon.awssdk.services.cloudfront.model.Paths
+   	        			.builder()
+   	        			.items(invalidationPathsList)
+   	        			.quantity(invalidationPathsList.size())
+   	        			.build();
+   	    InvalidationBatch batch = InvalidationBatch
+   	        			.builder()
+   	        			.paths(invalidationPaths)
+   	        			.callerReference(callerReference)
+   	        			.build();
+   	    CreateInvalidationRequest request = CreateInvalidationRequest
+   	        			.builder()
+   	        			.distributionId(distributionId)
+   	        			.invalidationBatch(batch)
+   	        			.build();
+   	    CreateInvalidationResponse response = cloudfront.createInvalidation(request);
+       	// If wait for completion is true, wait until the invalidation is complete:
+       	// - TODO smalers 2022-06-06 does this happen automatically?
+       	int maxTries = 3600;
+       	int tryCount = 0;
+       	boolean waitForCompletion = false;
+       	if ( waitForCompletion ) {
+       		while ( tryCount <= maxTries ) {
+       			++tryCount;
+       			// Get the current invalidations.
+       			List<InvalidationSummary> invalidations = getCloudFrontInvalidations(awsSession, regionO.id());
+       			if ( invalidations.size() == 0 ) {
+       				// No more invalidations on the distribution:
+       				// - TODO smalers 2022-06-06 evaluate whether to check caller reference
+       				break;
+      			}
+       			// Wait 5 seconds to allow invalidation to complete.
+       			TimeUtil.sleep(5000);
+       		}
+       	}
     }
 
 	/**
