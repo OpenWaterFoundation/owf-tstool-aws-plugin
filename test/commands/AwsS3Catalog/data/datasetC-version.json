@@ -2,6 +2,7 @@
   "parentDatasetFile": "../dataset.json",
   "version": "2022-06-12",
   "modified": "2022-06-12",
+  "description": "Example datasetC for versioned snapshot",
   "distribution": [
     {
       "accessURL": "https://test.openwaterfoundation.org/data/state/co/datasetC/2022-06-12/example.geojson",

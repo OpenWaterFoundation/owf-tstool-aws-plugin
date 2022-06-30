@@ -38,6 +38,7 @@ import javax.swing.JFrame;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
+import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
 import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -201,13 +202,14 @@ throws InvalidCommandParameterException
 	}
 
 	// Check for invalid parameters.
-	List<String> validList = new ArrayList<>(12);
+	List<String> validList = new ArrayList<>(13);
 	validList.add ( "Profile" );
 	validList.add ( "Region" );
 	validList.add ( "Bucket" );
 	validList.add ( "StartingPrefix" );
 	validList.add ( "CatalogFile" );
 	validList.add ( "CatalogIndexFile" );
+	validList.add ( "DistributionId" );
 	validList.add ( "DatasetIndexFile" );
 	validList.add ( "CssUrl" );
 	validList.add ( "OutputTableID" );
@@ -228,12 +230,15 @@ throws InvalidCommandParameterException
  * Create the dataset index file.
  * Currently this is a very basic file.
  * @param dataset the dataset being processed
+ * @param parentDataset the parent dataset for the dataset being processed
  * @param datasetIndexFile path to the dataset index file to create.
  * @param uploadFiles if true, format for uploading; if false, format for local review
  */
-private void createDatasetIndexFile ( DcatDataset dataset, String datasetIndexFile, String cssUrl, boolean uploadFiles ) {
+private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDataset,
+	String datasetIndexFile, String cssUrl, boolean uploadFiles ) {
 	String routine = getClass().getSimpleName() + "createDatasetIndexFile";
-	Message.printStatus(2, routine, "Creating file \"" + datasetIndexFile + "\" for identifier \"" + dataset.getIdentifier() + "\".");
+	Message.printStatus(2, routine, "Creating file \"" + datasetIndexFile +
+		"\" for dataset identifier \"" + dataset.getIdentifier() + "\".");
 	PrintWriter fout = null;
 	// The page layout is simple:
 	
@@ -260,7 +265,13 @@ private void createDatasetIndexFile ( DcatDataset dataset, String datasetIndexFi
     	html.header(1, "Dataset: " + dataset.getTitle());
     	
     	// The image is optional.
+    	String imageURL = "dataset.png";
     	String imageFile = dataset.getLocalImagePath();
+    	if ( (imageFile == null) && (parentDataset != null) ) {
+    		// If the image is null but is available for the parent, use that.
+    		imageFile = parentDataset.getLocalImagePath();
+    		imageURL = "../dataset.png";
+    	}
 
     	// Add a layout table with image on the left and property table on the right.
     	PropList tableProps = new PropList("");
@@ -272,11 +283,12 @@ private void createDatasetIndexFile ( DcatDataset dataset, String datasetIndexFi
     		""
     	};
     	boolean doImage = false;
-    	if ( IOUtil.fileExists(imageFile) ) {
+    	if ( (imageFile != null) && IOUtil.fileExists(imageFile) ) {
     		doImage = true;
     	}
     	else {
     		// No image.
+    		doImage = false;
     		tableHeaders0 = new String[1];
     		tableHeaders0[0] = "";
     	}
@@ -292,12 +304,12 @@ private void createDatasetIndexFile ( DcatDataset dataset, String datasetIndexFi
     		html.write("<td border=\"none\" padding=\"5px\">");
     		if ( uploadFiles ) {
     			// The image in the production system is always named 'dataset.png' and is in the same folder as the index.html file.
-    			html.image("dataset.png", "dataset.png");
+    			html.image(imageURL, "dataset.png");
     		}
     		else {
     			// Use the path to the local image file:
     			// - just use the filename without path since it will be in the same folder as the index.html file
-    			File f = new File(dataset.getLocalImagePath());
+    			File f = new File(imageFile);
     			html.image(f.getName(), "dataset.png");
     		}
     		html.write("</td>");
@@ -526,6 +538,47 @@ public boolean editCommand ( JFrame parent )
 }
 
 /**
+ * Find a parent dataset given a child dataset.
+ * This is called if it is known that parent is used.
+ * @param datasetList list of datasets including parents (because parent datasets should be listed before children)
+ */
+private DcatDataset findParentDataset ( List<DcatDataset> datasetList, DcatDataset dataset ) {
+	String routine = getClass().getSimpleName() + ".findParentDataset";
+	DcatDataset parentDataset = null;
+	// Get the parent folder for the current dataset key.
+	String datasetKey = dataset.getCloudPath();
+	String parentKey = null;
+	// First get the current folder for the key (e.g., 'latest' or '2022-06-29'):
+	// - should work OK since it is similar to a relative file system path
+	Message.printStatus(2, routine, "Starting with dataset key: " + datasetKey);
+	File f = new File(datasetKey);
+	String currentFolder = f.getParent();
+	Message.printStatus(2, routine, "Current folder for dataset key: " + currentFolder);
+	// Adjust the current folder to get the path to the parent dataset file.
+	try {
+		parentKey = IOUtil.adjustPath(currentFolder, dataset.getParentDatasetFile());
+	}
+	catch ( Exception e ) {
+		Message.printWarning(3,routine,"Cannot get adjusted parent dataset file path using folder \"" + currentFolder
+			+ "\" and \"" + dataset.getParentDatasetFile() + "\".");
+		return parentDataset;
+	}
+	// Search the existing datasets to find a matching key for the parent:
+	// - the local path has \ on windows so have to do a replace before comparing
+	Message.printStatus(2,routine,"Have " + datasetList.size() + " datasets to search for parent." );
+	for ( DcatDataset dataset2 : datasetList ) {
+		String parentKey2 = parentKey.replace("\\", "/");
+		Message.printStatus(2,routine,"Comparing \"" + parentKey2 + "\" and \"" + dataset2.getCloudPath() + "\"" );
+		if ( dataset2.getCloudPath().replace("\\","/").equals(parentKey2) ) {
+			// Found the parent dataset.
+			parentDataset = dataset2;
+			break;
+		}
+	}
+	return parentDataset;
+}
+
+/**
 Return the table that is read by this class when run in discovery mode.
 */
 private DataTable getDiscoveryTable() {
@@ -660,6 +713,8 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	}
 	String CatalogFile = parameters.getValue ( "CatalogFile" ); // Expand below.
 	String CatalogIndexFile = parameters.getValue ( "CatalogIndexFile" ); // Expand below.
+	String DistributionId = parameters.getValue ( "DistributionId" );
+	DistributionId = TSCommandProcessorUtil.expandParameterValue(processor,this,DistributionId);
 	String DatasetIndexFile = parameters.getValue ( "DatasetIndexFile" ); // Expand below.
 	String KeepFiles = parameters.getValue ( "KeepFiles" );
 	boolean keepFiles = false; // Default.
@@ -667,9 +722,9 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	    keepFiles = true;
 	}
 	String UploadFiles = parameters.getValue ( "UploadFiles" );
-	boolean uploadFiles = false; // Default.
+	boolean doUpload = false; // Default.
 	if ( (UploadFiles != null) && UploadFiles.equalsIgnoreCase("true")) {
-	    uploadFiles = true;
+	    doUpload = true;
 	}
 	String IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
 	if ( (IfInputNotFound == null) || IfInputNotFound.equals("")) {
@@ -711,10 +766,34 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	}
 	
 	// Handle credentials.
-	
+
+  	// Create a session with the credentials:
+	// - this works for S3 with the default region
+   	AwsSession awsSession = new AwsSession(profile);
+   	
 	ProfileCredentialsProvider credentialsProvider0 = null;
 	credentialsProvider0 = ProfileCredentialsProvider.create(profile);
 	ProfileCredentialsProvider credentialsProvider = credentialsProvider0;
+
+	String distributionId = null;
+	// CloudFront seems to use the 'aws-global' region always.
+	String cloudFrontRegion = "aws-global";
+	if ( (DistributionId != null) && !DistributionId.isEmpty() ) {
+		// Get the distribution Id given input.
+		String commentPattern = DistributionId;
+		String distributionId2 = null;
+		if ( DistributionId.indexOf("*") >= 0 ) {
+			// DistributionId was specified with comment pattern:
+			// - convert to Java wildcard
+			commentPattern = DistributionId.replace("*", ".*");
+		}
+		else {
+			// Assume a specific Distribution ID was specified.
+			commentPattern = null;
+			distributionId2 = DistributionId;
+		}
+		distributionId = AwsToolkit.getInstance().getCloudFrontDistributionId(awsSession, cloudFrontRegion, distributionId2, commentPattern);
+	}
 
 	// The following is used to create a temporary table before outputting to a file.
 	boolean useTempTable = false;
@@ -749,7 +828,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
    	// List of temporary files to delete.
    	List<String> tempfileList = new ArrayList<>();
    	// List of files to invalidate.
-   	List<String> invalidationList = new ArrayList<>();
+   	List<String> invalidationPathList = new ArrayList<>();
 
 	try {
 
@@ -839,8 +918,6 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    	
     	    	ListObjectsV2Request request = builder.build();
     	    	ListObjectsV2Response response = null;
-    	    	TableRecord rec = null;
-    	    	boolean allowDuplicates = false;
     	    	// TODO smalers 2022-05-31 for now use UTC time.
     	    	String timezone = "Z";
     	    	ZoneId zoneId = ZoneId.of("Z");
@@ -849,6 +926,14 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    	int maxObjects = 10000; // Default for now.
     	    	int objectCount = 0;
     	    	String dcatFilePattern = ".*dataset.json";
+    	    	// List of datasets, needed to create the main catalog and also find parent dataset files.
+    	    	List<DcatDataset> datasetList = new ArrayList<>();
+
+    	    	// Get the initial list of datasets:
+    	    	// - have to do additinal processing later because parent and child dataset order is not guaranteed
+
+    			Message.printStatus(2, routine, "Download dataset files from S3 and create initial dataset objects.");
+
     	    	// Read bucket list one chunk at a time and process dataset files as they are matched.
     	    	while ( !done ) {
     	    		response = s3.listObjectsV2(request);
@@ -864,7 +949,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    				continue;
     	    			}
     	    			// Download the dataset file to a temporary file.
-    	    			Message.printStatus(2, routine, "Downloading key \"" + s3Object.key() + "\"." );
+    	    			Message.printStatus(2, routine, "Downloading S3 object with key \"" + s3Object.key() + "\"." );
     	    			// Download the file and return a preliminary object with local file names but object is not filled out.
     	    			DcatDataset datasetLocalInfo = downloadDatasetFile ( tm, bucket, StartingPrefix, s3Object.key(), status, command_tag, warning_count );
     	    			
@@ -876,8 +961,8 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    				s3Folder = "/" + s3Folder;
     	    			}
     	    			
-    	    			
-    	    			// Read the dataset JSON file into an object.
+    	    			// Read the dataset JSON file into an object:
+    	    			// - the dataset properties may be incomplete if a child but will process below
     	    			Message.printStatus(2, routine, "Creating dataset object from file." );
     	    			DcatDataset dataset = readDatasetFile ( datasetLocalInfo.getLocalPath() );
     	    			if ( dataset == null ) {
@@ -890,50 +975,153 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
    	    					// Can't continue processing.
    	    					continue;
     	    			}
-    	    			else if ( (dataset.getTitle() == null) || dataset.getTitle().isEmpty() ) {
-   	    					message = "Dataset does not contain 'title' - file may be invalid.";
-   	    					Message.printWarning ( warning_level, 
-   	    						MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
-   	    					status.addToLog(CommandPhaseType.RUN,
-   	    						new CommandLogRecord(CommandStatusType.FAILURE,
-   	    							message, "Confirm that the dataset.json file is correct."));
-   	    					// Can't continue processing.
-   	    					continue;
-    	    			}
-    	    			// Set the AWS cloud path for easy access.
+    	    			// If here the dataset is not null:
+    	    			// - set AWS data in the dataset for use later
+    	    			// - set the local files from the 'datasetLocalInfo' preliminary dataset
+   	    				// - add the dataset to the main list (may be removed later)
+    	    			
+    	    			// Set the S3 information.
     	    			dataset.setCloudPath(s3Object.key());
-    	    			// Create the dataset index.html landing page file.
-    	    			String datasetIndexFile = null;
-    	    			if ( (DatasetIndexFile != null) && !DatasetIndexFile.isEmpty() ) {
+    	    			dataset.setCloudSizeKb(s3Object.size());
+   	    				if ( s3Object.owner() == null ) {
+   	    					dataset.setCloudOwner("");
+   	    				}
+   	    				else {
+   	    					dataset.setCloudOwner(s3Object.owner().displayName());
+   	    				}
+   	    				dataset.setCloudLastModified( new DateTime(OffsetDateTime.ofInstant(s3Object.lastModified(), zoneId), behaviorFlag, timezone));
+
+   	    				// Set the local dataset information:
+   	    				// - set based on what was downloaded
+   	    				// - the information is used later
+   	    				dataset.setLocalPath(datasetLocalInfo.getLocalPath());
+   	    				//dataset.setLocalMarkdownPath(datasetLocalInfo.getLocalMarkdownPath());
+   	    				dataset.setLocalMarkdownPath(datasetLocalInfo.getLocalMarkdownPath());
+   	    				//dataset.setLocalImagePath(datasetLocalInfo.getLocalImagePath());
+   	    				dataset.setLocalImagePath(datasetLocalInfo.getLocalImagePath());
+
+   	    				// Add to the preliminary dataset list.
+   	    				datasetList.add(dataset);
+    	    		}
+    	    		if ( response.nextContinuationToken() == null ) {
+    	    			done = true;
+    	    		}
+    	    		request = request.toBuilder()
+   	    				.continuationToken(response.nextContinuationToken())
+   	    				.build();
+    	    	}
+    	    	
+    	    	// Loop through the list of datasets and do final processing:
+    	    	// - initial datasets will have been processed but parent/child will not have been checked
+    	    	
+    			Message.printStatus(2, routine, "Process dataset objects.");
+
+    	    	TableRecord rec = null;
+    	    	boolean allowDuplicates = false;
+
+    	    	for ( DcatDataset dataset : datasetList ) {
+    	    		Message.printStatus(2, routine, "Start processing dataset with cloud path=" + dataset.getCloudPath() );
+
+    	    		// Get the folder for S3 storage.
+   	    			File s3Path = new File(dataset.getCloudPath());
+   	    			String s3Folder = s3Path.getParent();
+   	    			if ( !s3Folder.startsWith("/") ) {
+   	    				// Make sure the folder starts with a slash for CloudFront invalidation.
+   	    				s3Folder = "/" + s3Folder;
+   	    			}
+
+    				String parentDatasetFile = dataset.getParentDatasetFile();
+    				DcatDataset parentDataset = null;
+    				if ( (parentDatasetFile != null) && !parentDatasetFile.isEmpty() ) {
+  						Message.printStatus(2, routine, "Dataset has a parent. Will find and copy its properties.");
+    					// Get the parent dataset for this dataset.
+    					parentDataset = findParentDataset ( datasetList, dataset );
+    					if ( parentDataset == null ) {
+    						// Could not find the parent.  This is a problem.
+    						message = "Could not find the parent dataset for S3 key: " + dataset.getCloudPath();
+    						Message.printWarning ( warning_level, 
+    							MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
+    						status.addToLog(CommandPhaseType.RUN,
+    							new CommandLogRecord(CommandStatusType.FAILURE,
+    								message, "Confirm that the dataset.json file is correct."));
+    						// Can't continue processing.
+    						continue;
+    					}
+    					else {
+    						// Copy parent dataset properties into this dataset.
+    						Message.printStatus(2, routine, "Copying parent dataset properties to child dataset.");
+    						dataset.copyParent ( parentDataset );
+    					}
+    				}
+
+  	    			// Output to table and/or file, as requested.
+  	    			if ( table != null ) {
+   	    				if ( !allowDuplicates ) {
+   	    					// Try to match the object key, which is the unique identifier.
+   	    					rec = table.getRecord ( objectKeyCol, s3Path.toString() );
+   	    				}
+   	    				if ( rec == null ) {
+   	    					// Create a new record.
+   	    					rec = table.addRecord(table.emptyRecord());
+   	    				}
+   	    				// Set the data in the record.
+   	    				rec.setFieldValue(objectKeyCol,s3Path);
+   	    				rec.setFieldValue(objectSizeKbCol,dataset.getCloudSizeKb());
+   	    				rec.setFieldValue(objectOwnerCol,dataset.getCloudOwner());
+   	    				rec.setFieldValue(objectLastModifiedCol, dataset.getCloudLastModified());
+   	    				// Increment the count of objects processed.
+   	    				++objectCount;
+   	    			}
+
+   	    			// Create the index if requested.
+   	    			// Create the dataset index.html landing page file.
+   	    			String datasetIndexFile = null;
+   	    			if ( (DatasetIndexFile != null) && !DatasetIndexFile.isEmpty() ) {
+   	    				boolean doIndex = true;
+
+   	    				// Do checks for required data needed for index.
+   	    				if ( (dataset.getTitle() == null) || dataset.getTitle().isEmpty() ) {
+   	    					message = "Dataset does not contain 'title' - file may be invalid - skipping index.";
+    						Message.printWarning ( warning_level, 
+    							MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
+    						status.addToLog(CommandPhaseType.RUN,
+    							new CommandLogRecord(CommandStatusType.FAILURE,
+    								message, "Confirm that the dataset.json file is correct."));
+    						// Can't continue processing.
+    						doIndex = false;
+   	    				}
+
+   	    				if ( doIndex ) {
     	    				// Want to create the dataset index file.
     	    				if ( DatasetIndexFile.equalsIgnoreCase("Temp") ) {
     	    					// Use a temporary file.
     	    					//datasetIndexFile = IOUtil.tempFileName() + "-index.html";
     	    					// Create as the same name as the dataset.json file but use index.html
-    	    					datasetIndexFile = datasetLocalInfo.getLocalPath().replace("dataset.json","index.html");
+    	    					//datasetIndexFile = datasetLocalInfo.getLocalPath().replace("dataset.json","index.html");
+    	    					datasetIndexFile = dataset.getLocalPath().replace("dataset.json","index.html");
     	    				}
     	    				else {
     	    					datasetIndexFile = IOUtil.verifyPathForOS(
     	    						IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
 	            						TSCommandProcessorUtil.expandParameterValue(processor,this,DatasetIndexFile)));
     	    				}
-    	    				// Set the local dataset information:
-    	    				// - local dataset index path is set to created index
-    	    				// - other files consistent with the download (markdown, image) are copied
-    	    				//dataset.setLocalPath(datasetIndexFile);
-    	    				dataset.setLocalMarkdownPath(datasetLocalInfo.getLocalMarkdownPath());
-    	    				dataset.setLocalImagePath(datasetLocalInfo.getLocalImagePath());
-    	    				createDatasetIndexFile ( dataset, datasetIndexFile, CssUrl, uploadFiles );
+    	    				createDatasetIndexFile ( dataset, parentDataset, datasetIndexFile, CssUrl, doUpload );
     	    				tempfileList.add(datasetIndexFile);
     	    				// Upload the index to the S3 bucket:
     	    				// - store in the same folder as the dataset file:
     	    				// - also keep track of the file so it can be invalidated
-    	    				if ( uploadFiles ) {
+    	    				String s3UploadKey = null;
+    	    				if ( doUpload ) {
     	    					// Upload the dataset index file:
     	    					// - the image file used in the index will already have been uploaded
-    	    					String s3UploadKey = s3Folder + "index.html";
+    	    					// - invalidation paths start with /
+    	    					s3UploadKey = s3Folder + "/index.html";
+    	    					if ( !s3Folder.startsWith("/") ) {
+    	    						s3UploadKey = "/" + s3UploadKey;
+    	    					}
+    	    					s3UploadKey = s3UploadKey.replace("\\", "/");
     	    					try {
-    	    						warning_count = uploadDatasetFile ( tm, bucket, datasetIndexFile, s3UploadKey, status, command_tag, warning_count );
+    	    						warning_count = uploadDatasetIndexFile ( tm, bucket, datasetIndexFile, s3UploadKey, status, command_tag, warning_count );
     	    					}
     	    					catch ( Exception e ) {
     	    						message = "Error uploading file \"" + datasetIndexFile + "\" to S3 key \"" + s3UploadKey + "\" (" + e + ")";
@@ -945,41 +1133,12 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    								message, "See the log file for details."));
     	    					}
     	    				}
-    	    				invalidationList.add(datasetIndexFile);
-    	    			}
-    	    			// Output to table and/or file, as requested.
-    	    			if ( table != null ) {
-    	    				if ( !allowDuplicates ) {
-    	    					// Try to match the object key, which is the unique identifier.
-    	    					rec = table.getRecord ( objectKeyCol, s3Object.key() );
-    	    				}
-    	    				if ( rec == null ) {
-    	    					// Create a new record.
-    	    					rec = table.addRecord(table.emptyRecord());
-    	    				}
-    	    				// Set the data in the record.
-    	    				rec.setFieldValue(objectKeyCol,s3Object.key());
-    	    				rec.setFieldValue(objectSizeKbCol,s3Object.size());
-    	    				if ( s3Object.owner() == null ) {
-    	    					rec.setFieldValue(objectOwnerCol,"");
-    	    				}
-    	    				else {
-    	    					rec.setFieldValue(objectOwnerCol,s3Object.owner().displayName());
-    	    				}
-    	    				rec.setFieldValue(objectLastModifiedCol,
-    	    					new DateTime(OffsetDateTime.ofInstant(s3Object.lastModified(), zoneId), behaviorFlag, timezone));
-    	    				// Increment the count of objects processed.
-    	    				++objectCount;
+    	    				invalidationPathList.add(s3UploadKey);
     	    			}
     	    		}
-    	    		if ( response.nextContinuationToken() == null ) {
-    	    			done = true;
-    	    		}
-    	    		request = request.toBuilder()
-   	    				.continuationToken(response.nextContinuationToken())
-   	    				.build();
     	    	}
-    	    }
+    	    	
+    	    } // end doCatalog.
 	    }
 	    else if ( commandPhase == CommandPhaseType.DISCOVERY ) {
    	       	if ( table == null ) {
@@ -1002,9 +1161,15 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 		throw new CommandException ( message );
 	}
     finally {
-        if ( uploadFiles && (invalidationList.size() > 0) ) {
+        if ( doUpload && (invalidationPathList.size() > 0) && (distributionId != null) ) {
         	// Invalidate the list of uploaded files.
-        	AwsToolkit.getInstance().invalidateCloudFrontDistribution(invalidationList);
+        	Message.printStatus(2, routine, "Invalidating " + invalidationPathList.size() + " uploaded files.");
+        	// Invalidate the distribution:
+        	// - use the aws-global region because that seems to be where distributions live
+        	
+        	AwsToolkit.getInstance().invalidateCloudFrontDistribution(awsSession, cloudFrontRegion,
+        		distributionId, invalidationPathList,
+        		"AwsS3Catalog");
   	    }
         // Clean up temporary files used for main catalog and index, and dataset index files.
        	for ( String tempfile : tempfileList ) {
@@ -1013,7 +1178,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
         		this.outputFiles.add(new File(tempfile));
         	}
         	else {
-        		// Remove the temporary files.
+        		// Remove the temporary files and DO NOT add to the output files.
         		try {
         			Files.delete(Paths.get(tempfile));
         		}
@@ -1064,6 +1229,7 @@ public String toString ( PropList parameters )
 	//String MaxObjects = parameters.getValue("MaxObjects");
 	String CatalogFile = parameters.getValue("CatalogFile");
 	String CatalogIndexFile = parameters.getValue("CatalogIndexFile");
+	String DistributionId = parameters.getValue("DistributionId");
 	String DatasetIndexFile = parameters.getValue("DatasetIndexFile");
 	String CssUrl = parameters.getValue("CssUrl");
 	String OutputTableID = parameters.getValue("OutputTableID");
@@ -1123,6 +1289,12 @@ public String toString ( PropList parameters )
         }
         b.append ( "CatalogIndexFile=\"" + CatalogIndexFile + "\"");
     }
+    if ( (DistributionId != null) && (DistributionId.length() > 0) ) {
+        if ( b.length() > 0 ) {
+            b.append ( "," );
+        }
+        b.append ( "DistributionId=\"" + DistributionId + "\"");
+    }
     if ( (DatasetIndexFile != null) && (DatasetIndexFile.length() > 0) ) {
         if ( b.length() > 0 ) {
             b.append ( "," );
@@ -1168,20 +1340,32 @@ public String toString ( PropList parameters )
  * @param s3FileKey the key to the file on S3
  * @return the updated warning count
  */
-private int uploadDatasetFile ( S3TransferManager tm, String bucket,
+private int uploadDatasetIndexFile ( S3TransferManager tm, String bucket,
 	String datasetIndexFile, String s3FileKey,
 	CommandStatus status, String commandTag, int warningCount ) {
 	String routine = getClass().getSimpleName() + ".uploadDatasetFile";
-	Message.printStatus(3, routine, "Uploading file from \"" + datasetIndexFile + "\" to \"" + s3FileKey + "\"");
+	// Make sure that the S3 key is valid:
+	// - remove leading /
+	// - replace Windows \ path separators with /
+	s3FileKey = s3FileKey.replace("\\", "/");
+	if ( s3FileKey.startsWith("/") ) {
+		s3FileKey = s3FileKey.substring(1);
+	}
+	Message.printStatus(2, routine, "Uploading file from local \"" + datasetIndexFile + "\" to S3 \"" + s3FileKey + "\"");
 	List<String> problems = new ArrayList<>();
 	AwsToolkit.getInstance().uploadFileToS3 ( tm, bucket, datasetIndexFile, s3FileKey, problems );
-	int warning_level = 3;
-	for ( String problem : problems ) {
-    	 Message.printWarning ( warning_level, 
-    	    MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, problem );
-    	    	status.addToLog(CommandPhaseType.RUN,
-    	    	new CommandLogRecord(CommandStatusType.FAILURE,
-    	    	problem, "Check the command input."));
+	if ( problems.size() == 0 ) {
+		Message.printStatus(2, routine, "Success uploading file from local \"" + datasetIndexFile + "\" to S3 \"" + s3FileKey + "\"");
+	}
+	else {
+		int warning_level = 3;
+		for ( String problem : problems ) {
+    	 	Message.printWarning ( warning_level, 
+    	    	MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, problem );
+    	    		status.addToLog(CommandPhaseType.RUN,
+    	    		new CommandLogRecord(CommandStatusType.FAILURE,
+    	    		problem, "Check the command input."));
+		}
 	}
 	return warningCount;
 }

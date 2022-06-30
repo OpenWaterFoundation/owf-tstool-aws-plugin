@@ -98,6 +98,9 @@ private JTextField __StartingPrefix_JTextField = null;
 private JTextField __CatalogIndexFile_JTextField = null;
 private JTextField __CatalogFile_JTextField = null;
 
+// CloudFront tab.
+private JTextField __DistributionId_JTextField = null;
+
 // Dataset tab.
 private JTextField __DatasetIndexFile_JTextField = null;
 
@@ -329,6 +332,7 @@ private void checkInput ()
 	String StartingPrefix = __StartingPrefix_JTextField.getText().trim();
 	String CatalogFile = __CatalogFile_JTextField.getText().trim();
 	String CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
+	String DistributionId = __DistributionId_JTextField.getText().trim();
 	String DatasetIndexFile = __DatasetIndexFile_JTextField.getText().trim();
 	String CssUrl = __CssUrl_JTextField.getText().trim();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
@@ -353,6 +357,9 @@ private void checkInput ()
     }
     if ( CatalogIndexFile.length() > 0 ) {
         props.set ( "CatalogIndexFile", CatalogIndexFile );
+    }
+    if ( DistributionId.length() > 0 ) {
+        props.set ( "DistributionId", DistributionId );
     }
     if ( DatasetIndexFile.length() > 0 ) {
         props.set ( "DatasetIndexFile", DatasetIndexFile );
@@ -393,6 +400,7 @@ private void commitEdits () {
 	String StartingPrefix = __StartingPrefix_JTextField.getText().trim();
 	String CatalogFile = __CatalogFile_JTextField.getText().trim();
 	String CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
+	String DistributionId = __DistributionId_JTextField.getText().trim();
 	String DatasetIndexFile = __DatasetIndexFile_JTextField.getText().trim();
 	String CssUrl = __CssUrl_JTextField.getText().trim();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
@@ -405,6 +413,7 @@ private void commitEdits () {
 	__command.setCommandParameter ( "StartingPrefix", StartingPrefix );
 	__command.setCommandParameter ( "CatalogFile", CatalogFile );
 	__command.setCommandParameter ( "CatalogIndexFile", CatalogIndexFile );
+	__command.setCommandParameter ( "DistributionId", DistributionId );
 	__command.setCommandParameter ( "DatasetIndexFile", DatasetIndexFile );
 	__command.setCommandParameter ( "CssUrl", CssUrl );
 	__command.setCommandParameter ( "OutputTableID", OutputTableID );
@@ -618,6 +627,32 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	}
 	JGUIUtil.addComponent(catalog_JPanel, CatalogIndexFile_JPanel,
 		1, yCatalog, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    // Panel for 'CloudFront' parameters:
+    // - controls the index file created for the dataset
+    int yCloudFront = -1;
+    JPanel cloudfront_JPanel = new JPanel();
+    cloudfront_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "CloudFront", cloudfront_JPanel );
+
+    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("Use the following parameters to control CloudFront invalidations."),
+		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("Files must be invalidated to be visible on the CloudFront-fronted website."),
+		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("Specify the distribution ID using a *comment pattern*."),
+		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cloudfront_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ( "Distribution ID:"),
+        0, ++yCloudFront, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __DistributionId_JTextField = new JTextField ( "", 30 );
+    __DistributionId_JTextField.setToolTipText("CloudFront distribution ID or comment pattern surrounded by *.");
+    __DistributionId_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(cloudfront_JPanel, __DistributionId_JTextField,
+        1, yCloudFront, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ( "Optional - CloudFront distribution ID (default=no invalidation)."),
+        3, yCloudFront, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     // Panel for 'Dataset' parameters:
     // - controls the index file created for the dataset
