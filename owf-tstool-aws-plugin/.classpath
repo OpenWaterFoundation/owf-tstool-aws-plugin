@@ -35,5 +35,6 @@
 	<classpathentry kind="lib" path="/cdss-lib-common-java/lib/Jackson/jackson-databind-2.9.10.jar"/>
 	<classpathentry kind="lib" path="/cdss-lib-common-java/lib/Jackson/jackson-datatype-jsr310-2.9.10.jar"/>
 	<classpathentry kind="lib" path="/cdss-lib-processor-ts-java/lib/CommonMark/commonmark-0.17.0.jar"/>
+	<classpathentry kind="lib" path="/cdss-lib-processor-ts-java/lib/CommonMark/commonmark-ext-gfm-tables-0.17.0.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

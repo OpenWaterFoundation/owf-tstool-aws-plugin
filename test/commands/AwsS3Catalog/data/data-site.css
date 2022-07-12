@@ -3,6 +3,25 @@
  */
 
 @media screen {
+.dataset-property-table {
+  width: 100%;
+  margin: 0px 50px;
+}
+.dataset-image {
+  height: 100%;
+  width: 33%;
+}
+.image-and-property-container {
+  display: flex;
+  margin: 0px 25px;
+}
+.dataset-property-table-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 66%;
+  overflow: auto;
+}
 #titles {
   font-weight:bold;
   color:#303044
@@ -19,10 +38,11 @@ table {
   cellpadding:1
 }
 th {
-  background-color:#333366;
+  background-color:#9DB66B;
   text-align:center;
   vertical-align:bottom;
-  color:white
+  color:black;
+  padding: 10px 10px;
 }
 tr {
   valign:bottom;
@@ -34,8 +54,9 @@ td {
   vertical-align:bottom;
   font-style:normal;
   x-font-family:courier;
-  font-family: "Trebuchet MS", Arial;
-  x-font-size:.75em
+  font-family: "Trebuchet MS", Helvetica, sans-serif;
+  x-font-size:.75em;
+  padding: 0px 10px;
 }
 body {
   text-align:left;
