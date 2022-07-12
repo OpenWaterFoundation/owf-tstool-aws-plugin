@@ -31,10 +31,13 @@ import java.nio.file.Paths;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.swing.JFrame;
 
+import org.commonmark.Extension;
+import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
@@ -98,7 +101,7 @@ protected final String _Fail = "Fail";
 /**
 Output file(s) that are created by this command.
 */
-private List<File> outputFiles = new ArrayList<File>();
+private List<File> outputFiles = new ArrayList<>();
 
 /**
 The output table that is created for discovery mode.
@@ -117,7 +120,7 @@ public AwsS3Catalog_Command ()
 Set the output file that is created by this command.  This is only used internally.
 */
 private void addOutputFile ( File file ) {
-    outputFiles.add(file);
+    this.outputFiles.add(file);
 }
 
 /**
@@ -273,53 +276,45 @@ private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDat
     		imageURL = "../dataset.png";
     	}
 
-    	// Add a layout table with image on the left and property table on the right.
-    	PropList tableProps = new PropList("");
-    	tableProps.set("border", "none");
-    	tableProps.set("padding", "5px");
-    	html.tableStart(tableProps);
-    	String [] tableHeaders0 = {
-    		"",
-    		""
-    	};
     	boolean doImage = false;
     	if ( (imageFile != null) && IOUtil.fileExists(imageFile) ) {
     		doImage = true;
-    	}
-    	else {
-    		// No image.
-    		doImage = false;
-    		tableHeaders0 = new String[1];
-    		tableHeaders0[0] = "";
-    	}
-    	html.write("<tr>");
-    	for ( String tableHeader : tableHeaders0 ) {
-    		html.write ( "<th border=\"none\" padding=\"5px\">" + tableHeader + "</th>" );
-    	}
-    	html.write("</tr>");
-    	
-   		html.write("<tr>");
-    	if ( doImage ) {
-    		// Add table cell for the image.
-    		html.write("<td border=\"none\" padding=\"5px\">");
     		if ( uploadFiles ) {
     			// The image in the production system is always named 'dataset.png' and is in the same folder as the index.html file.
-    			html.image(imageURL, "dataset.png");
+    			imageFile = "dataset.png";
     		}
     		else {
     			// Use the path to the local image file:
     			// - just use the filename without path since it will be in the same folder as the index.html file
     			File f = new File(imageFile);
-    			html.image(f.getName(), "dataset.png");
+    			imageFile = f.getName();
     		}
-    		html.write("</td>");
     	}
+    	else {
+    		// No image.
+    		doImage = false;
+    	}
+
+    	// Add a 'div' with flex layout for the side-by-side image and tables.
+    	// Always have a place for the image:
+    	// - if an image does not exist, add placeholder text
+    	html.write("\n<div class=\"image-and-property-container\">\n");
+    	
+    	if ( doImage ) {
+   			html.write("    <img src=\"" + imageFile + "\" alt=\"dataset.png\" border=\"0\" class=\"dataset-image\">\n");
+    	}
+    	else {
+    		// Placeholder since no image.
+   			html.write("    <p>No image is available.</p>\n");
+    	}
+		html.write("    <div class=\"dataset-property-table-container\">\n");
     	
     	// Always add the property table.
     	
-   		html.write("<td border=\"none\" padding=\"5px\">");
     	// Create the property table.
-    	html.tableStart();
+   		PropList tableProps = new PropList("properties");
+   		tableProps.set("class", "dataset-property-table");
+    	html.tableStart(tableProps);
     	String [] tableHeaders = {
     		"Property",
     		"Description"
@@ -376,10 +371,7 @@ private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDat
    	    html.write("</tr>");
     	html.tableEnd();
     	
-    	// End the layout table.
-   		html.write("</td>");
-   		html.write("</tr>");
-    	html.tableEnd();
+    	html.write("  </div>\n</div>\n");
     	
     	// Add the "Dataset Publisher" section.
 
@@ -417,9 +409,21 @@ private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDat
     		html.header(1, "Dataset Details");
     		// Read the MarkDown file into memory.
     		StringBuilder b = IOUtil.fileToStringBuilder(markdownFile);
-    		Parser parser = Parser.builder().build();
+
+    		// Load CommonMark extensions.
+    		List<Extension> extensions = Arrays.asList(TablesExtension.create());
+    		
+    		// Parse the Markdown and convert to HTMTL
+    		Parser parser = Parser
+    			.builder()
+    			.extensions(extensions)
+    			.build();
     		Node document = parser.parse(b.toString());
-    		HtmlRenderer renderer = HtmlRenderer.builder().build();
+    		HtmlRenderer renderer = HtmlRenderer
+    			.builder()
+    			.extensions(extensions)
+    			.build();
+
     		// Add the HTML from Markdown to the index.
     		html.write(renderer.render(document));
     	}
@@ -483,11 +487,11 @@ private DcatDataset downloadDatasetFile ( S3TransferManager tm, String bucket,
     	    	problem, "Check the command input."));
 	}
 	
-	// Also download the dataset markdown file if it exists (allow error).
-	String mdTempName = tempName.replace(".json",".md");
-	problems.clear();
-	String mdS3FileKey = s3FileKey.replace(".json", ".md");
+	// Also download the dataset details markdown file if it exists (allow error).
+	String mdTempName = tempName.replace("dataset.json","dataset-details.md");
+	String mdS3FileKey = s3FileKey.replace("dataset.json", "dataset-details.md");
 	try {
+		problems.clear();
 		AwsToolkit.getInstance().downloadFileFromS3 ( tm, bucket, mdS3FileKey, mdTempName, problems );
 		if ( problems.size() == 0 ) {
 			Message.printStatus(2, routine, "Success downloading dataset markdown file from S3 \"" + mdS3FileKey + "\" to local \"" + mdTempName + "\"");
@@ -1175,7 +1179,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
        	for ( String tempfile : tempfileList ) {
        		if ( keepFiles ) {
         		// Keep the temporary files and add to the output files.
-        		this.outputFiles.add(new File(tempfile));
+        		addOutputFile(new File(tempfile));
         	}
         	else {
         		// Remove the temporary files and DO NOT add to the output files.

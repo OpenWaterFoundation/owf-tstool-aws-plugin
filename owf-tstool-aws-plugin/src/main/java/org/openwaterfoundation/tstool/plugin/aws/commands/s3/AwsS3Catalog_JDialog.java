@@ -121,7 +121,7 @@ private boolean __first_time = true;
 private AwsS3Catalog_Command __command = null;
 private boolean __ok = false; // Whether the user has pressed OK to close the dialog.
 private boolean ignoreEvents = false; // Ignore events when initializing, to avoid infinite loop.
-private JFrame __parent = null;
+//private JFrame __parent = null;
 
 // AWS session used to interact with AWS:
 // - will be null until the profile is set, which will happen when refresh() is called once
@@ -455,7 +455,7 @@ Instantiates the GUI components.
 */
 private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<String> tableIDChoices )
 {	this.__command = command;
-	this.__parent = parent;
+	//this.__parent = parent;
 	CommandProcessor processor =__command.getCommandProcessor();
 	
 	__working_dir = TSCommandProcessorUtil.getWorkingDirForCommand ( processor, __command );

@@ -2,7 +2,7 @@
   "title": "DatasetB",
   "description": "Example datasetB.",
   "identifier": "owf-data-co-datasetB",
-  "landingPage": "https://test.openwaterfoundation.org/data/state/co/datasetB/",
+  "landingPage": "https://test.openwaterfoundation.org/data/state/co/datasetB/latest/",
   "issued": "2022-06-09",
   "keyword": [
     "line",
