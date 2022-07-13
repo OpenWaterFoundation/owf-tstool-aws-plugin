@@ -135,10 +135,10 @@ throws InvalidCommandParameterException
 {	String Profile = parameters.getValue ( "Profile" );
 	String Region = parameters.getValue ( "Region" );
     String Bucket = parameters.getValue ( "Bucket" );
-    String StartingPrefix = parameters.getValue ( "StartingPrefix" );
-    String CatalogFile = parameters.getValue ( "CatalogFile" );
-    String CatalogIndexFile = parameters.getValue ( "CatalogIndexFile" );
-    String DatasetIndexFile = parameters.getValue ( "DatasetIndexFile" );
+    //String StartingPrefix = parameters.getValue ( "StartingPrefix" );
+    //String CatalogFile = parameters.getValue ( "CatalogFile" );
+    //String CatalogIndexFile = parameters.getValue ( "CatalogIndexFile" );
+    //String DatasetIndexFile = parameters.getValue ( "DatasetIndexFile" );
 	String KeepFiles = parameters.getValue ( "KeepFiles" );
 	String UploadFiles = parameters.getValue ( "UploadFiles" );
 	String IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
@@ -205,7 +205,7 @@ throws InvalidCommandParameterException
 	}
 
 	// Check for invalid parameters.
-	List<String> validList = new ArrayList<>(13);
+	List<String> validList = new ArrayList<>(16);
 	validList.add ( "Profile" );
 	validList.add ( "Region" );
 	validList.add ( "Bucket" );
@@ -214,6 +214,9 @@ throws InvalidCommandParameterException
 	validList.add ( "CatalogIndexFile" );
 	validList.add ( "DistributionId" );
 	validList.add ( "DatasetIndexFile" );
+	validList.add ( "DatasetIndexHeadFile" );
+	validList.add ( "DatasetIndexBodyFile" );
+	validList.add ( "DatasetIndexFooterFile" );
 	validList.add ( "CssUrl" );
 	validList.add ( "OutputTableID" );
 	validList.add ( "KeepFiles" );
@@ -234,11 +237,16 @@ throws InvalidCommandParameterException
  * Currently this is a very basic file.
  * @param dataset the dataset being processed
  * @param parentDataset the parent dataset for the dataset being processed
- * @param datasetIndexFile path to the dataset index file to create.
+ * @param datasetIndexFile path to the dataset index file to create
+ * @param datasetIndexHeadFile path to the dataset index <head> file to insert, or null to ignore
+ * @param datasetIndexBodyFile path to the dataset index <body> file to insert, or null to ignore
+ * @param datasetIndexFooterFile path to the dataset index <footer> file to insert, or null to ignore
+ * @param cssUrl the URL to the CSS file to include in the index file
  * @param uploadFiles if true, format for uploading; if false, format for local review
  */
 private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDataset,
-	String datasetIndexFile, String cssUrl, boolean uploadFiles ) {
+	String datasetIndexFile, String datasetIndexHeadFile, String datasetIndexBodyFile, String datasetIndexFooterFile,
+	String cssUrl, boolean uploadFiles ) {
 	String routine = getClass().getSimpleName() + "createDatasetIndexFile";
 	Message.printStatus(2, routine, "Creating file \"" + datasetIndexFile +
 		"\" for dataset identifier \"" + dataset.getIdentifier() + "\".");
@@ -262,18 +270,24 @@ private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDat
 		// - this will include styles
 		html.htmlStart();
 		String customStyleText = "";
-    	writeHtmlHead(html, title, cssUrl, customStyleText);
+    	writeHtmlHead(html, title, cssUrl, customStyleText, datasetIndexHeadFile);
     	// Start the body section.
     	html.bodyStart();
+    	if ( datasetIndexBodyFile != null ) {
+    		// Insert the header content.
+    		html.comment("Start inserting file: " + datasetIndexBodyFile);
+    		html.write(IOUtil.fileToStringBuilder(datasetIndexBodyFile).toString());
+    		html.comment("End inserting file: " + datasetIndexBodyFile);
+    	}
     	html.header(1, "Dataset: " + dataset.getTitle());
     	
     	// The image is optional.
-    	String imageURL = "dataset.png";
+    	//String imageURL = "dataset.png";
     	String imageFile = dataset.getLocalImagePath();
     	if ( (imageFile == null) && (parentDataset != null) ) {
     		// If the image is null but is available for the parent, use that.
     		imageFile = parentDataset.getLocalImagePath();
-    		imageURL = "../dataset.png";
+    		//imageURL = "../dataset.png";
     	}
 
     	boolean doImage = false;
@@ -429,6 +443,12 @@ private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDat
     	}
 
 		html.bodyEnd();
+    	if ( datasetIndexFooterFile != null ) {
+    		// Insert the footer content.
+    		html.comment("Start inserting file: " + datasetIndexFooterFile);
+    		html.write(IOUtil.fileToStringBuilder(datasetIndexFooterFile).toString());
+    		html.comment("End inserting file: " + datasetIndexFooterFile);
+    	}
 		html.htmlEnd();
 		fout.print(html.getHTML());
 	}
@@ -715,11 +735,14 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	if ( (OutputTableID != null) && !OutputTableID.isEmpty() ) {
 		doTable = true;
 	}
-	String CatalogFile = parameters.getValue ( "CatalogFile" ); // Expand below.
-	String CatalogIndexFile = parameters.getValue ( "CatalogIndexFile" ); // Expand below.
+	//String CatalogFile = parameters.getValue ( "CatalogFile" ); // Expand below.
+	//String CatalogIndexFile = parameters.getValue ( "CatalogIndexFile" ); // Expand below.
 	String DistributionId = parameters.getValue ( "DistributionId" );
 	DistributionId = TSCommandProcessorUtil.expandParameterValue(processor,this,DistributionId);
 	String DatasetIndexFile = parameters.getValue ( "DatasetIndexFile" ); // Expand below.
+	String DatasetIndexHeadFile = parameters.getValue ( "DatasetIndexHeadFile" ); // Expand below.
+	String DatasetIndexBodyFile = parameters.getValue ( "DatasetIndexBodyFile" ); // Expand below.
+	String DatasetIndexFooterFile = parameters.getValue ( "DatasetIndexFooterFile" ); // Expand below.
 	String KeepFiles = parameters.getValue ( "KeepFiles" );
 	boolean keepFiles = false; // Default.
 	if ( (KeepFiles != null) && KeepFiles.equalsIgnoreCase("true")) {
@@ -800,7 +823,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	}
 
 	// The following is used to create a temporary table before outputting to a file.
-	boolean useTempTable = false;
+	//boolean useTempTable = false;
    	// Create the catalog file.
    	boolean doCatalog = true;
    	// Upload the created dataset index file.
@@ -842,7 +865,6 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	    if ( commandPhase == CommandPhaseType.RUN ) {
 	    	boolean append = false;
     		// Column numbers are used later.
-        	int bucketNameCol = -1;
         	int objectKeyCol = -1;
    	    	int objectSizeKbCol = -1;
    	    	int objectOwnerCol = -1;
@@ -1109,7 +1131,53 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    						IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
 	            						TSCommandProcessorUtil.expandParameterValue(processor,this,DatasetIndexFile)));
     	    				}
-    	    				createDatasetIndexFile ( dataset, parentDataset, datasetIndexFile, CssUrl, doUpload );
+    	    				String datasetIndexHeadFile = null;
+    	    				if ( DatasetIndexHeadFile != null ) {
+    	    					datasetIndexHeadFile = IOUtil.verifyPathForOS(
+    	    						IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
+	            						TSCommandProcessorUtil.expandParameterValue(processor,this,DatasetIndexHeadFile)));
+    	    					if ( !IOUtil.fileExists(datasetIndexHeadFile) ) {
+    	    						// Warn and set to null to disable the insert.
+    	    						message = "Dataset index <head> file does not exist: " + datasetIndexHeadFile;
+    								Message.printWarning ( warning_level, 
+    									MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
+    								status.addToLog(CommandPhaseType.RUN,
+    									new CommandLogRecord(CommandStatusType.FAILURE,
+    										message, "Confirm that the insert file is correct."));
+    	    					}
+    	    				}
+    	    				String datasetIndexBodyFile = null;
+    	    				if ( DatasetIndexBodyFile != null ) {
+    	    					datasetIndexBodyFile = IOUtil.verifyPathForOS(
+    	    						IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
+	            						TSCommandProcessorUtil.expandParameterValue(processor,this,DatasetIndexBodyFile)));
+    	    					if ( !IOUtil.fileExists(datasetIndexBodyFile) ) {
+    	    						// Warn and set to null to disable the insert.
+    	    						message = "Dataset index <body> file does not exist: " + datasetIndexBodyFile;
+    								Message.printWarning ( warning_level, 
+    									MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
+    								status.addToLog(CommandPhaseType.RUN,
+    									new CommandLogRecord(CommandStatusType.FAILURE,
+    										message, "Confirm that the insert file is correct."));
+    	    					}
+    	    				}
+    	    				String datasetIndexFooterFile = null;
+    	    				if ( DatasetIndexFooterFile != null ) {
+    	    					datasetIndexFooterFile = IOUtil.verifyPathForOS(
+    	    						IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
+	            						TSCommandProcessorUtil.expandParameterValue(processor,this,DatasetIndexFooterFile)));
+    	    					if ( !IOUtil.fileExists(datasetIndexFooterFile) ) {
+    	    						// Warn and set to null to disable the insert.
+    	    						message = "Dataset index footer file does not exist: " + datasetIndexFooterFile;
+    								Message.printWarning ( warning_level, 
+    									MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
+    								status.addToLog(CommandPhaseType.RUN,
+    									new CommandLogRecord(CommandStatusType.FAILURE,
+    										message, "Confirm that the insert file is correct."));
+    	    					}
+    	    				}
+    	    				createDatasetIndexFile ( dataset, parentDataset,
+    	    					datasetIndexFile, datasetIndexHeadFile, datasetIndexBodyFile, datasetIndexFooterFile, CssUrl, doUpload );
     	    				tempfileList.add(datasetIndexFile);
     	    				// Upload the index to the S3 bucket:
     	    				// - store in the same folder as the dataset file:
@@ -1175,6 +1243,11 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
         		distributionId, invalidationPathList,
         		"AwsS3Catalog");
   	    }
+        else {
+        	Message.printStatus(2, routine, "Not invalidating files, doUpload=" + doUpload +
+        		", invalidationPathList.size=" + invalidationPathList.size() +
+        		", distributionId=\"" + distributionId + "\"");
+        }
         // Clean up temporary files used for main catalog and index, and dataset index files.
        	for ( String tempfile : tempfileList ) {
        		if ( keepFiles ) {
@@ -1235,6 +1308,9 @@ public String toString ( PropList parameters )
 	String CatalogIndexFile = parameters.getValue("CatalogIndexFile");
 	String DistributionId = parameters.getValue("DistributionId");
 	String DatasetIndexFile = parameters.getValue("DatasetIndexFile");
+	String DatasetIndexHeadFile = parameters.getValue("DatasetIndexHeadFile");
+	String DatasetIndexBodyFile = parameters.getValue("DatasetIndexBodyFile");
+	String DatasetIndexFooterFile = parameters.getValue("DatasetIndexFooterFile");
 	String CssUrl = parameters.getValue("CssUrl");
 	String OutputTableID = parameters.getValue("OutputTableID");
 	String KeepFiles = parameters.getValue("KeepFiles");
@@ -1304,6 +1380,24 @@ public String toString ( PropList parameters )
             b.append ( "," );
         }
         b.append ( "DatasetIndexFile=\"" + DatasetIndexFile + "\"");
+    }
+    if ( (DatasetIndexHeadFile != null) && (DatasetIndexHeadFile.length() > 0) ) {
+        if ( b.length() > 0 ) {
+            b.append ( "," );
+        }
+        b.append ( "DatasetIndexHeadFile=\"" + DatasetIndexHeadFile + "\"");
+    }
+    if ( (DatasetIndexBodyFile != null) && (DatasetIndexBodyFile.length() > 0) ) {
+        if ( b.length() > 0 ) {
+            b.append ( "," );
+        }
+        b.append ( "DatasetIndexBodyFile=\"" + DatasetIndexBodyFile + "\"");
+    }
+    if ( (DatasetIndexFooterFile != null) && (DatasetIndexFooterFile.length() > 0) ) {
+        if ( b.length() > 0 ) {
+            b.append ( "," );
+        }
+        b.append ( "DatasetIndexFooterFile=\"" + DatasetIndexFooterFile + "\"");
     }
     if ( (CssUrl != null) && (CssUrl.length() > 0) ) {
         if ( b.length() > 0 ) {
@@ -1380,10 +1474,17 @@ Writes the start tags for the HTML indext file.
 @param title title for the document.
 @throws Exception
 */
-private void writeHtmlHead( HTMLWriter html, String title, String cssUrl, String customStyleText ) throws Exception {
+private void writeHtmlHead( HTMLWriter html, String title, String cssUrl, String customStyleText, String datasetIndexHeadFile ) throws Exception {
     if ( html != null ) {
         html.headStart();
         html.title(title);
+    	if ( datasetIndexHeadFile != null ) {
+    		// Insert the header content.
+    		html.comment("Start inserting file: " + datasetIndexHeadFile);
+    		html.write(IOUtil.fileToStringBuilder(datasetIndexHeadFile).toString());
+    		html.comment("End inserting file: " + datasetIndexHeadFile);
+    	}
+    	// Write custom styles last so they take precedence.
         writeHtmlStyles(html, cssUrl, customStyleText);
         html.headEnd();
     }
@@ -1396,9 +1497,10 @@ This was copied from the TSHtmlFormatter since tables are used with time series 
 */
 private void writeHtmlStyles(HTMLWriter html, String cssUrl, String customStyleText )
 throws Exception {
+ 	html.comment("Start inserting dataset landing page css.");
 	if ( (cssUrl != null) && !cssUrl.isEmpty() ) {
 		// Use the CSS provided in a URL, typically shared across a website.
-		html.write("<link rel=\"stylesheet\" href=\"" + cssUrl + "\">\n");
+		html.write("<link rel=\"stylesheet\" type=\"text/css\" href=\"" + cssUrl + "\">\n");
 	}
 	else {
 		// Add build-in CSS.
@@ -1532,6 +1634,7 @@ throws Exception {
             "}\n"  // End print media.
             + "</style>\n");
 	}
+ 	html.comment("End inserting dataset landing page css.");
 }
 
 }

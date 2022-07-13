@@ -83,7 +83,13 @@ private SimpleJButton __pathCatalogIndexFile_JButton = null;
 private SimpleJButton __browseCatalogFile_JButton = null;
 private SimpleJButton __pathCatalogFile_JButton = null;
 private SimpleJButton __browseDatasetIndexFile_JButton = null;
+private SimpleJButton __browseDatasetIndexHeadFile_JButton = null;
+private SimpleJButton __browseDatasetIndexBodyFile_JButton = null;
+private SimpleJButton __browseDatasetIndexFooterFile_JButton = null;
 private SimpleJButton __pathDatasetIndexFile_JButton = null;
+private SimpleJButton __pathDatasetIndexHeadFile_JButton = null;
+private SimpleJButton __pathDatasetIndexBodyFile_JButton = null;
+private SimpleJButton __pathDatasetIndexFooterFile_JButton = null;
 private SimpleJButton __cancel_JButton = null;
 private SimpleJButton __ok_JButton = null;
 private SimpleJButton __help_JButton = null;
@@ -103,6 +109,9 @@ private JTextField __DistributionId_JTextField = null;
 
 // Dataset tab.
 private JTextField __DatasetIndexFile_JTextField = null;
+private JTextField __DatasetIndexHeadFile_JTextField = null;
+private JTextField __DatasetIndexBodyFile_JTextField = null;
+private JTextField __DatasetIndexFooterFile_JTextField = null;
 
 // List tab.
 //private JTextField __MaxKeys_JTextField = null;
@@ -249,6 +258,72 @@ public void actionPerformed( ActionEvent event )
             }
         }
     }
+	else if ( o == __browseDatasetIndexBodyFile_JButton ) {
+        String last_directory_selected = JGUIUtil.getLastFileDialogDirectory();
+        JFileChooser fc = null;
+        if ( last_directory_selected != null ) {
+            fc = JFileChooserFactory.createJFileChooser(last_directory_selected );
+        }
+        else {
+            fc = JFileChooserFactory.createJFileChooser(__working_dir );
+        }
+        fc.setDialogTitle( "Select Dataset Index Body File");
+        
+        if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            String directory = fc.getSelectedFile().getParent();
+            String filename = fc.getSelectedFile().getName(); 
+            String path = fc.getSelectedFile().getPath(); 
+    
+            if (filename == null || filename.equals("")) {
+                return;
+            }
+    
+            if (path != null) {
+				// Convert path to relative path by default.
+				try {
+					__DatasetIndexBodyFile_JTextField.setText(IOUtil.toRelativePath(__working_dir, path));
+				}
+				catch ( Exception e ) {
+					Message.printWarning ( 1, routine, "Error converting file to relative path." );
+				}
+                JGUIUtil.setLastFileDialogDirectory(directory);
+                refresh();
+            }
+        }
+    }
+	else if ( o == __browseDatasetIndexFooterFile_JButton ) {
+        String last_directory_selected = JGUIUtil.getLastFileDialogDirectory();
+        JFileChooser fc = null;
+        if ( last_directory_selected != null ) {
+            fc = JFileChooserFactory.createJFileChooser(last_directory_selected );
+        }
+        else {
+            fc = JFileChooserFactory.createJFileChooser(__working_dir );
+        }
+        fc.setDialogTitle( "Select Dataset Index Footer File");
+        
+        if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            String directory = fc.getSelectedFile().getParent();
+            String filename = fc.getSelectedFile().getName(); 
+            String path = fc.getSelectedFile().getPath(); 
+    
+            if (filename == null || filename.equals("")) {
+                return;
+            }
+    
+            if (path != null) {
+				// Convert path to relative path by default.
+				try {
+					__DatasetIndexFooterFile_JTextField.setText(IOUtil.toRelativePath(__working_dir, path));
+				}
+				catch ( Exception e ) {
+					Message.printWarning ( 1, routine, "Error converting file to relative path." );
+				}
+                JGUIUtil.setLastFileDialogDirectory(directory);
+                refresh();
+            }
+        }
+    }
 	else if ( o == __cancel_JButton ) {
 		response ( false );
 	}
@@ -289,7 +364,7 @@ public void actionPerformed( ActionEvent event )
             }
             catch ( Exception e ) {
                 Message.printWarning ( 1, routine,
-                "Error converting output file name to relative path." );
+                "Error converting index file name to relative path." );
             }
         }
         refresh ();
@@ -306,6 +381,54 @@ public void actionPerformed( ActionEvent event )
             catch ( Exception e ) {
                 Message.printWarning ( 1, routine,
                 "Error converting output file name to relative path." );
+            }
+        }
+        refresh ();
+    }
+    else if ( o == __pathDatasetIndexHeadFile_JButton ) {
+        if ( __pathDatasetIndexHeadFile_JButton.getText().equals(__AddWorkingDirectory) ) {
+            __DatasetIndexHeadFile_JTextField.setText (IOUtil.toAbsolutePath(__working_dir,__DatasetIndexHeadFile_JTextField.getText() ) );
+        }
+        else if ( __pathDatasetIndexHeadFile_JButton.getText().equals(__RemoveWorkingDirectory) ) {
+            try {
+                __DatasetIndexHeadFile_JTextField.setText ( IOUtil.toRelativePath ( __working_dir,
+                        __DatasetIndexHeadFile_JTextField.getText() ) );
+            }
+            catch ( Exception e ) {
+                Message.printWarning ( 1, routine,
+                "Error converting index <head> file name to relative path." );
+            }
+        }
+        refresh ();
+    }
+    else if ( o == __pathDatasetIndexBodyFile_JButton ) {
+        if ( __pathDatasetIndexBodyFile_JButton.getText().equals(__AddWorkingDirectory) ) {
+            __DatasetIndexBodyFile_JTextField.setText (IOUtil.toAbsolutePath(__working_dir,__DatasetIndexBodyFile_JTextField.getText() ) );
+        }
+        else if ( __pathDatasetIndexBodyFile_JButton.getText().equals(__RemoveWorkingDirectory) ) {
+            try {
+                __DatasetIndexBodyFile_JTextField.setText ( IOUtil.toRelativePath ( __working_dir,
+                        __DatasetIndexBodyFile_JTextField.getText() ) );
+            }
+            catch ( Exception e ) {
+                Message.printWarning ( 1, routine,
+                "Error converting index <body> file name to relative path." );
+            }
+        }
+        refresh ();
+    }
+    else if ( o == __pathDatasetIndexFooterFile_JButton ) {
+        if ( __pathDatasetIndexFooterFile_JButton.getText().equals(__AddWorkingDirectory) ) {
+            __DatasetIndexFooterFile_JTextField.setText (IOUtil.toAbsolutePath(__working_dir,__DatasetIndexFooterFile_JTextField.getText() ) );
+        }
+        else if ( __pathDatasetIndexFooterFile_JButton.getText().equals(__RemoveWorkingDirectory) ) {
+            try {
+                __DatasetIndexFooterFile_JTextField.setText ( IOUtil.toRelativePath ( __working_dir,
+                        __DatasetIndexFooterFile_JTextField.getText() ) );
+            }
+            catch ( Exception e ) {
+                Message.printWarning ( 1, routine,
+                "Error converting index <footer> file name to relative path." );
             }
         }
         refresh ();
@@ -334,6 +457,9 @@ private void checkInput ()
 	String CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
 	String DistributionId = __DistributionId_JTextField.getText().trim();
 	String DatasetIndexFile = __DatasetIndexFile_JTextField.getText().trim();
+	String DatasetIndexHeadFile = __DatasetIndexHeadFile_JTextField.getText().trim();
+	String DatasetIndexBodyFile = __DatasetIndexBodyFile_JTextField.getText().trim();
+	String DatasetIndexFooterFile = __DatasetIndexFooterFile_JTextField.getText().trim();
 	String CssUrl = __CssUrl_JTextField.getText().trim();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
 	String KeepFiles = __KeepFiles_JComboBox.getSelected();
@@ -363,6 +489,15 @@ private void checkInput ()
     }
     if ( DatasetIndexFile.length() > 0 ) {
         props.set ( "DatasetIndexFile", DatasetIndexFile );
+    }
+    if ( DatasetIndexHeadFile.length() > 0 ) {
+        props.set ( "DatasetIndexHeadFile", DatasetIndexHeadFile );
+    }
+    if ( DatasetIndexBodyFile.length() > 0 ) {
+        props.set ( "DatasetIndexBodyFile", DatasetIndexBodyFile );
+    }
+    if ( DatasetIndexFooterFile.length() > 0 ) {
+        props.set ( "DatasetIndexFooterFile", DatasetIndexFooterFile );
     }
     if ( CssUrl.length() > 0 ) {
         props.set ( "CssUrl", CssUrl );
@@ -402,6 +537,9 @@ private void commitEdits () {
 	String CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
 	String DistributionId = __DistributionId_JTextField.getText().trim();
 	String DatasetIndexFile = __DatasetIndexFile_JTextField.getText().trim();
+	String DatasetIndexHeadFile = __DatasetIndexHeadFile_JTextField.getText().trim();
+	String DatasetIndexBodyFile = __DatasetIndexBodyFile_JTextField.getText().trim();
+	String DatasetIndexFooterFile = __DatasetIndexFooterFile_JTextField.getText().trim();
 	String CssUrl = __CssUrl_JTextField.getText().trim();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
 	String KeepFiles = __KeepFiles_JComboBox.getSelected();
@@ -415,6 +553,9 @@ private void commitEdits () {
 	__command.setCommandParameter ( "CatalogIndexFile", CatalogIndexFile );
 	__command.setCommandParameter ( "DistributionId", DistributionId );
 	__command.setCommandParameter ( "DatasetIndexFile", DatasetIndexFile );
+	__command.setCommandParameter ( "DatasetIndexHeadFile", DatasetIndexHeadFile );
+	__command.setCommandParameter ( "DatasetIndexBodyFile", DatasetIndexBodyFile );
+	__command.setCommandParameter ( "DatasetIndexFooterFile", DatasetIndexFooterFile );
 	__command.setCommandParameter ( "CssUrl", CssUrl );
 	__command.setCommandParameter ( "OutputTableID", OutputTableID );
 	__command.setCommandParameter ( "KeepFiles", KeepFiles );
@@ -694,6 +835,75 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	JGUIUtil.addComponent(dataset_JPanel, DatasetIndexFile_JPanel,
 		1, yDataset, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel ("Dataset index <head> file:" ),
+        0, ++yDataset, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __DatasetIndexHeadFile_JTextField = new JTextField ( 50 );
+    __DatasetIndexHeadFile_JTextField.setToolTipText("HTML file to insert as the page header at the top of <head>.");
+    __DatasetIndexHeadFile_JTextField.addKeyListener ( this );
+    // Output file layout fights back with other rows so put in its own panel.
+	JPanel DatasetIndexHeadFile_JPanel = new JPanel();
+	DatasetIndexHeadFile_JPanel.setLayout(new GridBagLayout());
+    JGUIUtil.addComponent(DatasetIndexHeadFile_JPanel, __DatasetIndexHeadFile_JTextField,
+		0, 0, 1, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+	__browseDatasetIndexHeadFile_JButton = new SimpleJButton ( "...", this );
+	__browseDatasetIndexHeadFile_JButton.setToolTipText("Browse for file");
+    JGUIUtil.addComponent(DatasetIndexHeadFile_JPanel, __browseDatasetIndexHeadFile_JButton,
+		1, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.CENTER);
+	if ( __working_dir != null ) {
+		// Add the button to allow conversion to/from relative path.
+		__pathDatasetIndexHeadFile_JButton = new SimpleJButton( __RemoveWorkingDirectory,this);
+		JGUIUtil.addComponent(DatasetIndexHeadFile_JPanel, __pathDatasetIndexHeadFile_JButton,
+			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	}
+	JGUIUtil.addComponent(dataset_JPanel, DatasetIndexHeadFile_JPanel,
+		1, yDataset, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel ("Dataset index <body> file:" ),
+        0, ++yDataset, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __DatasetIndexBodyFile_JTextField = new JTextField ( 50 );
+    __DatasetIndexBodyFile_JTextField.setToolTipText("HTML file to insert as the page header at the top of <body>.");
+    __DatasetIndexBodyFile_JTextField.addKeyListener ( this );
+    // Output file layout fights back with other rows so put in its own panel.
+	JPanel DatasetIndexBodyFile_JPanel = new JPanel();
+	DatasetIndexBodyFile_JPanel.setLayout(new GridBagLayout());
+    JGUIUtil.addComponent(DatasetIndexBodyFile_JPanel, __DatasetIndexBodyFile_JTextField,
+		0, 0, 1, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+	__browseDatasetIndexBodyFile_JButton = new SimpleJButton ( "...", this );
+	__browseDatasetIndexBodyFile_JButton.setToolTipText("Browse for file");
+    JGUIUtil.addComponent(DatasetIndexBodyFile_JPanel, __browseDatasetIndexBodyFile_JButton,
+		1, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.CENTER);
+	if ( __working_dir != null ) {
+		// Add the button to allow conversion to/from relative path.
+		__pathDatasetIndexBodyFile_JButton = new SimpleJButton( __RemoveWorkingDirectory,this);
+		JGUIUtil.addComponent(DatasetIndexBodyFile_JPanel, __pathDatasetIndexBodyFile_JButton,
+			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	}
+	JGUIUtil.addComponent(dataset_JPanel, DatasetIndexBodyFile_JPanel,
+		1, yDataset, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel ("Dataset index <footer> file:" ),
+        0, ++yDataset, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __DatasetIndexFooterFile_JTextField = new JTextField ( 50 );
+    __DatasetIndexFooterFile_JTextField.setToolTipText("HTML file to insert as the page footer after </body>.");
+    __DatasetIndexFooterFile_JTextField.addKeyListener ( this );
+    // Output file layout fights back with other rows so put in its own panel.
+	JPanel DatasetIndexFooterFile_JPanel = new JPanel();
+	DatasetIndexFooterFile_JPanel.setLayout(new GridBagLayout());
+    JGUIUtil.addComponent(DatasetIndexFooterFile_JPanel, __DatasetIndexFooterFile_JTextField,
+		0, 0, 1, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+	__browseDatasetIndexFooterFile_JButton = new SimpleJButton ( "...", this );
+	__browseDatasetIndexFooterFile_JButton.setToolTipText("Browse for file");
+    JGUIUtil.addComponent(DatasetIndexFooterFile_JPanel, __browseDatasetIndexFooterFile_JButton,
+		1, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.CENTER);
+	if ( __working_dir != null ) {
+		// Add the button to allow conversion to/from relative path.
+		__pathDatasetIndexFooterFile_JButton = new SimpleJButton( __RemoveWorkingDirectory,this);
+		JGUIUtil.addComponent(DatasetIndexFooterFile_JPanel, __pathDatasetIndexFooterFile_JButton,
+			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	}
+	JGUIUtil.addComponent(dataset_JPanel, DatasetIndexFooterFile_JPanel,
+		1, yDataset, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
     // Panel for output.
     int yOutput = -1;
     JPanel output_JPanel = new JPanel();
@@ -702,8 +912,8 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 
     JGUIUtil.addComponent(output_JPanel, new JLabel ("The following are used for commands that generate bucket and bucket object lists."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel ("Specify the output file name with extension to indicate the format: 'csv"),
-		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    //JGUIUtil.addComponent(output_JPanel, new JLabel ("Specify the output file name with extension to indicate the format: 'csv'"),
+	//	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
@@ -923,7 +1133,11 @@ private void refresh ()
 	String StartingPrefix = "";
 	String CatalogFile = "";
 	String CatalogIndexFile = "";
+	String DistributionId = "";
 	String DatasetIndexFile = "";
+	String DatasetIndexHeadFile = "";
+	String DatasetIndexBodyFile = "";
+	String DatasetIndexFooterFile = "";
 	String CssUrl = "";
 	String OutputTableID = "";
 	String KeepFiles = "";
@@ -939,7 +1153,11 @@ private void refresh ()
 		StartingPrefix = parameters.getValue ( "StartingPrefix" );
 		CatalogFile = parameters.getValue ( "CatalogFile" );
 		CatalogIndexFile = parameters.getValue ( "CatalogIndexFile" );
+		DistributionId = parameters.getValue ( "DistributionId" );
 		DatasetIndexFile = parameters.getValue ( "DatasetIndexFile" );
+		DatasetIndexHeadFile = parameters.getValue ( "DatasetIndexHeadFile" );
+		DatasetIndexBodyFile = parameters.getValue ( "DatasetIndexBodyFile" );
+		DatasetIndexFooterFile = parameters.getValue ( "DatasetIndexFooterFile" );
 		CssUrl = parameters.getValue ( "CssUrl" );
 		OutputTableID = parameters.getValue ( "OutputTableID" );
 		KeepFiles = parameters.getValue ( "KeepFiles" );
@@ -1039,8 +1257,20 @@ private void refresh ()
         if ( CatalogIndexFile != null ) {
             __CatalogIndexFile_JTextField.setText ( CatalogIndexFile );
         }
+        if ( DistributionId != null ) {
+            __DistributionId_JTextField.setText ( DistributionId );
+        }
         if ( DatasetIndexFile != null ) {
             __DatasetIndexFile_JTextField.setText ( DatasetIndexFile );
+        }
+        if ( DatasetIndexHeadFile != null ) {
+            __DatasetIndexHeadFile_JTextField.setText ( DatasetIndexHeadFile );
+        }
+        if ( DatasetIndexBodyFile != null ) {
+            __DatasetIndexBodyFile_JTextField.setText ( DatasetIndexBodyFile );
+        }
+        if ( DatasetIndexFooterFile != null ) {
+            __DatasetIndexFooterFile_JTextField.setText ( DatasetIndexFooterFile );
         }
         if ( CssUrl != null ) {
             __CssUrl_JTextField.setText ( CssUrl );
@@ -1126,7 +1356,11 @@ private void refresh ()
 	StartingPrefix = __StartingPrefix_JTextField.getText().trim();
 	CatalogFile = __CatalogFile_JTextField.getText().trim();
 	CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
+	DistributionId = __DistributionId_JTextField.getText().trim();
 	DatasetIndexFile = __DatasetIndexFile_JTextField.getText().trim();
+	DatasetIndexHeadFile = __DatasetIndexHeadFile_JTextField.getText().trim();
+	DatasetIndexBodyFile = __DatasetIndexBodyFile_JTextField.getText().trim();
+	DatasetIndexFooterFile = __DatasetIndexFooterFile_JTextField.getText().trim();
 	CssUrl = __CssUrl_JTextField.getText().trim();
 	OutputTableID = __OutputTableID_JComboBox.getSelected();
 	KeepFiles = __KeepFiles_JComboBox.getSelected();
@@ -1139,7 +1373,11 @@ private void refresh ()
 	props.add ( "StartingPrefix=" + StartingPrefix );
 	props.add ( "CatalogFile=" + CatalogFile );
 	props.add ( "CatalogIndexFile=" + CatalogIndexFile );
+	props.add ( "DistributionId=" + DistributionId );
 	props.add ( "DatasetIndexFile=" + DatasetIndexFile );
+	props.add ( "DatasetIndexHeadFile=" + DatasetIndexHeadFile );
+	props.add ( "DatasetIndexBodyFile=" + DatasetIndexBodyFile );
+	props.add ( "DatasetIndexFooterFile=" + DatasetIndexFooterFile );
 	props.add ( "CssUrl=" + CssUrl );
 	props.add ( "OutputTableID=" + OutputTableID );
 	props.add ( "KeepFiles=" + KeepFiles );
@@ -1196,6 +1434,57 @@ private void refresh ()
 		}
 		else {
 			__pathDatasetIndexFile_JButton.setEnabled(false);
+		}
+    }
+    if ( __pathDatasetIndexHeadFile_JButton != null ) {
+		if ( (DatasetIndexHeadFile != null) && !DatasetIndexHeadFile.isEmpty() ) {
+			__pathDatasetIndexHeadFile_JButton.setEnabled ( true );
+			File f = new File ( DatasetIndexHeadFile );
+			if ( f.isAbsolute() ) {
+				__pathDatasetIndexHeadFile_JButton.setText ( __RemoveWorkingDirectory );
+				__pathDatasetIndexHeadFile_JButton.setToolTipText("Change path to relative to command file");
+			}
+			else {
+            	__pathDatasetIndexHeadFile_JButton.setText ( __AddWorkingDirectory );
+            	__pathDatasetIndexHeadFile_JButton.setToolTipText("Change path to absolute");
+			}
+		}
+		else {
+			__pathDatasetIndexHeadFile_JButton.setEnabled(false);
+		}
+    }
+    if ( __pathDatasetIndexBodyFile_JButton != null ) {
+		if ( (DatasetIndexBodyFile != null) && !DatasetIndexBodyFile.isEmpty() ) {
+			__pathDatasetIndexBodyFile_JButton.setEnabled ( true );
+			File f = new File ( DatasetIndexBodyFile );
+			if ( f.isAbsolute() ) {
+				__pathDatasetIndexBodyFile_JButton.setText ( __RemoveWorkingDirectory );
+				__pathDatasetIndexBodyFile_JButton.setToolTipText("Change path to relative to command file");
+			}
+			else {
+            	__pathDatasetIndexBodyFile_JButton.setText ( __AddWorkingDirectory );
+            	__pathDatasetIndexBodyFile_JButton.setToolTipText("Change path to absolute");
+			}
+		}
+		else {
+			__pathDatasetIndexBodyFile_JButton.setEnabled(false);
+		}
+    }
+    if ( __pathDatasetIndexFooterFile_JButton != null ) {
+		if ( (DatasetIndexFooterFile != null) && !DatasetIndexFooterFile.isEmpty() ) {
+			__pathDatasetIndexFooterFile_JButton.setEnabled ( true );
+			File f = new File ( DatasetIndexFooterFile );
+			if ( f.isAbsolute() ) {
+				__pathDatasetIndexFooterFile_JButton.setText ( __RemoveWorkingDirectory );
+				__pathDatasetIndexFooterFile_JButton.setToolTipText("Change path to relative to command file");
+			}
+			else {
+            	__pathDatasetIndexFooterFile_JButton.setText ( __AddWorkingDirectory );
+            	__pathDatasetIndexFooterFile_JButton.setToolTipText("Change path to absolute");
+			}
+		}
+		else {
+			__pathDatasetIndexFooterFile_JButton.setEnabled(false);
 		}
     }
 }
