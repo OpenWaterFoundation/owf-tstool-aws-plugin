@@ -13,6 +13,8 @@ See the following sections in this page:
 
 * [Repository Folder Structure](#repository-folder-structure)
 * [Repository Dependencies](#repository-dependencies)
+* [Building the Plugin Jar File](#building-the-plugin-jar-file)
+* [Building an Installer](#building-an-installer)
 * [Contributing](#contributing)
 * [License](#license)
 * [Contact](#contact)
@@ -55,6 +57,41 @@ Additionally, the following table lists Eclipse project dependencies that are no
 |------------------------------------------------------------------------------------------|----------------------------------------------------|
 |[`cdss-lib-common-java`](https://github.com/OpenCDSS/cdss-lib-common-java)                |Library of core utility code used by multiple TSTool repositories (projects).|
 |[`cdss-lib-processor-ts-java`](https://github.com/OpenCDSS/cdss-lib-processor-ts-java)    |Library containing processor code for TSTool commands.|
+
+## Building the Plugin Jar File ##
+
+Plugin Eclipse projects are not part of the "built in" TSTool code.
+During development, plugins are handled as follows:
+
+1. Eclipse project:
+    1. The `owf-tstool-aws-plugin` repository is added as a Maven project.
+    2. The project's build path is configured to use appropriate Maven dependencies, such as the AWS libraries
+       and other TSTool projects, such as `cdss-lib-common-java`.
+2. Plugin jar file:
+    1. The plugin is recognized by TSTool via the plugin design, not the Eclipse build path.
+       In other words, plugins are handled as per the production code.
+    2. Therefore, run the `build-util/create-plubin-jar.bash` script to create the
+       plugin `jar` file in the user's `.tstool/NN/plugins` folder in order to test the plugin.
+    3. The above script relies on the `owf-tstool-aws-plugin/src/main/resources/META-INF/MANIFEST.MF`
+       file to provide information about the plugin to TSTool,
+       including the list of plugin commands and third-party `jar` files that are used by the plugin.
+
+## Building an Installer ##
+
+The plugin is currently distributed on Windows using a zip file,
+using the following procedure:
+
+1. Update the version:
+    1. Update the `src/main/java/owf-tstool-aws-plugin/org/openwaterfoundation/tstool/plugin/aws/Aws.java` source file.
+    2. The version is extracted by scripts below to use in the zip file name,
+       which results in versioned installers being listed in the product landing page.
+2. Update the documentation:
+    1. Update the documentation to be current and include release notes consistent with the version.
+    2. Update the `index.md` file to be consistent with the version.
+    3. Run the `doc-user-mkdocs-project/build-util/1-create-installer.bash` script to create the installer.
+3. Run the `build-util/2-copy-to-owf-amazon-s3.bash` script:
+    1. This will upload the local zip file to OWF's S3 bucket.
+    2. The script prompts as to whether to update the product landing page `index.html`.
 
 ## Contributing ##
 

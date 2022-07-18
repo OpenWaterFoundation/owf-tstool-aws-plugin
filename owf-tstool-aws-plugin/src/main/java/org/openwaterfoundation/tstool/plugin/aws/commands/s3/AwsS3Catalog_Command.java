@@ -138,9 +138,10 @@ throws InvalidCommandParameterException
     //String StartingPrefix = parameters.getValue ( "StartingPrefix" );
     //String CatalogFile = parameters.getValue ( "CatalogFile" );
     //String CatalogIndexFile = parameters.getValue ( "CatalogIndexFile" );
+	String UploadCatalogFiles = parameters.getValue ( "UploadCatalogFiles" );
     //String DatasetIndexFile = parameters.getValue ( "DatasetIndexFile" );
 	String KeepFiles = parameters.getValue ( "KeepFiles" );
-	String UploadFiles = parameters.getValue ( "UploadFiles" );
+	String UploadDatasetFiles = parameters.getValue ( "UploadDatasetFiles" );
 	String IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
 	String warning = "";
 	String message;
@@ -172,9 +173,9 @@ throws InvalidCommandParameterException
 				message, "Specify the bucket."));
 	}
 
-	if ( (KeepFiles != null) && !KeepFiles.equals("") ) {
-		if ( !KeepFiles.equalsIgnoreCase(_False) && !KeepFiles.equalsIgnoreCase(_True) ) {
-			message = "The KeepFiles parameter \"" + KeepFiles + "\" is invalid.";
+	if ( (UploadCatalogFiles != null) && !UploadCatalogFiles.equals("") ) {
+		if ( !UploadCatalogFiles.equalsIgnoreCase(_False) && !UploadCatalogFiles.equalsIgnoreCase(_True) ) {
+			message = "The UploadCatalogFiles parameter \"" + UploadCatalogFiles + "\" is invalid.";
 			warning += "\n" + message;
 			status.addToLog(CommandPhaseType.INITIALIZATION,
 				new CommandLogRecord(CommandStatusType.FAILURE,
@@ -182,9 +183,19 @@ throws InvalidCommandParameterException
 		}
 	}
 
-	if ( (UploadFiles != null) && !UploadFiles.equals("") ) {
-		if ( !UploadFiles.equalsIgnoreCase(_False) && !UploadFiles.equalsIgnoreCase(_True) ) {
-			message = "The UploadFiles parameter \"" + UploadFiles + "\" is invalid.";
+	if ( (UploadDatasetFiles != null) && !UploadDatasetFiles.equals("") ) {
+		if ( !UploadDatasetFiles.equalsIgnoreCase(_False) && !UploadDatasetFiles.equalsIgnoreCase(_True) ) {
+			message = "The UploadDatasetFiles parameter \"" + UploadDatasetFiles + "\" is invalid.";
+			warning += "\n" + message;
+			status.addToLog(CommandPhaseType.INITIALIZATION,
+				new CommandLogRecord(CommandStatusType.FAILURE,
+					message, "Specify the parameter as " + _False + " (default) or " + _True ));
+		}
+	}
+
+	if ( (KeepFiles != null) && !KeepFiles.equals("") ) {
+		if ( !KeepFiles.equalsIgnoreCase(_False) && !KeepFiles.equalsIgnoreCase(_True) ) {
+			message = "The KeepFiles parameter \"" + KeepFiles + "\" is invalid.";
 			warning += "\n" + message;
 			status.addToLog(CommandPhaseType.INITIALIZATION,
 				new CommandLogRecord(CommandStatusType.FAILURE,
@@ -212,15 +223,15 @@ throws InvalidCommandParameterException
 	validList.add ( "StartingPrefix" );
 	validList.add ( "CatalogFile" );
 	validList.add ( "CatalogIndexFile" );
+	validList.add ( "UploadCatalogFiles" );
 	validList.add ( "DistributionId" );
 	validList.add ( "DatasetIndexFile" );
 	validList.add ( "DatasetIndexHeadFile" );
 	validList.add ( "DatasetIndexBodyFile" );
 	validList.add ( "DatasetIndexFooterFile" );
-	validList.add ( "CssUrl" );
+	validList.add ( "UploadDatasetFiles" );
 	validList.add ( "OutputTableID" );
 	validList.add ( "KeepFiles" );
-	validList.add ( "UploadFiles" );
 	validList.add ( "IfInputNotFound" );
 	warning = TSCommandProcessorUtil.validateParameterNames ( validList, this, warning );
 
@@ -241,12 +252,11 @@ throws InvalidCommandParameterException
  * @param datasetIndexHeadFile path to the dataset index <head> file to insert, or null to ignore
  * @param datasetIndexBodyFile path to the dataset index <body> file to insert, or null to ignore
  * @param datasetIndexFooterFile path to the dataset index <footer> file to insert, or null to ignore
- * @param cssUrl the URL to the CSS file to include in the index file
- * @param uploadFiles if true, format for uploading; if false, format for local review
+ * @param uploadDatasetFiles if true, format for uploading; if false, format for local review
  */
 private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDataset,
 	String datasetIndexFile, String datasetIndexHeadFile, String datasetIndexBodyFile, String datasetIndexFooterFile,
-	String cssUrl, boolean uploadFiles ) {
+	boolean uploadDatasetFiles ) {
 	String routine = getClass().getSimpleName() + "createDatasetIndexFile";
 	Message.printStatus(2, routine, "Creating file \"" + datasetIndexFile +
 		"\" for dataset identifier \"" + dataset.getIdentifier() + "\".");
@@ -270,6 +280,7 @@ private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDat
 		// - this will include styles
 		html.htmlStart();
 		String customStyleText = "";
+		String cssUrl = null;
     	writeHtmlHead(html, title, cssUrl, customStyleText, datasetIndexHeadFile);
     	// Start the body section.
     	html.bodyStart();
@@ -293,7 +304,7 @@ private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDat
     	boolean doImage = false;
     	if ( (imageFile != null) && IOUtil.fileExists(imageFile) ) {
     		doImage = true;
-    		if ( uploadFiles ) {
+    		if ( uploadDatasetFiles ) {
     			// The image in the production system is always named 'dataset.png' and is in the same folder as the index.html file.
     			imageFile = "dataset.png";
     		}
@@ -727,8 +738,6 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	if ( (StartingPrefix == null) || StartingPrefix.isEmpty() ) {
 		StartingPrefix = "/";
 	}
-	String CssUrl = parameters.getValue ( "CssUrl" );
-	CssUrl = TSCommandProcessorUtil.expandParameterValue(processor,this,CssUrl);
 	boolean doTable = false;
 	String OutputTableID = parameters.getValue ( "OutputTableID" );
 	OutputTableID = TSCommandProcessorUtil.expandParameterValue(processor,this,OutputTableID);
@@ -737,21 +746,26 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	}
 	//String CatalogFile = parameters.getValue ( "CatalogFile" ); // Expand below.
 	//String CatalogIndexFile = parameters.getValue ( "CatalogIndexFile" ); // Expand below.
+	String UploadCatalogFiles = parameters.getValue ( "UploadCatalogFiles" );
+	boolean doUploadCatalog = false; // Default.
+	if ( (UploadCatalogFiles != null) && UploadCatalogFiles.equalsIgnoreCase("true")) {
+	    doUploadCatalog = true;
+	}
 	String DistributionId = parameters.getValue ( "DistributionId" );
 	DistributionId = TSCommandProcessorUtil.expandParameterValue(processor,this,DistributionId);
 	String DatasetIndexFile = parameters.getValue ( "DatasetIndexFile" ); // Expand below.
 	String DatasetIndexHeadFile = parameters.getValue ( "DatasetIndexHeadFile" ); // Expand below.
 	String DatasetIndexBodyFile = parameters.getValue ( "DatasetIndexBodyFile" ); // Expand below.
 	String DatasetIndexFooterFile = parameters.getValue ( "DatasetIndexFooterFile" ); // Expand below.
+	String UploadDatasetFiles = parameters.getValue ( "UploadDatasetFiles" );
+	boolean doUploadDataset = false; // Default.
+	if ( (UploadDatasetFiles != null) && UploadDatasetFiles.equalsIgnoreCase("true")) {
+	    doUploadDataset = true;
+	}
 	String KeepFiles = parameters.getValue ( "KeepFiles" );
 	boolean keepFiles = false; // Default.
 	if ( (KeepFiles != null) && KeepFiles.equalsIgnoreCase("true")) {
 	    keepFiles = true;
-	}
-	String UploadFiles = parameters.getValue ( "UploadFiles" );
-	boolean doUpload = false; // Default.
-	if ( (UploadFiles != null) && UploadFiles.equalsIgnoreCase("true")) {
-	    doUpload = true;
 	}
 	String IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
 	if ( (IfInputNotFound == null) || IfInputNotFound.equals("")) {
@@ -1177,13 +1191,13 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    					}
     	    				}
     	    				createDatasetIndexFile ( dataset, parentDataset,
-    	    					datasetIndexFile, datasetIndexHeadFile, datasetIndexBodyFile, datasetIndexFooterFile, CssUrl, doUpload );
+    	    					datasetIndexFile, datasetIndexHeadFile, datasetIndexBodyFile, datasetIndexFooterFile, doUploadDataset );
     	    				tempfileList.add(datasetIndexFile);
     	    				// Upload the index to the S3 bucket:
     	    				// - store in the same folder as the dataset file:
     	    				// - also keep track of the file so it can be invalidated
     	    				String s3UploadKey = null;
-    	    				if ( doUpload ) {
+    	    				if ( doUploadDataset ) {
     	    					// Upload the dataset index file:
     	    					// - the image file used in the index will already have been uploaded
     	    					// - invalidation paths start with /
@@ -1233,7 +1247,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 		throw new CommandException ( message );
 	}
     finally {
-        if ( doUpload && (invalidationPathList.size() > 0) && (distributionId != null) ) {
+        if ( doUploadDataset && (invalidationPathList.size() > 0) && (distributionId != null) ) {
         	// Invalidate the list of uploaded files.
         	Message.printStatus(2, routine, "Invalidating " + invalidationPathList.size() + " uploaded files.");
         	// Invalidate the distribution:
@@ -1244,7 +1258,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
         		"AwsS3Catalog");
   	    }
         else {
-        	Message.printStatus(2, routine, "Not invalidating files, doUpload=" + doUpload +
+        	Message.printStatus(2, routine, "Not invalidating files, doUpload=" + doUploadDataset +
         		", invalidationPathList.size=" + invalidationPathList.size() +
         		", distributionId=\"" + distributionId + "\"");
         }
@@ -1306,15 +1320,15 @@ public String toString ( PropList parameters )
 	//String MaxObjects = parameters.getValue("MaxObjects");
 	String CatalogFile = parameters.getValue("CatalogFile");
 	String CatalogIndexFile = parameters.getValue("CatalogIndexFile");
+	String UploadCatalogFiles = parameters.getValue("UploadCatalogFiles");
 	String DistributionId = parameters.getValue("DistributionId");
 	String DatasetIndexFile = parameters.getValue("DatasetIndexFile");
 	String DatasetIndexHeadFile = parameters.getValue("DatasetIndexHeadFile");
 	String DatasetIndexBodyFile = parameters.getValue("DatasetIndexBodyFile");
 	String DatasetIndexFooterFile = parameters.getValue("DatasetIndexFooterFile");
-	String CssUrl = parameters.getValue("CssUrl");
+	String UploadDatasetFiles = parameters.getValue("UploadDatasetFiles");
 	String OutputTableID = parameters.getValue("OutputTableID");
 	String KeepFiles = parameters.getValue("KeepFiles");
-	String UploadFiles = parameters.getValue("UploadFiles");
 	String IfInputNotFound = parameters.getValue("IfInputNotFound");
 	StringBuffer b = new StringBuffer ();
 	if ( (Profile != null) && (Profile.length() > 0) ) {
@@ -1369,6 +1383,12 @@ public String toString ( PropList parameters )
         }
         b.append ( "CatalogIndexFile=\"" + CatalogIndexFile + "\"");
     }
+	if ( (UploadCatalogFiles != null) && (UploadCatalogFiles.length() > 0) ) {
+		if ( b.length() > 0 ) {
+			b.append ( "," );
+		}
+		b.append ( "UploadCatalogFiles=" + UploadCatalogFiles );
+	}
     if ( (DistributionId != null) && (DistributionId.length() > 0) ) {
         if ( b.length() > 0 ) {
             b.append ( "," );
@@ -1399,12 +1419,12 @@ public String toString ( PropList parameters )
         }
         b.append ( "DatasetIndexFooterFile=\"" + DatasetIndexFooterFile + "\"");
     }
-    if ( (CssUrl != null) && (CssUrl.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-        b.append ( "CssUrl=\"" + CssUrl + "\"" );
-    }
+	if ( (UploadDatasetFiles != null) && (UploadDatasetFiles.length() > 0) ) {
+		if ( b.length() > 0 ) {
+			b.append ( "," );
+		}
+		b.append ( "UploadDatasetFiles=" + UploadDatasetFiles );
+	}
     if ( (OutputTableID != null) && (OutputTableID.length() > 0) ) {
         if ( b.length() > 0 ) {
             b.append ( "," );
@@ -1416,12 +1436,6 @@ public String toString ( PropList parameters )
 			b.append ( "," );
 		}
 		b.append ( "KeepFiles=" + KeepFiles );
-	}
-	if ( (UploadFiles != null) && (UploadFiles.length() > 0) ) {
-		if ( b.length() > 0 ) {
-			b.append ( "," );
-		}
-		b.append ( "UploadFiles=" + UploadFiles );
 	}
 	if ( (IfInputNotFound != null) && (IfInputNotFound.length() > 0) ) {
 		if ( b.length() > 0 ) {
