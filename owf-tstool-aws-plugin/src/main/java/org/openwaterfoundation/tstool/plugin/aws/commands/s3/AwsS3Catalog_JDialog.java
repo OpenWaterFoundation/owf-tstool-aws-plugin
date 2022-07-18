@@ -103,6 +103,7 @@ private SimpleJComboBox __IfInputNotFound_JComboBox = null;
 private JTextField __StartingPrefix_JTextField = null;
 private JTextField __CatalogIndexFile_JTextField = null;
 private JTextField __CatalogFile_JTextField = null;
+private SimpleJComboBox __UploadCatalogFiles_JComboBox = null;
 
 // CloudFront tab.
 private JTextField __DistributionId_JTextField = null;
@@ -112,16 +113,15 @@ private JTextField __DatasetIndexFile_JTextField = null;
 private JTextField __DatasetIndexHeadFile_JTextField = null;
 private JTextField __DatasetIndexBodyFile_JTextField = null;
 private JTextField __DatasetIndexFooterFile_JTextField = null;
+private SimpleJComboBox __UploadDatasetFiles_JComboBox = null;
 
 // List tab.
 //private JTextField __MaxKeys_JTextField = null;
 //private JTextField __MaxObjects_JTextField = null;
 
 // Output tab.
-private JTextField __CssUrl_JTextField = null;
 private SimpleJComboBox __OutputTableID_JComboBox = null;
 private SimpleJComboBox __KeepFiles_JComboBox = null;
-private SimpleJComboBox __UploadFiles_JComboBox = null;
 
 private JTextArea __command_JTextArea = null;
 private String __working_dir = null;
@@ -455,15 +455,15 @@ private void checkInput ()
 	String StartingPrefix = __StartingPrefix_JTextField.getText().trim();
 	String CatalogFile = __CatalogFile_JTextField.getText().trim();
 	String CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
+	String UploadCatalogFiles = __UploadCatalogFiles_JComboBox.getSelected();
 	String DistributionId = __DistributionId_JTextField.getText().trim();
 	String DatasetIndexFile = __DatasetIndexFile_JTextField.getText().trim();
 	String DatasetIndexHeadFile = __DatasetIndexHeadFile_JTextField.getText().trim();
 	String DatasetIndexBodyFile = __DatasetIndexBodyFile_JTextField.getText().trim();
 	String DatasetIndexFooterFile = __DatasetIndexFooterFile_JTextField.getText().trim();
-	String CssUrl = __CssUrl_JTextField.getText().trim();
+	String UploadDatasetFiles = __UploadDatasetFiles_JComboBox.getSelected();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
 	String KeepFiles = __KeepFiles_JComboBox.getSelected();
-	String UploadFiles = __UploadFiles_JComboBox.getSelected();
 	String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
 	__error_wait = false;
 	if ( Profile.length() > 0 ) {
@@ -484,6 +484,9 @@ private void checkInput ()
     if ( CatalogIndexFile.length() > 0 ) {
         props.set ( "CatalogIndexFile", CatalogIndexFile );
     }
+	if ( UploadCatalogFiles.length() > 0 ) {
+		props.set ( "UploadCatalogFiles", UploadCatalogFiles );
+	}
     if ( DistributionId.length() > 0 ) {
         props.set ( "DistributionId", DistributionId );
     }
@@ -499,17 +502,14 @@ private void checkInput ()
     if ( DatasetIndexFooterFile.length() > 0 ) {
         props.set ( "DatasetIndexFooterFile", DatasetIndexFooterFile );
     }
-    if ( CssUrl.length() > 0 ) {
-        props.set ( "CssUrl", CssUrl );
-    }
     if ( OutputTableID.length() > 0 ) {
         props.set ( "OutputTableID", OutputTableID );
     }
 	if ( KeepFiles.length() > 0 ) {
 		props.set ( "KeepFiles", KeepFiles );
 	}
-	if ( UploadFiles.length() > 0 ) {
-		props.set ( "UploadFiles", UploadFiles );
+	if ( UploadDatasetFiles.length() > 0 ) {
+		props.set ( "UploadDatasetFiles", UploadDatasetFiles );
 	}
 	if ( IfInputNotFound.length() > 0 ) {
 		props.set ( "IfInputNotFound", IfInputNotFound );
@@ -535,15 +535,15 @@ private void commitEdits () {
 	String StartingPrefix = __StartingPrefix_JTextField.getText().trim();
 	String CatalogFile = __CatalogFile_JTextField.getText().trim();
 	String CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
+	String UploadCatalogFiles = __UploadCatalogFiles_JComboBox.getSelected();
 	String DistributionId = __DistributionId_JTextField.getText().trim();
 	String DatasetIndexFile = __DatasetIndexFile_JTextField.getText().trim();
 	String DatasetIndexHeadFile = __DatasetIndexHeadFile_JTextField.getText().trim();
 	String DatasetIndexBodyFile = __DatasetIndexBodyFile_JTextField.getText().trim();
 	String DatasetIndexFooterFile = __DatasetIndexFooterFile_JTextField.getText().trim();
-	String CssUrl = __CssUrl_JTextField.getText().trim();
+	String UploadDatasetFiles = __UploadDatasetFiles_JComboBox.getSelected();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
 	String KeepFiles = __KeepFiles_JComboBox.getSelected();
-	String UploadFiles = __UploadFiles_JComboBox.getSelected();
 	String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
 	__command.setCommandParameter ( "Profile", Profile );
 	__command.setCommandParameter ( "Region", Region );
@@ -551,15 +551,15 @@ private void commitEdits () {
 	__command.setCommandParameter ( "StartingPrefix", StartingPrefix );
 	__command.setCommandParameter ( "CatalogFile", CatalogFile );
 	__command.setCommandParameter ( "CatalogIndexFile", CatalogIndexFile );
+	__command.setCommandParameter ( "UploadCatalogFiles", UploadCatalogFiles );
 	__command.setCommandParameter ( "DistributionId", DistributionId );
 	__command.setCommandParameter ( "DatasetIndexFile", DatasetIndexFile );
 	__command.setCommandParameter ( "DatasetIndexHeadFile", DatasetIndexHeadFile );
 	__command.setCommandParameter ( "DatasetIndexBodyFile", DatasetIndexBodyFile );
 	__command.setCommandParameter ( "DatasetIndexFooterFile", DatasetIndexFooterFile );
-	__command.setCommandParameter ( "CssUrl", CssUrl );
+	__command.setCommandParameter ( "UploadDatasetFiles", UploadDatasetFiles );
 	__command.setCommandParameter ( "OutputTableID", OutputTableID );
 	__command.setCommandParameter ( "KeepFiles", KeepFiles );
-	__command.setCommandParameter ( "UploadFiles", UploadFiles );
 	__command.setCommandParameter ( "IfInputNotFound", IfInputNotFound );
 }
 
@@ -769,6 +769,23 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	JGUIUtil.addComponent(catalog_JPanel, CatalogIndexFile_JPanel,
 		1, yCatalog, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
+   JGUIUtil.addComponent(catalog_JPanel, new JLabel ( "Upload catalog files?:"),
+		0, ++yCatalog, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__UploadCatalogFiles_JComboBox = new SimpleJComboBox ( false );
+	__UploadCatalogFiles_JComboBox.setToolTipText("Indicate whether to upload catalog index and datasets.json files?");
+	List<String> uploadCatalogChoices = new ArrayList<>();
+	uploadCatalogChoices.add ( "" );	// Default.
+	uploadCatalogChoices.add ( __command._False );
+	uploadCatalogChoices.add ( __command._True );
+	__UploadCatalogFiles_JComboBox.setData(uploadCatalogChoices);
+	__UploadCatalogFiles_JComboBox.select ( 0 );
+	__UploadCatalogFiles_JComboBox.addActionListener ( this );
+   JGUIUtil.addComponent(catalog_JPanel, __UploadCatalogFiles_JComboBox,
+		1, yCatalog, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(catalog_JPanel, new JLabel(
+		"Optional - upload catalog files? (default=" + __command._False + ")."),
+		3, yCatalog, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
     // Panel for 'CloudFront' parameters:
     // - controls the index file created for the dataset
     int yCloudFront = -1;
@@ -904,6 +921,23 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	JGUIUtil.addComponent(dataset_JPanel, DatasetIndexFooterFile_JPanel,
 		1, yDataset, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
+   JGUIUtil.addComponent(dataset_JPanel, new JLabel ( "Upload dataset files?:"),
+		0, ++yDataset, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__UploadDatasetFiles_JComboBox = new SimpleJComboBox ( false );
+	__UploadDatasetFiles_JComboBox.setToolTipText("Indicate whether to upload dataset index files?");
+	List<String> uploadFilesChoices = new ArrayList<>();
+	uploadFilesChoices.add ( "" );	// Default.
+	uploadFilesChoices.add ( __command._False );
+	uploadFilesChoices.add ( __command._True );
+	__UploadDatasetFiles_JComboBox.setData(uploadFilesChoices);
+	__UploadDatasetFiles_JComboBox.select ( 0 );
+	__UploadDatasetFiles_JComboBox.addActionListener ( this );
+   JGUIUtil.addComponent(dataset_JPanel, __UploadDatasetFiles_JComboBox,
+		1, yDataset, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel(
+		"Optional - upload dataset files? (default=" + __command._False + ")."),
+		3, yDataset, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
     // Panel for output.
     int yOutput = -1;
     JPanel output_JPanel = new JPanel();
@@ -916,16 +950,6 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	//	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(output_JPanel, new JLabel ( "CSS URL:"),
-        0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __CssUrl_JTextField = new JTextField ( "", 30 );
-    __CssUrl_JTextField.setToolTipText("URL to a CSS file to use for the output index.html files.");
-    __CssUrl_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(output_JPanel, __CssUrl_JTextField,
-        1, yOutput, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Optional - CSS URL (default=built-in styles)."),
-        3, yOutput, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     JGUIUtil.addComponent(output_JPanel, new JLabel ( "Output Table ID:" ), 
         0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
@@ -958,23 +982,6 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 		"Optional - keep temporary files? (default=" + __command._False + ")."),
 		3, yOutput, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-   JGUIUtil.addComponent(output_JPanel, new JLabel ( "Upload files?:"),
-		0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-	__UploadFiles_JComboBox = new SimpleJComboBox ( false );
-	__UploadFiles_JComboBox.setToolTipText("Indicate whether to upload catalog and dataset index files?");
-	List<String> uploadFilesChoices = new ArrayList<>();
-	uploadFilesChoices.add ( "" );	// Default.
-	uploadFilesChoices.add ( __command._False );
-	uploadFilesChoices.add ( __command._True );
-	__UploadFiles_JComboBox.setData(uploadFilesChoices);
-	__UploadFiles_JComboBox.select ( 0 );
-	__UploadFiles_JComboBox.addActionListener ( this );
-   JGUIUtil.addComponent(output_JPanel, __UploadFiles_JComboBox,
-		1, yOutput, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel(
-		"Optional - upload files? (default=" + __command._False + ")."),
-		3, yOutput, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    
    JGUIUtil.addComponent(main_JPanel, new JLabel ( "If input not found?:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__IfInputNotFound_JComboBox = new SimpleJComboBox ( false );
@@ -1133,15 +1140,15 @@ private void refresh ()
 	String StartingPrefix = "";
 	String CatalogFile = "";
 	String CatalogIndexFile = "";
+	String UploadCatalogFiles = "";
 	String DistributionId = "";
 	String DatasetIndexFile = "";
 	String DatasetIndexHeadFile = "";
 	String DatasetIndexBodyFile = "";
 	String DatasetIndexFooterFile = "";
-	String CssUrl = "";
+	String UploadDatasetFiles = "";
 	String OutputTableID = "";
 	String KeepFiles = "";
-	String UploadFiles = "";
 	String IfInputNotFound = "";
     PropList parameters = null;
 	if ( __first_time ) {
@@ -1153,15 +1160,15 @@ private void refresh ()
 		StartingPrefix = parameters.getValue ( "StartingPrefix" );
 		CatalogFile = parameters.getValue ( "CatalogFile" );
 		CatalogIndexFile = parameters.getValue ( "CatalogIndexFile" );
+		UploadCatalogFiles = parameters.getValue ( "UploadCatalogFiles" );
 		DistributionId = parameters.getValue ( "DistributionId" );
 		DatasetIndexFile = parameters.getValue ( "DatasetIndexFile" );
 		DatasetIndexHeadFile = parameters.getValue ( "DatasetIndexHeadFile" );
 		DatasetIndexBodyFile = parameters.getValue ( "DatasetIndexBodyFile" );
 		DatasetIndexFooterFile = parameters.getValue ( "DatasetIndexFooterFile" );
-		CssUrl = parameters.getValue ( "CssUrl" );
+		UploadDatasetFiles = parameters.getValue ( "UploadDatasetFiles" );
 		OutputTableID = parameters.getValue ( "OutputTableID" );
 		KeepFiles = parameters.getValue ( "KeepFiles" );
-		UploadFiles = parameters.getValue ( "UploadFiles" );
 		IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
 		if ( JGUIUtil.isSimpleJComboBoxItem(__Profile_JComboBox, Profile,JGUIUtil.NONE, null, null ) ) {
 			__Profile_JComboBox.select ( Profile );
@@ -1257,6 +1264,21 @@ private void refresh ()
         if ( CatalogIndexFile != null ) {
             __CatalogIndexFile_JTextField.setText ( CatalogIndexFile );
         }
+		if ( JGUIUtil.isSimpleJComboBoxItem(__UploadCatalogFiles_JComboBox, UploadCatalogFiles,JGUIUtil.NONE, null, null ) ) {
+			__UploadCatalogFiles_JComboBox.select ( UploadCatalogFiles );
+		}
+		else {
+            if ( (UploadCatalogFiles == null) ||	UploadCatalogFiles.equals("") ) {
+				// New command...select the default.
+				__UploadCatalogFiles_JComboBox.select ( 0 );
+			}
+			else {
+				// Bad user command.
+				Message.printWarning ( 1, routine,
+				"Existing command references an invalid\n"+
+				"UploadCatalogFiles parameter \"" + UploadCatalogFiles + "\".  Select a value or Cancel." );
+			}
+		}
         if ( DistributionId != null ) {
             __DistributionId_JTextField.setText ( DistributionId );
         }
@@ -1272,9 +1294,21 @@ private void refresh ()
         if ( DatasetIndexFooterFile != null ) {
             __DatasetIndexFooterFile_JTextField.setText ( DatasetIndexFooterFile );
         }
-        if ( CssUrl != null ) {
-            __CssUrl_JTextField.setText ( CssUrl );
-        }
+		if ( JGUIUtil.isSimpleJComboBoxItem(__UploadDatasetFiles_JComboBox, UploadDatasetFiles,JGUIUtil.NONE, null, null ) ) {
+			__UploadDatasetFiles_JComboBox.select ( UploadDatasetFiles );
+		}
+		else {
+            if ( (UploadDatasetFiles == null) ||	UploadDatasetFiles.equals("") ) {
+				// New command...select the default.
+				__UploadDatasetFiles_JComboBox.select ( 0 );
+			}
+			else {
+				// Bad user command.
+				Message.printWarning ( 1, routine,
+				"Existing command references an invalid\n"+
+				"UploadDatasetFiles parameter \"" + UploadDatasetFiles + "\".  Select a value or Cancel." );
+			}
+		}
         if ( OutputTableID == null ) {
             // Select default.
             __OutputTableID_JComboBox.select ( 0 );
@@ -1309,21 +1343,6 @@ private void refresh ()
 				"KeepFiles parameter \"" + KeepFiles + "\".  Select a value or Cancel." );
 			}
 		}
-		if ( JGUIUtil.isSimpleJComboBoxItem(__UploadFiles_JComboBox, UploadFiles,JGUIUtil.NONE, null, null ) ) {
-			__UploadFiles_JComboBox.select ( UploadFiles );
-		}
-		else {
-            if ( (UploadFiles == null) ||	UploadFiles.equals("") ) {
-				// New command...select the default.
-				__UploadFiles_JComboBox.select ( 0 );
-			}
-			else {
-				// Bad user command.
-				Message.printWarning ( 1, routine,
-				"Existing command references an invalid\n"+
-				"UploadFiles parameter \"" + UploadFiles + "\".  Select a value or Cancel." );
-			}
-		}
 		if ( JGUIUtil.isSimpleJComboBoxItem(__IfInputNotFound_JComboBox, IfInputNotFound,JGUIUtil.NONE, null, null ) ) {
 			__IfInputNotFound_JComboBox.select ( IfInputNotFound );
 		}
@@ -1356,15 +1375,15 @@ private void refresh ()
 	StartingPrefix = __StartingPrefix_JTextField.getText().trim();
 	CatalogFile = __CatalogFile_JTextField.getText().trim();
 	CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
+	UploadCatalogFiles = __UploadCatalogFiles_JComboBox.getSelected();
 	DistributionId = __DistributionId_JTextField.getText().trim();
 	DatasetIndexFile = __DatasetIndexFile_JTextField.getText().trim();
 	DatasetIndexHeadFile = __DatasetIndexHeadFile_JTextField.getText().trim();
 	DatasetIndexBodyFile = __DatasetIndexBodyFile_JTextField.getText().trim();
 	DatasetIndexFooterFile = __DatasetIndexFooterFile_JTextField.getText().trim();
-	CssUrl = __CssUrl_JTextField.getText().trim();
+	UploadDatasetFiles = __UploadDatasetFiles_JComboBox.getSelected();
 	OutputTableID = __OutputTableID_JComboBox.getSelected();
 	KeepFiles = __KeepFiles_JComboBox.getSelected();
-	UploadFiles = __UploadFiles_JComboBox.getSelected();
 	IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
 	PropList props = new PropList ( __command.getCommandName() );
 	props.add ( "Profile=" + Profile );
@@ -1373,15 +1392,15 @@ private void refresh ()
 	props.add ( "StartingPrefix=" + StartingPrefix );
 	props.add ( "CatalogFile=" + CatalogFile );
 	props.add ( "CatalogIndexFile=" + CatalogIndexFile );
+	props.add ( "UploadCatalogFiles=" + UploadCatalogFiles );
 	props.add ( "DistributionId=" + DistributionId );
 	props.add ( "DatasetIndexFile=" + DatasetIndexFile );
 	props.add ( "DatasetIndexHeadFile=" + DatasetIndexHeadFile );
 	props.add ( "DatasetIndexBodyFile=" + DatasetIndexBodyFile );
 	props.add ( "DatasetIndexFooterFile=" + DatasetIndexFooterFile );
-	props.add ( "CssUrl=" + CssUrl );
+	props.add ( "UploadDatasetFiles=" + UploadDatasetFiles );
 	props.add ( "OutputTableID=" + OutputTableID );
 	props.add ( "KeepFiles=" + KeepFiles );
-	props.add ( "UploadFiles=" + UploadFiles );
 	props.add ( "IfInputNotFound=" + IfInputNotFound );
 	__command_JTextArea.setText( __command.toString(props) );
 	// Check the path and determine what the label on the path button should be.
