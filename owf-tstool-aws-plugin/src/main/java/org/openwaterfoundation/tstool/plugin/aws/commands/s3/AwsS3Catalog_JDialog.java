@@ -716,7 +716,7 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
     JGUIUtil.addComponent(catalog_JPanel, new JLabel ( "Starting prefix:"),
         0, ++yCatalog, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __StartingPrefix_JTextField = new JTextField ( "", 30 );
-    __StartingPrefix_JTextField.setToolTipText("Starting prefix (directory) to search for datasets, no / at start, ending with /.");
+    __StartingPrefix_JTextField.setToolTipText("Starting prefix (directory) to search for datasets, no / at start, ending with /");
     __StartingPrefix_JTextField.addKeyListener ( this );
     JGUIUtil.addComponent(catalog_JPanel, __StartingPrefix_JTextField,
         1, yCatalog, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
