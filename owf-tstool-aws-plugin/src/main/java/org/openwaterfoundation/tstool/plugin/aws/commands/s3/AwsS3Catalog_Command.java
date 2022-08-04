@@ -80,6 +80,7 @@ import RTi.Util.Table.DataTable;
 import RTi.Util.Table.TableField;
 import RTi.Util.Table.TableRecord;
 import RTi.Util.Time.DateTime;
+import RTi.Util.Time.TimeUtil;
 
 /**
 This class initializes, checks, and runs the AwsS3Catalog() command.
@@ -290,6 +291,9 @@ private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDat
     		html.write(IOUtil.fileToStringBuilder(datasetIndexBodyFile).toString());
     		html.comment("End inserting file: " + datasetIndexBodyFile);
     	}
+    	// Use a <div> around all the displayed body content:
+    	// - the class matches the CSS file
+    	html.write("<div class=\"dataset-content-container\">");
     	html.header(1, "Dataset: " + dataset.getTitle());
     	
     	// The image is optional.
@@ -453,6 +457,7 @@ private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDat
     		html.write(renderer.render(document));
     	}
 
+    	html.write("</div>"); // class=\"dataset-content-container\">);
 		html.bodyEnd();
     	if ( datasetIndexFooterFile != null ) {
     		// Insert the footer content.
@@ -1134,13 +1139,14 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
    	    				if ( doIndex ) {
     	    				// Want to create the dataset index file.
     	    				if ( DatasetIndexFile.equalsIgnoreCase("Temp") ) {
-    	    					// Use a temporary file.
+    	    					// Use a temporary file similar to the dataset.json path, which was previously determined in the temporary folder.
     	    					//datasetIndexFile = IOUtil.tempFileName() + "-index.html";
     	    					// Create as the same name as the dataset.json file but use index.html
     	    					//datasetIndexFile = datasetLocalInfo.getLocalPath().replace("dataset.json","index.html");
     	    					datasetIndexFile = dataset.getLocalPath().replace("dataset.json","index.html");
     	    				}
     	    				else {
+    	    					// Use the given filename, which can be easier to troubleshoot.
     	    					datasetIndexFile = IOUtil.verifyPathForOS(
     	    						IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
 	            						TSCommandProcessorUtil.expandParameterValue(processor,this,DatasetIndexFile)));
@@ -1253,9 +1259,42 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
         	// Invalidate the distribution:
         	// - use the aws-global region because that seems to be where distributions live
         	
+        	// Adjust the initial invalidation list to make sure that sufficient variations are handled:
+        	// - otherwise, 'folder', 'folder/', and 'folder/index.html' URL requests may not all be up to date
+        	List<String> invalidationPathList2 = new ArrayList<>();
+        	List<String> invalidationPathList3 = new ArrayList<>();
+        	List<String> invalidationPathList4 = new ArrayList<>();
+        	for ( String path : invalidationPathList ) {
+        		// If an index.html file, also invalidate the folder with and without slash.
+       			if ( path.endsWith("/index.html") ) {
+       				// This may invalidate more files than just the index but ensures that all variations of the index URL
+       				// are invalidated and the cost for invalidations does not depend on the number of files.
+       				// CloudFront complains if the invalidations overlap (even though these seem distinct),
+       				// so handle with separate invalidation calls.
+       				invalidationPathList2.add(path);
+       				invalidationPathList3.add(path.replace("/index.html", "/"));
+       				invalidationPathList4.add(path.replace("/index.html", ""));
+       			}
+       			else {
+       				invalidationPathList2.add(path);
+        		}
+        	}
+        	// Use the current time to help ensure a unique caller reference.
+        	DateTime dt = new DateTime ( DateTime.DATE_CURRENT);
+		    String callerReference = "AwsS3Catalog-" + TimeUtil.formatDateTime(dt, "%Y-%m-%dT%H:%M:%S");
         	AwsToolkit.getInstance().invalidateCloudFrontDistribution(awsSession, cloudFrontRegion,
-        		distributionId, invalidationPathList,
-        		"AwsS3Catalog");
+        		distributionId, invalidationPathList2,
+        		callerReference);
+        	if ( invalidationPathList3.size() > 0 ) {
+        		AwsToolkit.getInstance().invalidateCloudFrontDistribution(awsSession, cloudFrontRegion,
+        			distributionId, invalidationPathList3,
+        			callerReference + "-2");
+        	}
+        	if ( invalidationPathList4.size() > 0 ) {
+        		AwsToolkit.getInstance().invalidateCloudFrontDistribution(awsSession, cloudFrontRegion,
+        			distributionId, invalidationPathList4,
+        			callerReference + "-3");
+        	}
   	    }
         else {
         	Message.printStatus(2, routine, "Not invalidating files, doUpload=" + doUploadDataset +
@@ -1511,12 +1550,15 @@ This was copied from the TSHtmlFormatter since tables are used with time series 
 */
 private void writeHtmlStyles(HTMLWriter html, String cssUrl, String customStyleText )
 throws Exception {
- 	html.comment("Start inserting dataset landing page css.");
+	// For now disable the in-lined styles since the overall website should control.
+	boolean doInline = false;
 	if ( (cssUrl != null) && !cssUrl.isEmpty() ) {
 		// Use the CSS provided in a URL, typically shared across a website.
+		html.comment("Start inserting dataset landing page css.");
 		html.write("<link rel=\"stylesheet\" type=\"text/css\" href=\"" + cssUrl + "\">\n");
+		html.comment("End inserting dataset landing page css.");
 	}
-	else {
+	else if ( doInline ){
 		// Add build-in CSS.
 		html.write("<style>\n"
         + "@media screen {\n"
@@ -1648,7 +1690,6 @@ throws Exception {
             "}\n"  // End print media.
             + "</style>\n");
 	}
- 	html.comment("End inserting dataset landing page css.");
 }
 
 }

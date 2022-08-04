@@ -421,6 +421,11 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 		DateTime dt = new DateTime ( DateTime.DATE_CURRENT);
 		callerReference = System.getProperty("user.name") + "-" + TimeUtil.formatDateTime(dt, "%Y-%m-%dT%H:%M:%S");
 	}
+	else {
+		// Append current time to ensure uniqueness.
+		DateTime dt = new DateTime ( DateTime.DATE_CURRENT);
+		callerReference = CallerReference + "-" + TimeUtil.formatDateTime(dt, "%Y-%m-%dT%H:%M:%S");
+	}
 	String WaitForCompletion = parameters.getValue ( "WaitForCompletion" );
 	boolean waitForCompletion = true;
 	if ( (WaitForCompletion != null) && WaitForCompletion.equalsIgnoreCase("false") ) {
