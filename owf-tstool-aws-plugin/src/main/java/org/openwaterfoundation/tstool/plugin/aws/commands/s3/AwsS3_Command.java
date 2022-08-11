@@ -509,13 +509,56 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
         for ( String pair : pairs ) {
             String [] parts = pair.split(":");
             if ( parts.length == 2 ) {
-            	uploadFilesOrig.add(parts[0].trim());
-            	// Convert the command parameter file to absolute path.
-			   	String localFileFull = IOUtil.verifyPathForOS(
-			      	IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
-			        	TSCommandProcessorUtil.expandParameterValue(processor,this,parts[0].trim())));
-               	uploadFilesFiles.add(localFileFull);
-               	uploadFilesKeys.add(parts[1].trim());
+            	String localFile = parts[0].trim();
+            	String remoteFile = parts[1].trim();
+            	if ( localFile.indexOf("*") >= 0 ) {
+            		if ( !remoteFile.endsWith("/*") ) {
+            			// Remote file must end with /* so that local file can also be used on S3
+            			message = "Local file uses * wildcard but bucket key does not end in /* - skipping.";
+			        	Message.printWarning(warning_level,
+				    		MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
+			        	status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.FAILURE,
+				    		message, "Specify the bucket key with /* at the end." ) );
+			        	continue;
+            		}
+            		// Local file has a wildcard so need to expand to matching files and then process each.
+			   		String localFileFull = IOUtil.verifyPathForOS(
+			      		IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
+			        		TSCommandProcessorUtil.expandParameterValue(processor,this,parts[0].trim())));
+            		List<File> localPathList = null;
+            		try {
+            			Message.printStatus(2,routine,"Getting local file list using wildcard:" + localFileFull );
+            			// The following method requires forward slashes.
+            			localPathList = IOUtil.getFilesMatchingPattern("glob:" + localFileFull.replace("\\", "/"));
+            			for ( File localPath : localPathList ) {
+            				String remoteFile2 = remoteFile.replace("*", localPath.getName());
+            				uploadFilesOrig.add(localFile);
+            				uploadFilesFiles.add(localPath.getAbsolutePath());
+            				uploadFilesKeys.add(remoteFile2);
+            				if ( Message.isDebugOn ) {
+            					Message.printStatus(2, routine, "Local file from wildcard: " + localPath.getAbsolutePath() );
+            					Message.printStatus(2, routine, "             Remote file: " + remoteFile2 );
+            				}
+            			}
+            		}
+            		catch ( Exception e ) {
+            			message = "Error getting list of local files for \"" + localFileFull + "\" (" + e + ").";
+			        	Message.printWarning(warning_level,
+				    		MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
+			        	status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.FAILURE,
+				    		message, "Report problem to software support." ) );
+            		}
+            	}
+            	else {
+            		// Simple file with no wildcard.
+            		uploadFilesOrig.add(localFile);
+            		// Convert the command parameter file to absolute path.
+			   		String localFileFull = IOUtil.verifyPathForOS(
+			      		IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
+			        		TSCommandProcessorUtil.expandParameterValue(processor,this,parts[0].trim())));
+               		uploadFilesFiles.add(localFileFull);
+               		uploadFilesKeys.add(remoteFile);
+            	}
             }
         }
     }

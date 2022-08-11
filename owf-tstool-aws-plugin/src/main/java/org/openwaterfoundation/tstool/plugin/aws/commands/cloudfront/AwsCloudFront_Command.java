@@ -38,7 +38,6 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudfront.CloudFrontClient;
 import software.amazon.awssdk.services.cloudfront.model.CloudFrontException;
 import software.amazon.awssdk.services.cloudfront.model.CreateInvalidationRequest;
-import software.amazon.awssdk.services.cloudfront.model.CreateInvalidationResponse;
 import software.amazon.awssdk.services.cloudfront.model.DistributionSummary;
 import software.amazon.awssdk.services.cloudfront.model.InvalidationBatch;
 import software.amazon.awssdk.services.cloudfront.model.InvalidationSummary;
@@ -639,25 +638,15 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
    	        			.distributionId(distributionId)
    	        			.invalidationBatch(batch)
    	        			.build();
-   	        		CreateInvalidationResponse response = cloudfront.createInvalidation(request);
+   	        		//CreateInvalidationResponse response =
+   	        		cloudfront.createInvalidation(request);
    	        	}
    	        	// If wait for completion is true, wait until the invalidation is complete:
-   	        	// - TODO smalers 2022-06-06 does this happen automatically?
-   	        	int maxTries = 3600;
-   	        	int tryCount = 0;
+   	        	// - wait up to 3600 seconds (720 x 5 seconds)
+   	        	int waitTimeout = 3600*1000;
+   	        	int waitMs = 5000;
    	        	if ( waitForCompletion ) {
-   	        		while ( tryCount <= maxTries ) {
-   	        			++tryCount;
-   	        			// Get the current invalidations.
-   	        			List<InvalidationSummary> invalidations = AwsToolkit.getInstance().getCloudFrontInvalidations(awsSession, region);
-   	        			if ( invalidations.size() == 0 ) {
-   	        				// No more invalidations on the distribution:
-   	        				// - TODO smalers 2022-06-06 evaluate whether to check caller reference
-   	        				break;
-   	        			}
-   	        			// Wait 5 seconds to allow invalidation to complete.
-   	        			TimeUtil.sleep(5000);
-   	        		}
+       				AwsToolkit.getInstance().waitForCloudFrontInvalidations(awsSession, region, distributionId, waitMs, waitTimeout);
    	        	}
    	        }
    	        else if ( cloudfrontCommand == AwsCloudFrontCommandType.LIST_DISTRIBUTIONS ) {
@@ -706,16 +695,28 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
    	        	// List invalidations:
    	        	// - useful for troubleshooting
     			// Output to table and/or file, as requested.
+   	        	String distributionId = AwsToolkit.getInstance().getCloudFrontDistributionId(awsSession, region, DistributionID, commentPattern);
+   	        	boolean doList = true;
+   	        	if ( distributionId == null ) {
+	    			message = "Unable to determine CloudFront distribution ID for invalidation.";
+	    			Message.printWarning(warning_level,
+	    				MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
+	    			status.addToLog ( commandPhase,
+	    				new CommandLogRecord(CommandStatusType.FAILURE,
+	    					message, "Verify that the distribution ID is valid for the region." ) );
+	    			doList = false;
+   	        	}
     	    	// TODO smalers 2022-05-31 for now use UTC time.
     	    	String timezone = "Z";
     	    	ZoneId zoneId = ZoneId.of("Z");
     	    	int behaviorFlag = 0;
-   	        	List<InvalidationSummary> invalidations = AwsToolkit.getInstance().getCloudFrontInvalidations(awsSession, region);
+   	        	List<InvalidationSummary> invalidations = AwsToolkit.getInstance().getCloudFrontInvalidations(awsSession, region, distributionId );
    	        	Message.printStatus(2, routine, "Have " + invalidations.size() + " invalidations.");
    	        	if ( table == null ) {
    	        		Message.printStatus(2, routine, "The table is null - not creating list of invalidations.");
+	    			doList = false;
    	        	}
-   	        	else {
+   	        	if ( doList ) {
    					boolean allowDuplicates = false;
     				for ( InvalidationSummary invalidation : invalidations ) {
     					TableRecord rec = null;

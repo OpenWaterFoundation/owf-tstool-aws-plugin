@@ -24,7 +24,7 @@ checkInput() {
 # - sets the variable operatingSystemShort to 'cyg', 'lin', or 'min' (Git Bash)
 checkOperatingSystem() {
   if [ ! -z "${operatingSystem}" ]; then
-    # Have already checked operating system so return
+    # Have already checked operating system so return.
     return
   fi
   operatingSystem="unknown"
@@ -236,7 +236,7 @@ printVersion() {
 setAwsExe () {
   awsExe=""
   if [ -z "${operatingSystem}" ]; then
-    logError "The opererating system is unknown.  Cannot determine 'aws' program.  Exiting."
+    logError "The operating system is unknown.  Cannot determine 'aws' program.  Exiting."
     exit 1
   elif [ "${operatingSystem}" = "cygwin" -o "${operatingSystem}" = "linux" ]; then
     # aws is in a standard location such as /usr/bin/aws and is found via the PATH.
@@ -253,7 +253,7 @@ setAwsExe () {
   fi
   # Make sure that the command is found.
   if [ -z "${awsExe}" ]; then
-    logError "The opererating system is unknown.  Cannot determine 'aws' program.  Exiting."
+    logError "The operating system is unknown.  Cannot determine 'aws' program.  Exiting."
   elif ! command -v "${awsExe}"; then
     logError "Could not find 'aws' program: ${awsExe}"
     exit 1
@@ -264,7 +264,7 @@ setAwsExe () {
 }
 
 # Update the Amazon S3 index that lists files for download:
-# - this calls the create-s3-index.bash script
+# - this calls the 3-create-s3-index.bash script
 updateIndex() {
   local answer
   echo ""
@@ -273,10 +273,10 @@ updateIndex() {
     # TODO smalers 2020-04-06 comment out for now.
     if [ -z "${awsProfile}" ]; then
       # No AWS profile given so rely on default.
-      ${scriptFolder}/create-s3-index.bash
+      ${scriptFolder}/3-create-s3-index.bash
     else
       # AWS profile given so use it.
-      ${scriptFolder}/create-s3-index.bash --aws-profile=${awsProfile}
+      ${scriptFolder}/3-create-s3-index.bash --aws-profile=${awsProfile}
     fi
   fi
 }
@@ -429,7 +429,7 @@ uploadInstaller
 if [ "${installerUploadCount}" -eq 0 ]; then
   logInfo ""
   logInfo "No installers were uploaded - not updating the catalog."
-  logInfo "Run create-s3-index.bash separately if necessary."
+  logInfo "Run 3-create-s3-index.bash separately if necessary."
 else
   # Update the index for the installer
   updateIndex
