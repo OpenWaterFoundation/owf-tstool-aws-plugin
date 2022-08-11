@@ -258,7 +258,7 @@ throws InvalidCommandParameterException
 private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDataset,
 	String datasetIndexFile, String datasetIndexHeadFile, String datasetIndexBodyFile, String datasetIndexFooterFile,
 	boolean uploadDatasetFiles ) {
-	String routine = getClass().getSimpleName() + "createDatasetIndexFile";
+	String routine = getClass().getSimpleName() + ".createDatasetIndexFile";
 	Message.printStatus(2, routine, "Creating file \"" + datasetIndexFile +
 		"\" for dataset identifier \"" + dataset.getIdentifier() + "\".");
 	PrintWriter fout = null;
@@ -287,9 +287,10 @@ private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDat
     	html.bodyStart();
     	if ( datasetIndexBodyFile != null ) {
     		// Insert the header content.
+    		Message.printStatus(2,routine, "Insert file into <body>: " + datasetIndexBodyFile);
     		html.comment("Start inserting file: " + datasetIndexBodyFile);
     		html.write(IOUtil.fileToStringBuilder(datasetIndexBodyFile).toString());
-    		html.comment("End inserting file: " + datasetIndexBodyFile);
+    		html.comment("End inserting file into <body>: " + datasetIndexBodyFile);
     	}
     	// Use a <div> around all the displayed body content:
     	// - the class matches the CSS file
@@ -327,7 +328,7 @@ private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDat
     	// Add a 'div' with flex layout for the side-by-side image and tables.
     	// Always have a place for the image:
     	// - if an image does not exist, add placeholder text
-    	html.write("\n<div class=\"image-and-property-container\">\n");
+    	html.write("\n<div class=\"dataset-image-and-property-container\">\n");
     	
     	if ( doImage ) {
    			html.write("    <img src=\"" + imageFile + "\" alt=\"dataset.png\" border=\"0\" class=\"dataset-image\">\n");
@@ -400,7 +401,8 @@ private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDat
    	    html.write("</tr>");
     	html.tableEnd();
     	
-    	html.write("  </div>\n</div>\n");
+    	html.write("\n  </div> <!-- dataset-property-table-container -->\n");
+    	html.write("  </div> <!-- dataset-image-and-property-container -->\n");
     	
     	// Add the "Dataset Publisher" section.
 
@@ -454,13 +456,19 @@ private void createDatasetIndexFile ( DcatDataset dataset, DcatDataset parentDat
     			.build();
 
     		// Add the HTML from Markdown to the index.
+    		Message.printStatus(2,routine,"Insert markdown file into dataset details: " + markdownFile);
+    		if ( Message.isDebugOn ) {
+    			Message.printStatus(2,routine,"Markdown to insert: " + b.toString());
+    			Message.printStatus(2,routine,"Inserting: " + renderer.render(document));
+    		}
     		html.write(renderer.render(document));
     	}
 
-    	html.write("</div>"); // class=\"dataset-content-container\">);
+    	html.write("\n</div> <!-- class=\"dataset-content-container\" -->\n");
 		html.bodyEnd();
     	if ( datasetIndexFooterFile != null ) {
     		// Insert the footer content.
+    		Message.printStatus(2,routine,"Insert file into <footer>: " + datasetIndexFooterFile);
     		html.comment("Start inserting file: " + datasetIndexFooterFile);
     		html.write(IOUtil.fileToStringBuilder(datasetIndexFooterFile).toString());
     		html.comment("End inserting file: " + datasetIndexFooterFile);
@@ -1295,6 +1303,14 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
         			distributionId, invalidationPathList4,
         			callerReference + "-3");
         	}
+        	boolean waitForCompletion = true;
+        	// If wait for completion is true, wait until the invalidation is complete:
+        	// - wait up to 3600 seconds (720 x 5 seconds)
+        	int waitTimeout = 3600*1000;
+        	int waitMs = 5000;
+        	if ( waitForCompletion ) {
+   				AwsToolkit.getInstance().waitForCloudFrontInvalidations(awsSession, region, distributionId, waitMs, waitTimeout);
+        	}
   	    }
         else {
         	Message.printStatus(2, routine, "Not invalidating files, doUpload=" + doUploadDataset +
@@ -1522,17 +1538,19 @@ private int uploadDatasetIndexFile ( S3TransferManager tm, String bucket,
 }
 
 /**
-Writes the start tags for the HTML indext file.
+Writes the start tags for the HTML index file.
 @param html HTMLWriter object.
 @param title title for the document.
 @throws Exception
 */
 private void writeHtmlHead( HTMLWriter html, String title, String cssUrl, String customStyleText, String datasetIndexHeadFile ) throws Exception {
+	String routine = getClass().getSimpleName() + ".writeHtmlHead";
     if ( html != null ) {
         html.headStart();
         html.title(title);
     	if ( datasetIndexHeadFile != null ) {
     		// Insert the header content.
+    		Message.printStatus(2,routine, "Insert file into <head>: " + datasetIndexHeadFile);
     		html.comment("Start inserting file: " + datasetIndexHeadFile);
     		html.write(IOUtil.fileToStringBuilder(datasetIndexHeadFile).toString());
     		html.comment("End inserting file: " + datasetIndexHeadFile);

@@ -513,7 +513,9 @@ uploadIndexFiles() {
   fi
   logInfo "Invalidating files so that CloudFront will make new files available..."
   # TODO smalers 2022-06-08 for some reason index.html does not work so have to use index.html*
+  #${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/index.html*" "/tstool-aws-plugin/" "/tstool-aws-plugin" --profile "${awsProfile}"
   ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/index.html*" --profile "${awsProfile}"
+  #${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin" --profile "${awsProfile}"
   errorCode=$?
   if [ ${errorCode} -ne 0 ]; then
     logError " "

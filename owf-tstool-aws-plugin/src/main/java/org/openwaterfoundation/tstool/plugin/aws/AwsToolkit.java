@@ -154,12 +154,13 @@ public class AwsToolkit {
 	}
 
 	/**
- 	 * Get the list of CloudFront invalidations.
+ 	 * Get the list of CloudFront invalidations with status=InProgress.
  	 * @param awsSession the AWS session, containing profile
  	 * @param region the AWS region
+ 	 * @param distribtionId CloudFront distribution ID to list invalidations
  	 * @return a list of InvalidationSummary or an empty list if no invalidations
  	 */
-	public List<InvalidationSummary> getCloudFrontInvalidations ( AwsSession awsSession, String region ) {
+	public List<InvalidationSummary> getCloudFrontInvalidations ( AwsSession awsSession, String region, String distributionId ) {
 		ProfileCredentialsProvider credentialsProvider = null;
 		String profile = awsSession.getProfile();
 		// If the region is not specified, use the default.
@@ -173,9 +174,23 @@ public class AwsToolkit {
 				.region(regionObject)
 				.credentialsProvider(credentialsProvider)
 				.build();
-    		ListInvalidationsRequest request = ListInvalidationsRequest.builder().build();
+    		ListInvalidationsRequest request = ListInvalidationsRequest
+    			.builder()
+       			.distributionId(distributionId)
+    			.build();
+    		// The following lists all invalidations:
+    		// - most recent is first in the list
+    		// - 100 default list size
+    		// - status will be either "InProgress" or "Completed"
     		ListInvalidationsResponse response = cloudfront.listInvalidations(request);
-    		return response.invalidationList().items();
+    		// Only return invalidations that are not complete.
+    		List<InvalidationSummary> activeList = new ArrayList<>();
+			for ( InvalidationSummary summary : response.invalidationList().items() ) {
+				if ( summary.status().equals("InProgress") ) {
+					activeList.add(summary);
+				}
+			}
+    		return activeList;
 		}
 		catch ( Exception e ) {
 			// Log the error and return an empty list:
@@ -416,7 +431,7 @@ public class AwsToolkit {
        		while ( tryCount <= maxTries ) {
        			++tryCount;
        			// Get the current invalidations.
-       			List<InvalidationSummary> invalidations = getCloudFrontInvalidations(awsSession, regionO.id());
+       			List<InvalidationSummary> invalidations = getCloudFrontInvalidations(awsSession, regionO.id(), distributionId);
        			if ( invalidations.size() == 0 ) {
        				// No more invalidations on the distribution:
        				// - TODO smalers 2022-06-06 evaluate whether to check caller reference
@@ -455,6 +470,43 @@ public class AwsToolkit {
    	    	.uploadFile(d -> d.putObjectRequest(g -> g.bucket(bucket).key(uploadKeyFinal))
     		.source(Paths.get(localFileFinal)));
     	upload.completionFuture().join();
+    }
+
+	/**
+	 * Wait for invalidations that are in progress on a CloudFront distribution to complete.
+ 	 * @param awsSession the AWS session, containing profile
+ 	 * @param region the AWS region
+ 	 * @param distribtionId CloudFront distribution ID to list invalidations
+ 	 * @param waitMs the number of milliseconds to wait between invalidation checks
+ 	 * @param waitTimeout the number of milliseconds total to wait on invalidation checks
+ 	 * @param return true if invalidations completed, false if the timeout was reached
+	 */
+    public boolean waitForCloudFrontInvalidations(AwsSession awsSession, String region, String distributionId, int waitMs, int waitTimeout) {
+    	String routine = getClass().getSimpleName() + "waitForCloudFrontInvalidations";
+    	int waitTotal = -waitMs;
+   		while ( waitTotal < waitTotal ) {
+   			waitTotal += waitMs;
+   			// Get the current invalidations.
+   			List<InvalidationSummary> invalidations =
+   				AwsToolkit.getInstance().getCloudFrontInvalidations(awsSession, region, distributionId);
+   			if ( invalidations.size() == 0 ) {
+   				// No more invalidations on the distribution:
+   				// - TODO smalers 2022-06-06 evaluate whether to check caller reference
+				Message.printStatus(2, routine,
+					"Invalidation(s) have completed after after " + waitTotal + " ms (" + waitTotal/1000 + " seconds).");
+   				return true;
+   			}
+   			else {
+   				// Wait 5 seconds to allow invalidation to complete.
+   				for ( InvalidationSummary summary : invalidations ) {
+   					Message.printStatus(2, routine, "Invalidation status=" + summary.status() + " " + summary.createTime());
+   				}
+   				Message.printStatus(2, routine, "Have " + invalidations.size() +
+   					" invalidations.  Waiting " + waitMs + " ms for invalidations to complete.");
+      				TimeUtil.sleep(waitMs);
+       		}
+       	}
+   		return false;
     }
 	
 }

@@ -462,7 +462,7 @@ paths to files should be absolute and begin with `/`, for example `/css`, `/js`,
 
 See the `dataset-details.md` file for how to insert dataset information as Markdown,
 which allows providing content for a specific dataset,
-whereas teh `<body>` insert is for all generated dataset landing pages.
+whereas the `<body>` insert is for all generated dataset landing pages.
 
 #### Insert for `<footer>` ####
 
@@ -491,9 +491,67 @@ temporary files are used prior to uploading output files to S3.
 
 #### Dataset `index.html` Landing Page ####
 
-This file is created in the same folder as the `dataset.json` input file
+This file is created in the same S3 bucket folder as the `dataset.json` input file
 and serves as the landing page for the dataset.
-This command will upload the file to S3.
+This command will upload the file to S3 and invalidate the file if CloudFront information is specified.
+
+The created `index.html` file depends on several CSS class styles being defined,
+typically in a CSS file that is referenced using a `<script>` element in the
+[body insert](#insert-for-body).
+The following is an example of CSS file contents.
+CSS files are often cached by the web browser so the CSS filename should include a version
+that is changed when the file contents are changed.
+
+```
+  /* The dataset image and property table layout is assumed to be as follows,
+   * which relies on CSS for classes.
+   *
+   * <div class="dataset-content-container">
+   *   <div class="dataset-image-and-property-container">
+   *   |-----------------------------|      <div class="dataset-property-table-container>
+   *   | <img class="dataset-image"> |      |----------------------------------------|
+   *   |                             |      | Dataset properties table               |
+   *   | Dataset                     |      | <table class="dataset-property-table"> |
+   *   | image                       |      |----------+-----------------------------|
+   *   |                             |      | Name     |   Value                     |
+   *   |                             |      | Name     |   Value                     |
+   *   |-----------------------------|      |----------+-----------------------------|</div> <!-- dataset-property-table-container -->
+   *   </div> <!-- dataset-image-and-property-container -->
+   * </div> <!-- dataset-content-container -->
+   */
+
+  /* Used with the <div> for the dataset description. */
+  .dataset-content-container {
+    margin: 100px 10px 0px 10px;
+  }
+
+  /* Used with the <div> for the dataset image and properties table. */
+  .dataset-image-and-property-container {
+    display: flex;
+    margin: 0px 25px;
+  }
+
+  /* Used with <img> for the dataset image. */
+  .dataset-image {
+    height: 100%;
+    width: 33%;
+  }
+
+  /* Used with the <div> for the for the dataset properties. */
+  .dataset-property-table-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    width: 66%;
+    overflow: auto;
+  }
+
+  /* Used with the <table> for the dataset properties. */
+  .dataset-property-table {
+    width: 100%;
+    margin: 0px 50px;
+  }
+```
 
 #### Datasets `index.html` Landing Page ####
 
@@ -582,7 +640,7 @@ See the [automated tests](https://github.com/OpenWaterFoundation/owf-tstool-aws-
 Automated tests require AWS permissions to run.
 
 See the [TSTool workflow](https://github.com/OpenWaterFoundation/owf-data-us-continental-divide/blob/master/workflow/upload-dataset-to-s3.tstool)
-used to create the national divide dataset.
+used to upload the continental divide dataset to S3 and create its landing page.
 
 ## Troubleshooting ##
 

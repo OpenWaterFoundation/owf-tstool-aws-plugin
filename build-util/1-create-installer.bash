@@ -191,7 +191,7 @@ zipFile="${distFolder}/tstool-aws-plugin-${pluginVersion}-win-${now}.zip"
 
 # Create the local plugin files to make sure they are current.
 echoStderr "Creating the jar file with current development files..."
-${scriptFolder}/create-plugin-jar.bash
+${scriptFolder}/0-create-plugin-jar.bash
 if [ $? -ne 0 ]; then
   echoStderr "[ERROR] Error creating plugin jar file."
   exit 1

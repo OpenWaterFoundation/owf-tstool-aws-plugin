@@ -278,7 +278,8 @@ public void actionPerformed( ActionEvent event )
             "The local file is relative to the working folder:",
             "  " + this.__working_dir,
             "Specify the bucket object key (S3 file path) to upload a file.",
-            "Only files can be uploaded. Specify directories (folder) to upload with the 'UploadDirectories' command parameter.",
+            "Use * in the 'Local File' to match a pattern and * for the 'Bucket Key' to use the same name in the S3 bucket.",
+            "Only files can be uploaded with this parameter. Specify directories (folder) to upload with the 'UploadDirectories' command parameter.",
             "The key is the full path for the the bucket object.",
             "A leading / in the S3 key is optional (typically omit since relative to the bucket).",
             "${Property} notation can be used for all values to expand at run time."
