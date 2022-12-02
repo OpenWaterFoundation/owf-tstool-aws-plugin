@@ -100,8 +100,8 @@ private DataTable discoveryOutputTable = null;
 /**
 Constructor.
 */
-public AwsCloudFront_Command ()
-{	super();
+public AwsCloudFront_Command () {
+	super();
 	setCommandName ( "AwsCloudFront" );
 }
 
@@ -113,8 +113,8 @@ Check the command parameter for valid values, combination, etc.
 (recommended is 2 for initialization, and 1 for interactive command editor dialogs).
 */
 public void checkCommandParameters ( PropList parameters, String command_tag, int warning_level )
-throws InvalidCommandParameterException
-{	String CloudFrontCommand = parameters.getValue ( "CloudFrontCommand" );
+throws InvalidCommandParameterException {
+	String CloudFrontCommand = parameters.getValue ( "CloudFrontCommand" );
 	String Profile = parameters.getValue ( "Profile" );
 	String Region = parameters.getValue ( "Region" );
     String DistributionId = parameters.getValue ( "DistributionId" );
@@ -273,8 +273,8 @@ Edit the command.
 @param parent The parent JFrame to which the command dialog will belong.
 @return true if the command was edited (e.g., "OK" was pressed), and false if not (e.g., "Cancel" was pressed).
 */
-public boolean editCommand ( JFrame parent )
-{	// The command will be modified if changed.
+public boolean editCommand ( JFrame parent ) {
+	// The command will be modified if changed.
     List<String> tableIDChoices =
         TSCommandProcessorUtil.getTableIdentifiersFromCommandsBeforeCommand(
             (TSCommandProcessor)getCommandProcessor(), this);
@@ -304,8 +304,8 @@ Return a list of objects of the requested type.  This class only keeps a list of
 The following classes can be requested:  DataTable
 */
 @SuppressWarnings("unchecked")
-public <T> List<T> getObjectList ( Class<T> c )
-{   DataTable table = getDiscoveryTable();
+public <T> List<T> getObjectList ( Class<T> c ) {
+    DataTable table = getDiscoveryTable();
     List<T> v = null;
     if ( (table != null) && (c == table.getClass()) ) {
         v = new ArrayList<>();
@@ -352,8 +352,8 @@ Run the command.
 @exception InvalidCommandParameterException Thrown if parameter one or more parameter values are invalid.
 */
 private void runCommandInternal ( int command_number, CommandPhaseType commandPhase )
-throws InvalidCommandParameterException, CommandWarningException, CommandException
-{	String routine = getClass().getSimpleName() + ".runCommand", message;
+throws InvalidCommandParameterException, CommandWarningException, CommandException {
+	String routine = getClass().getSimpleName() + ".runCommand", message;
 	int warning_level = 2;
 	String command_tag = "" + command_number;
 	int warning_count = 0;
@@ -384,11 +384,31 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	if ( (Profile == null) || Profile.isEmpty() ) {
 		// Get the default.
 		profile = AwsToolkit.getInstance().getDefaultProfile();
+		if ( (profile == null) || profile.isEmpty() ) {
+			message = "The profile is not specified and unable to determine the default.";
+			Message.printWarning(warning_level,
+				MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
+			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.FAILURE,
+				message, "Make sure that the AWS configuration file exists with at least one profile: " +
+					AwsToolkit.getInstance().getAwsUserConfigFile() ) );
+		}
 	}
 	String CloudFrontCommand = parameters.getValue ( "CloudFrontCommand" );
 	AwsCloudFrontCommandType cloudfrontCommand = AwsCloudFrontCommandType.valueOfIgnoreCase(CloudFrontCommand);
 	String region = parameters.getValue ( "Region" );
 	region = TSCommandProcessorUtil.expandParameterValue(processor,this,region);
+	if ( (region == null) || region.isEmpty() ) {
+		// Get the default region.
+		region = AwsToolkit.getInstance().getDefaultRegion(profile);
+		if ( (region == null) || region.isEmpty() ) {
+			message = "The region is not specified and unable to determine the default.";
+			Message.printWarning(warning_level,
+				MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
+			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.FAILURE,
+				message, "Make sure that the AWS configuration file exists with default region: " +
+					AwsToolkit.getInstance().getAwsUserConfigFile() ) );
+		}
+	}
 	String DistributionID = parameters.getValue ( "DistributionID" );
 	DistributionID = TSCommandProcessorUtil.expandParameterValue(processor,this,DistributionID);
 	String Comment = parameters.getValue ( "Comment" );
@@ -815,8 +835,8 @@ private void setDiscoveryTable ( DataTable table ) {
 /**
 Return the string representation of the command.
 */
-public String toString ( PropList parameters )
-{	if ( parameters == null ) {
+public String toString ( PropList parameters ) {
+	if ( parameters == null ) {
 		return getCommandName() + "()";
 	}
 	String CloudFrontCommand = parameters.getValue("CloudFrontCommand");

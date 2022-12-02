@@ -108,8 +108,8 @@ private DataTable discoveryOutputTable = null;
 /**
 Constructor.
 */
-public AwsS3_Command ()
-{	super();
+public AwsS3_Command () {
+	super();
 	setCommandName ( "AwsS3" );
 }
 
@@ -121,8 +121,8 @@ Check the command parameter for valid values, combination, etc.
 (recommended is 2 for initialization, and 1 for interactive command editor dialogs).
 */
 public void checkCommandParameters ( PropList parameters, String command_tag, int warning_level )
-throws InvalidCommandParameterException
-{	String S3Command = parameters.getValue ( "S3Command" );
+throws InvalidCommandParameterException {
+	String S3Command = parameters.getValue ( "S3Command" );
 	String Profile = parameters.getValue ( "Profile" );
 	String Region = parameters.getValue ( "Region" );
     String Bucket = parameters.getValue ( "Bucket" );
@@ -214,6 +214,16 @@ throws InvalidCommandParameterException
 	}
 
 	// Additional checks specific to a command.
+	if ( s3Command != AwsS3CommandType.LIST_BUCKETS ) {
+		if ( (Bucket == null) || Bucket.isEmpty() ) {
+			message = "The bucket must be specified.";
+			warning += "\n" + message;
+			status.addToLog(CommandPhaseType.INITIALIZATION,
+				new CommandLogRecord(CommandStatusType.FAILURE,
+					message, "Specify the bucket."));
+		}
+	}
+
 	if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
 		if ( (Bucket == null) || Bucket.isEmpty() ) {
 			message = "The bucket must be specified.";
@@ -283,8 +293,8 @@ Edit the command.
 @param parent The parent JFrame to which the command dialog will belong.
 @return true if the command was edited (e.g., "OK" was pressed), and false if not (e.g., "Cancel" was pressed).
 */
-public boolean editCommand ( JFrame parent )
-{	// The command will be modified if changed.
+public boolean editCommand ( JFrame parent ) {
+	// The command will be modified if changed.
     List<String> tableIDChoices =
         TSCommandProcessorUtil.getTableIdentifiersFromCommandsBeforeCommand(
             (TSCommandProcessor)getCommandProcessor(), this);
@@ -314,8 +324,8 @@ Return a list of objects of the requested type.  This class only keeps a list of
 The following classes can be requested:  DataTable
 */
 @SuppressWarnings("unchecked")
-public <T> List<T> getObjectList ( Class<T> c )
-{   DataTable table = getDiscoveryTable();
+public <T> List<T> getObjectList ( Class<T> c ) {
+   DataTable table = getDiscoveryTable();
     List<T> v = null;
     if ( (table != null) && (c == table.getClass()) ) {
         v = new ArrayList<>();
@@ -339,7 +349,7 @@ command could produce some results).
 @exception CommandException Thrown if fatal warnings occur (the command could not produce output).
 */
 public void runCommand ( int command_number )
-throws InvalidCommandParameterException, CommandWarningException, CommandException {   
+throws InvalidCommandParameterException, CommandWarningException, CommandException {
     runCommandInternal ( command_number, CommandPhaseType.RUN );
 }
 
@@ -362,8 +372,8 @@ Run the command.
 @exception InvalidCommandParameterException Thrown if parameter one or more parameter values are invalid.
 */
 private void runCommandInternal ( int command_number, CommandPhaseType commandPhase )
-throws InvalidCommandParameterException, CommandWarningException, CommandException
-{	String routine = getClass().getSimpleName() + ".runCommand", message;
+throws InvalidCommandParameterException, CommandWarningException, CommandException {
+	String routine = getClass().getSimpleName() + ".runCommand", message;
 	int warning_level = 2;
 	String command_tag = "" + command_number;
 	int warning_count = 0;
@@ -395,11 +405,31 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	if ( (Profile == null) || Profile.isEmpty() ) {
 		// Get the default.
 		profile = AwsToolkit.getInstance().getDefaultProfile();
+		if ( (profile == null) || profile.isEmpty() ) {
+			message = "The profile is not specified and unable to determine the default.";
+			Message.printWarning(warning_level,
+				MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
+			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.FAILURE,
+				message, "Make sure that the AWS configuration file exists with at least one profile: " +
+					AwsToolkit.getInstance().getAwsUserConfigFile() ) );
+		}
 	}
 	String S3Command = parameters.getValue ( "S3Command" );
 	AwsS3CommandType s3Command = AwsS3CommandType.valueOfIgnoreCase(S3Command);
 	String region = parameters.getValue ( "Region" );
 	region = TSCommandProcessorUtil.expandParameterValue(processor,this,region);
+	if ( (region == null) || region.isEmpty() ) {
+		// Get the default region.
+		region = AwsToolkit.getInstance().getDefaultRegion(profile);
+		if ( (region == null) || region.isEmpty() ) {
+			message = "The region is not specified and unable to determine the default.";
+			Message.printWarning(warning_level,
+				MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
+			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.FAILURE,
+				message, "Make sure that the AWS configuration file exists with default region: " +
+					AwsToolkit.getInstance().getAwsUserConfigFile() ) );
+		}
+	}
 	// Bucket must be final because of lambda use below.
 	String bucket0 = parameters.getValue ( "Bucket" );
 	final String bucket = TSCommandProcessorUtil.expandParameterValue(processor,this,bucket0);
@@ -477,8 +507,8 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	UploadDirectories = TSCommandProcessorUtil.expandParameterValue(processor,this,UploadDirectories);
 	// Can't use a hashtable because sometimes upload the same directories to multiple S3 locations.
     List<String> uploadDirectoriesOrig = new ArrayList<>(); // For log messages.
-    List<String> uploadDirectoriesDirectories = new ArrayList<>();
-    List<String> uploadDirectoriesKeys = new ArrayList<>();
+    List<String> uploadDirectoriesDirectoryList = new ArrayList<>();
+    List<String> uploadDirectoriesKeyList = new ArrayList<>();
     if ( (UploadDirectories != null) && (UploadDirectories.length() > 0) && (UploadDirectories.indexOf(":") > 0) ) {
         // First break map pairs by comma.
         List<String>pairs = StringUtil.breakStringList(UploadDirectories, ",", 0 );
@@ -491,26 +521,47 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 			   	String localFolderFull = IOUtil.verifyPathForOS(
 			      	IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
 			        	TSCommandProcessorUtil.expandParameterValue(processor,this,parts[0].trim())));
-               	uploadDirectoriesDirectories.add(localFolderFull);
-               	uploadDirectoriesKeys.add(parts[1].trim());
+               	uploadDirectoriesDirectoryList.add(localFolderFull);
+               	uploadDirectoriesKeyList.add(parts[1].trim());
             }
         }
     }
     String UploadFiles = parameters.getValue ( "UploadFiles" );
+    // Expand the entire parameter string before parsing into pairs.
 	UploadFiles = TSCommandProcessorUtil.expandParameterValue(processor,this,UploadFiles);
 	// Can't use a hashtable because sometimes upload the same files to multiple S3 locations.
     List<String> uploadFilesOrig = new ArrayList<>(); // For log messages.
-    List<String> uploadFilesFiles = new ArrayList<>();
-    List<String> uploadFilesKeys = new ArrayList<>();
+    List<String> uploadFilesFileList = new ArrayList<>();
+    List<String> uploadFilesKeyList = new ArrayList<>();
     if ( (UploadFiles != null) && (UploadFiles.length() > 0) && (UploadFiles.indexOf(":") > 0) ) {
         // First break map pairs by comma.
         List<String>pairs = StringUtil.breakStringList(UploadFiles, ",", 0 );
         // Now break pairs and put in lists.
+        int fileCount = 0;
         for ( String pair : pairs ) {
+        	++fileCount;
             String [] parts = pair.split(":");
             if ( parts.length == 2 ) {
             	String localFile = parts[0].trim();
             	String remoteFile = parts[1].trim();
+            	if ( commandPhase == CommandPhaseType.RUN ) {
+            		if ( localFile.indexOf("${") >= 0 ) { // } to match bracket
+       			   		message = "Local file for file " + fileCount + " (" + localFile + ") contains ${ due to unknown property - skipping."; // } to match bracket
+	        	   		Message.printWarning(warning_level,
+		    		   		MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
+	        	   		status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.FAILURE,
+		    		   		message, "Confirm that the property is defined." ) );
+        		   		continue;
+        	   		}
+            		if ( remoteFile.indexOf("${") >= 0 ) { // } to match bracket
+       			   		message = "Remote file (object key) for file " + fileCount + " (" + remoteFile + ") contains ${ due to unknown property - skipping."; // } to match bracket
+	        	   		Message.printWarning(warning_level,
+		    		   		MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
+	        	   		status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.FAILURE,
+		    		   		message, "Confirm that the property is defined." ) );
+        		   		continue;
+        	   		}
+            	}
             	if ( localFile.indexOf("*") >= 0 ) {
             		if ( !remoteFile.endsWith("/*") ) {
             			// Remote file must end with /* so that local file can also be used on S3
@@ -533,8 +584,8 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
             			for ( File localPath : localPathList ) {
             				String remoteFile2 = remoteFile.replace("*", localPath.getName());
             				uploadFilesOrig.add(localFile);
-            				uploadFilesFiles.add(localPath.getAbsolutePath());
-            				uploadFilesKeys.add(remoteFile2);
+            				uploadFilesFileList.add(localPath.getAbsolutePath());
+            				uploadFilesKeyList.add(remoteFile2);
             				if ( Message.isDebugOn ) {
             					Message.printStatus(2, routine, "Local file from wildcard: " + localPath.getAbsolutePath() );
             					Message.printStatus(2, routine, "             Remote file: " + remoteFile2 );
@@ -556,12 +607,26 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 			   		String localFileFull = IOUtil.verifyPathForOS(
 			      		IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
 			        		TSCommandProcessorUtil.expandParameterValue(processor,this,parts[0].trim())));
-               		uploadFilesFiles.add(localFileFull);
-               		uploadFilesKeys.add(remoteFile);
+               		uploadFilesFileList.add(localFileFull);
+               		uploadFilesKeyList.add(remoteFile);
             	}
             }
         }
     }
+    
+    // Final checks, based on the command.
+    if ( commandPhase == CommandPhaseType.RUN ) {
+    	if ( s3Command == AwsS3CommandType.UPLOAD_OBJECTS ) {
+    		if ( uploadFilesFileList.size() == 0 ) {
+      			message = "No files were found for the upload.";
+      			Message.printWarning(warning_level,
+      				MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
+      			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+					message, "Check the UploadFiles parameter and existence of associated files." ) );
+    		}
+    	}
+    }
+
 	boolean doTable = false;
 	String OutputTableID = parameters.getValue ( "OutputTableID" );
 	OutputTableID = TSCommandProcessorUtil.expandParameterValue(processor,this,OutputTableID);
@@ -603,7 +668,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 
 	if ( warning_count > 0 ) {
 		message = "There were " + warning_count + " warnings about command parameters.";
-		Message.printWarning ( warning_level, 
+		Message.printWarning ( warning_level,
 		MessageUtil.formatMessageTag(command_tag, ++warning_count), routine, message );
 		throw new InvalidCommandParameterException ( message );
 	}
@@ -772,7 +837,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    						else {
     	    							// Error because / at the end of the key.
     	    							message = "No local file given and key (" + downloadKey + ") ends in / - cannot default file name to copy.";
-    	    							Message.printWarning ( warning_level, 
+    	    							Message.printWarning ( warning_level,
     	    								MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
     	    							status.addToLog(CommandPhaseType.RUN,
     	    								new CommandLogRecord(CommandStatusType.FAILURE,
@@ -803,7 +868,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    			}
     	    			catch ( Exception e ) {
     	    				message = "Error downloading S3 key \"" + downloadKey + "\" to file \"" + localFile + "\" (" + e + ")";
-    	    				Message.printWarning ( warning_level, 
+    	    				Message.printWarning ( warning_level,
     	    					MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
     	    				Message.printWarning ( 3, routine, e );
     	    				status.addToLog(CommandPhaseType.RUN,
@@ -833,7 +898,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    						else {
     	    							// Error because / at the end of the key.
     	    							message = "No local folder given and key (" + downloadKey + ") ends in / - cannot default folder name to copy.";
-    	    							Message.printWarning ( warning_level, 
+    	    							Message.printWarning ( warning_level,
     	    								MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
     	    							status.addToLog(CommandPhaseType.RUN,
     	    								new CommandLogRecord(CommandStatusType.FAILURE,
@@ -861,7 +926,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    						if ( count > maxMessage ) {
     	    							// Limit messages.
     	    							message = "Only listing " + maxMessage + " download errors.";
-   	    								Message.printWarning ( warning_level, 
+   	    								Message.printWarning ( warning_level,
    	    									MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
    	    								status.addToLog(CommandPhaseType.RUN,
    	    									new CommandLogRecord(CommandStatusType.FAILURE,
@@ -869,7 +934,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    							break;
     	    						}
    	    							message = "Error downloading folder \"" + downloadKey + "\" to folder \"" + localFolderFull + "\"(" + fail + ").";
-   	    							Message.printWarning ( warning_level, 
+   	    							Message.printWarning ( warning_level,
    	    								MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
    	    							status.addToLog(CommandPhaseType.RUN,
    	    								new CommandLogRecord(CommandStatusType.FAILURE,
@@ -879,7 +944,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    			}
     	    			catch ( Exception e ) {
     	    				message = "Error downloading S3 key \"" + downloadKey + "\" to folder \"" + localFolder + "\" (" + e + ")";
-    	    				Message.printWarning ( warning_level, 
+    	    				Message.printWarning ( warning_level,
     	    					MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
     	    				Message.printWarning ( 3, routine, e );
     	    				status.addToLog(CommandPhaseType.RUN,
@@ -982,30 +1047,30 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
    	        else if ( s3Command == AwsS3CommandType.UPLOAD_OBJECTS ) {
     	    	// The following is from the S3TransferManager javadoc.
     	    	S3TransferManager tm = null;
-    	    	if ( (uploadFilesFiles.size() > 0) || (uploadDirectoriesDirectories.size() > 0) ) {
+    	    	if ( (uploadFilesFileList.size() > 0) || (uploadDirectoriesDirectoryList.size() > 0) ) {
     	    		tm = S3TransferManager
     	    			.builder()
     	    			.s3ClientConfiguration(b -> b.credentialsProvider(credentialsProvider)
     	    				.region(regionO))
     	    			.build();
     	    	}
-    	    	Message.printStatus(2, routine, "Have " + uploadFilesFiles.size() + " files to upload.");
-    	    	if ( uploadFilesFiles.size() > 0 ) {
+    	    	Message.printStatus(2, routine, "Have " + uploadFilesFileList.size() + " files to upload.");
+    	    	if ( uploadFilesFileList.size() > 0 ) {
     	    		// Process each file in the list:
     	    		// - don't allow null or empty key or name
     	    		boolean error = false;
       				int iFile = -1;
-    	    		for ( String localFile : uploadFilesFiles ) {
+    	    		for ( String localFile : uploadFilesFileList ) {
     	    			++iFile;
     	    			error = false;
     	    			String uploadKey = null;
     	    			try {
     	    				localFile = localFile.trim();
-    	    				uploadKey = uploadFilesKeys.get(iFile);
+    	    				uploadKey = uploadFilesKeyList.get(iFile);
     	    				if ( (localFile == null) || localFile.trim().isEmpty() ) {
     	    					// Don't allow default destination because could cause problems clobbering S3 files.
     	    					message = "No local file given - cannot upload file.";
-    	    					Message.printWarning ( warning_level, 
+    	    					Message.printWarning ( warning_level,
     	    						MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
     	    					status.addToLog(CommandPhaseType.RUN,
     	    						new CommandLogRecord(CommandStatusType.FAILURE,
@@ -1016,7 +1081,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    				if ( !localFileFile.exists() ) {
     	    					// Local file does not exist so cannot upload.
     	    					message = "Local file does not exist: " + localFile + " (UploadFiles parameter = \"" + uploadFilesOrig.get(iFile);
-    	    					Message.printWarning ( warning_level, 
+    	    					Message.printWarning ( warning_level,
     	    						MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
     	    					status.addToLog(CommandPhaseType.RUN,
     	    						new CommandLogRecord(CommandStatusType.FAILURE,
@@ -1026,7 +1091,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    				if ( (uploadKey == null) || uploadKey.trim().isEmpty() ) {
     	    					// Don't allow default because could cause problems clobbering S3 files.
     	    					message = "No S3 key (object path) given - cannot upload file \"" + localFile + "\"";
-    	    					Message.printWarning ( warning_level, 
+    	    					Message.printWarning ( warning_level,
     	    						MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
     	    					status.addToLog(CommandPhaseType.RUN,
     	    						new CommandLogRecord(CommandStatusType.FAILURE,
@@ -1046,7 +1111,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    			}
     	    			catch ( Exception e ) {
     	    				message = "Error uploading file \"" + localFile + "\" to S3 key \"" + uploadKey + "\" (" + e + ")";
-    	    				Message.printWarning ( warning_level, 
+    	    				Message.printWarning ( warning_level,
     	    					MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
     	    				Message.printWarning ( 3, routine, e );
     	    				status.addToLog(CommandPhaseType.RUN,
@@ -1055,22 +1120,22 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    			}
     	    		}
     	    	}
-    	    	Message.printStatus(2, routine, "Have " + uploadDirectoriesDirectories.size() + " directories to upload.");
-    	    	if ( uploadDirectoriesDirectories.size() > 0 ) {
+    	    	Message.printStatus(2, routine, "Have " + uploadDirectoriesDirectoryList.size() + " directories to upload.");
+    	    	if ( uploadDirectoriesDirectoryList.size() > 0 ) {
     	    		// Process each folder in the list.
     	    		boolean error = false;
      				int iDir = -1;
-    	    		for ( String localFolder : uploadDirectoriesDirectories ) {
+    	    		for ( String localFolder : uploadDirectoriesDirectoryList ) {
     	    			++iDir;
     	    			error = false;
     	    			String uploadKey = null;
     	    			try {
     	    				localFolder = localFolder.trim();
-    	    				uploadKey = uploadDirectoriesKeys.get(iDir).trim();
+    	    				uploadKey = uploadDirectoriesKeyList.get(iDir).trim();
     	    				if ( (localFolder == null) || localFolder.trim().isEmpty() ) {
     	    					// Don't allow default because could cause problems clobbering S3 files.
     	    					message = "No local folder given - cannot upload folder.";
-    	    					Message.printWarning ( warning_level, 
+    	    					Message.printWarning ( warning_level,
     	    						MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
     	    					status.addToLog(CommandPhaseType.RUN,
     	    						new CommandLogRecord(CommandStatusType.FAILURE,
@@ -1081,7 +1146,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    				if ( !localFolderFile.exists() ) {
     	    					// Local folder does not exist so cannot upload.
     	    					message = "Local folder does not exist: " + localFolder + " (UploadDirectories parameter = \"" + uploadDirectoriesOrig.get(iDir);
-    	    					Message.printWarning ( warning_level, 
+    	    					Message.printWarning ( warning_level,
     	    						MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
     	    					status.addToLog(CommandPhaseType.RUN,
     	    						new CommandLogRecord(CommandStatusType.FAILURE,
@@ -1091,7 +1156,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    				if ( (uploadKey == null) || uploadKey.trim().isEmpty() ) {
     	    					// Don't allow default because could cause problems clobbering S3 files.
     	    					message = "No S3 key given - cannot upload folder \"" + localFolder + "\"";
-    	    					Message.printWarning ( warning_level, 
+    	    					Message.printWarning ( warning_level,
     	    						MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
     	    					status.addToLog(CommandPhaseType.RUN,
     	    						new CommandLogRecord(CommandStatusType.FAILURE,
@@ -1114,7 +1179,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    						if ( count > maxMessage ) {
     	    							// Limit messages.
     	    							message = "Only listing " + maxMessage + " upload errors.";
-   	    								Message.printWarning ( warning_level, 
+   	    								Message.printWarning ( warning_level,
    	    									MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
    	    								status.addToLog(CommandPhaseType.RUN,
    	    									new CommandLogRecord(CommandStatusType.FAILURE,
@@ -1122,7 +1187,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    							break;
     	    						}
    	    							message = "Error uploading folder \"" + localFolder + "\" to key \"" + uploadKey + "\"(" + fail + ").";
-   	    							Message.printWarning ( warning_level, 
+   	    							Message.printWarning ( warning_level,
    	    								MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
    	    							status.addToLog(CommandPhaseType.RUN,
    	    								new CommandLogRecord(CommandStatusType.FAILURE,
@@ -1132,7 +1197,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    			}
     	    			catch ( Exception e ) {
     	    				message = "Error uploading folder \"" + localFolder + "\" to S3 key \"" + uploadKey + "\" (" + e + ")";
-    	    				Message.printWarning ( warning_level, 
+    	    				Message.printWarning ( warning_level,
     	    					MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
     	    				Message.printWarning ( 3, routine, e );
     	    				status.addToLog(CommandPhaseType.RUN,
@@ -1181,7 +1246,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 		else {
 			message = "Unexpected error for unknown S3 command (" + e.awsErrorDetails().errorMessage() + ": " + S3Command;
 		}
-		Message.printWarning ( warning_level, 
+		Message.printWarning ( warning_level,
 			MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
 		Message.printWarning ( 3, routine, e );
 		status.addToLog(CommandPhaseType.RUN,
@@ -1211,7 +1276,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 		else {
 			message = "Unexpected error for unknown S3 command: " + S3Command;
 		}
-		Message.printWarning ( warning_level, 
+		Message.printWarning ( warning_level,
 			MessageUtil.formatMessageTag(command_tag, ++warning_count),routine, message );
 		Message.printWarning ( 3, routine, e );
 		status.addToLog(CommandPhaseType.RUN,
@@ -1249,8 +1314,8 @@ private void setDiscoveryTable ( DataTable table ) {
 /**
 Return the string representation of the command.
 */
-public String toString ( PropList parameters )
-{	if ( parameters == null ) {
+public String toString ( PropList parameters ) {
+	if ( parameters == null ) {
 		return getCommandName() + "()";
 	}
 	String S3Command = parameters.getValue("S3Command");
@@ -1262,8 +1327,8 @@ public String toString ( PropList parameters )
 	String DeleteKey = parameters.getValue("DeleteKey");
 	String DownloadDirectories = parameters.getValue("DownloadDirectories");
 	String DownloadFiles = parameters.getValue("DownloadFiles");
-	String MaxKeys = parameters.getValue("MaxKeys");
 	String Prefix = parameters.getValue("Prefix");
+	String MaxKeys = parameters.getValue("MaxKeys");
 	String MaxObjects = parameters.getValue("MaxObjects");
 	String UploadDirectories = parameters.getValue("UploadDirectories");
 	String UploadFiles = parameters.getValue("UploadFiles");
@@ -1325,17 +1390,17 @@ public String toString ( PropList parameters )
         }
 		b.append ( "DownloadFiles=\"" + DownloadFiles + "\"");
 	}
-	if ( (MaxKeys != null) && (MaxKeys.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-		b.append ( "MaxKeys=" + MaxKeys );
-	}
 	if ( (Prefix != null) && (Prefix.length() > 0) ) {
         if ( b.length() > 0 ) {
             b.append ( "," );
         }
 		b.append ( "Prefix=\"" + Prefix + "\"");
+	}
+	if ( (MaxKeys != null) && (MaxKeys.length() > 0) ) {
+        if ( b.length() > 0 ) {
+            b.append ( "," );
+        }
+		b.append ( "MaxKeys=" + MaxKeys );
 	}
 	if ( (MaxObjects != null) && (MaxObjects.length() > 0) ) {
         if ( b.length() > 0 ) {

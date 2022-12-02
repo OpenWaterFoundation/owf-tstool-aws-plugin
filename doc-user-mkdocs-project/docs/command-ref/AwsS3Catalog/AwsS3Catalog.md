@@ -1,24 +1,24 @@
 # TSTool / Command / AwsS3Catalog #
 
-* [Overview](#overview)
-    + [DCAT Background](#dcat-background)
-    + [Dataset Metadata](#dataset-metadata)
-        - [`dataset.json - Dataset Metadata`](#datasetjson-dataset-metadata)
-        - [`dataset.png` - Image for Dataset](#datasetpng-image-for-dataset)
-        - [`dataset-details.md` - Insert for Dataset Section](#dataset-detailsmd-insert-for-dataset-section)
-    + [Command Input Files](#command-input-files)
+*   [Overview](#overview)
+    +   [DCAT Background](#dcat-background)
+    +   [Dataset Metadata](#dataset-metadata)
+        -   [`dataset.json - Dataset Metadata`](#datasetjson-dataset-metadata)
+        -   [`dataset.png` - Image for Dataset](#datasetpng-image-for-dataset)
+        -   [`dataset-details.md` - Insert for Dataset Section](#dataset-detailsmd-insert-for-dataset-section)
+    +   [Command Input Files](#command-input-files)
         - [Insert for `<head>`](#insert-for-head)
         - [Insert for `<body>`](#insert-for-body)
         - [Insert for `<footer>`](#insert-for-footer)
-    + [Command Output Files](#command-output-files)
+    +   [Command Output Files](#command-output-files)
         - [Dataset `index.html` Landing Page](#dataset-indexhtml-landing-page)
         - [Datasets `index.html` Landing Page](#datasets-indexhtml-landing-page)
         - [Datasets `datasets.json` Catalog File](#datasets-datasetsjson-catalog-file)
-* [Command Editor](#command-editor)
-* [Command Syntax](#command-syntax)
-* [Examples](#examples)
-* [Troubleshooting](#troubleshooting)
-* [See Also](#see-also)
+*   [Command Editor](#command-editor)
+*   [Command Syntax](#command-syntax)
+*   [Examples](#examples)
+*   [Troubleshooting](#troubleshooting)
+*   [See Also](#see-also)
 
 -------------------------
 
@@ -26,22 +26,39 @@
 
 The `AwsS3Catalog` command generates a catalog and landing pages for datasets that have metadata files on S3.
 This helps automate the workflow for individual datasets within a larger content distribution network (CDN).
-The command allows HTML inserts to be provided for the `<head>`, `<body>`, and `<footer>` sections of the landing page,
+The landing page can be an `index.html` or `index.md` (Markdown) file.
+
+If the landing page is an HTML file,
+the command allows HTML inserts to be provided for the `<head>`, `<body>`, and `<footer>` sections of the landing page,
 which allows implementation of a standard "skin", such as a navigation menu for an organization's website.
+
+If the landing page is a Markdown file, the website must provide functionality to convert Markdown files to
+HTML to view the result in a browser.
+Markdown files are easier to create than HTML but current do not display in browsers without an extension
+or server-side software.
 
 See the [`AwsS3`](../AwsS3/AwsS3.md) command documentation for information about S3 terminology and authentication.
 
-This command searches an S3 bucket for files named `dataset.json` and performs the following tasks:
+This command searches an S3 bucket (specified with `Bucket` parameter) and
+starting folder (specified with `Prefix` parameter) for files named `dataset.json` and performs the following tasks:
 
-* Create for each dataset:
-    + `index.html` - landing page for the dataset,
-      which can be linked to from web pages
-* Create for the catalog of multiple datasets (**not yet implemented**):
-    + `index.html` - landing page for the dataset catalog,
-      which lists the found datasets and allows navigating to each dataset landing page
-    + `datasets.json` - top-level catalog of dataset metadata,
-      which combines all separate `dataset.json` files,
-      suitable for tools such as search and discovery tools
+*   Create for each dataset:
+    +   `index.html` (or `index.md`) - landing page for the dataset,
+        which can be linked to from web pages
+*   Create for the catalog of multiple datasets (**NOT YET IMPLEMENTED**):
+    +   `index.html` - landing page for the dataset catalog,
+        which lists the found datasets and allows navigating to each dataset landing page
+    +   `datasets.json` - top-level catalog of dataset metadata,
+        which combines all separate `dataset.json` files,
+        suitable for tools such as search and discovery tools
+
+Although this command does not yet automatically create the top-level landing page with a catalog of dataset versions,
+it is possible to use this command to accomplish the result.
+For example, use the [`AwsS3`](../AwsS3/AwsS3.md) command to list an S3 folder's contents into a table,
+manipulate the table as needed,
+and then use the TSTool [`WriteTableToMarkdown`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/WriteTableToMarkdown/WriteTableToMarkdown/) command
+to output content for the `dataset-details.md` file used by this command.
+In this case, make sure that `ProcessSubdirectoris=False` since only the top-level main dataset should be processed.
 
 ### DCAT Background ###
 
@@ -49,17 +66,17 @@ The W3C Data Catalog Vocabulary (DCAT) is a standard for publishing dataset cata
 Each dataset includes the data files or server and DCAT metadata.
 DCAT is an evolving standard.  See the following resources:
 
-* [Introduction to the W3C Data Catalog Vocabulary](https://op.europa.eu/documents/7525478/8087182/WINSTANLEY_presentation_Introduction_to_the_W3C_Data_Catalog_Vocabulary.pdf/51b659da-65e7-7a6d-f984-5eb37ded5367?t=1616618191119)
-* [DCAT3 Vocabulary](https://www.w3.org/TR/vocab-dcat-3/)
-* [DCAT2 Vocabulary](https://www.w3.org/TR/vocab-dcat-2/)
-* [Resource Description Framework (RDF)](https://en.wikipedia.org/wiki/Resource_Description_Framework)
+*   [Introduction to the W3C Data Catalog Vocabulary](https://op.europa.eu/documents/7525478/8087182/WINSTANLEY_presentation_Introduction_to_the_W3C_Data_Catalog_Vocabulary.pdf/51b659da-65e7-7a6d-f984-5eb37ded5367?t=1616618191119)
+*   [DCAT3 Vocabulary](https://www.w3.org/TR/vocab-dcat-3/)
+*   [DCAT2 Vocabulary](https://www.w3.org/TR/vocab-dcat-2/)
+*   [Resource Description Framework (RDF)](https://en.wikipedia.org/wiki/Resource_Description_Framework)
 
 DCAT is used by software that publishes datasets,
 with support for different versions depending on the software product:
 
-* [CKAN](https://extensions.ckan.org/extension/dcat/)
-* [Socrata](https://open-source.socrata.com/philosophy/)
-* [Esri ArcGIS](https://doc.arcgis.com/en/hub/content/federate-data-with-external-catalogs.htm)
+*   [CKAN](https://extensions.ckan.org/extension/dcat/)
+*   [Socrata](https://open-source.socrata.com/philosophy/)
+*   [Esri ArcGIS](https://doc.arcgis.com/en/hub/content/federate-data-with-external-catalogs.htm)
 
 The design of this command is intended to adhere to DCAT.
 However, because there are multiple DCAT specification versions and software has pressing design requirements,
@@ -69,13 +86,15 @@ Future versions of this command will be made consistent with DCAT JSON format.
 ### Dataset Metadata ###
 
 To implement a workable solution, this command relies on dataset metadata JSON files named `dataset.json`
-that are uploaded to AWS S3 bucket folders.
-This command locates the files and creates `index.html` landing pages for each dataset and a master `datasets.json` catalog file
+that have been previously uploaded to AWS S3 bucket folders.
+This command locates the files and creates `index.html` (or `index.md`)
+landing pages for each dataset and a master `datasets.json` catalog file
 and landing page listing all matched datasets.
 
 Several other files with standard names are also used for each dataset if found.
 These files are described in the following sections
-and are typically uploaded to S3 using the [`AwsS3`](../AwsS3/AwsS3.md) command.
+and are typically uploaded to S3 using the [`AwsS3`](../AwsS3/AwsS3.md) command
+prior to running this `AwsS3Catalog` command.
 
 The DCAT specification provides examples in "RDF" format.
 However, the JSON format is useful for software integration and web services.
@@ -148,7 +167,6 @@ A specific CKAN example is shown below.
             ]
         },
         {
-
             "title": "Example dataset 2",
             "description": "A longer description of dataset 2: with two distributions, a website and a PDF file. Some special characters: \u0141\u00f3d\u017a",
             "identifier": "https://data.some.org/catalog/datasets/2",
@@ -205,7 +223,7 @@ The following illustrates file organizations for typical versioned datasets for 
 The `dataset.json` file is a dataset metadata file similar to the above example.
 The `*.geojson` file is a dataset file, in this case a GeoJSON file
 that can be used directly or downloaded for processing.
-Of particular note is that the DCAT3 specification has increased support for versions,
+Of particular note is that the DCAT3 specification has improved support for versions,
 but the specification is a draft and JSON examples are limited.
 Because the DCAT data include a `landingPage` property, it is possible to generate an `index.html`
 landing page for each dataset that is listed in a master data catalog and complex datasets consisting of a
@@ -252,7 +270,7 @@ This file is automatically used if found and is not specified with a command par
 
 The `dataset.json` file indicates the home folder for a dataset,
 in which downloadable files such as `*.geojson`, time series, or other files may exist.
-The command searches for `dataset.json` files based on the ***Catalog*** tab's `StartingPrefix` parameter.
+The command searches for `dataset.json` files based on the `StartingPrefix` parameter.
 
 The file contains dataset metadata properties as described in the following table.
 
@@ -267,6 +285,8 @@ The file contains dataset metadata properties as described in the following tabl
 | `modified` | string | A modification date/time using [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) syntax. | |
 | `parentDatasetFile` | string | If the dataset has versions in subfolders, the path to the parent dataset file can be specified, typically `../dataset.json`.  The parent dataset metadata will be used unless the version provides properties. | |
 | `version` | string | A version for the dataset consistent with the original data, for example:<ul><li>`1.2.3` - [semantic version](https://semver.org/)</li><li>`YYYY-MM-DD` - datestamped version</li><ul> | |
+
+#### `dataset.json` with No Versions ####
 
 The following is an example of a dataset that does not have versions:
 
@@ -296,6 +316,8 @@ The following is an example of a dataset that does not have versions:
   ]
 }
 ```
+
+#### `dataset.json` with `latest` but No Versions ####
 
 The following is an example of a dataset with a `latest` folder but no versions,
 in which case there is no parent `dataset.json` file.
@@ -327,6 +349,8 @@ The file is similar to the previous except that the landing page is in the `late
   ]
 }
 ```
+
+#### `dataset.json` with `latest` and Versioned Folders ####
 
 The following is an example of a dataset with a `latest` and versioned folder(s),
 in which case the parent folder provides a main `dataset.json` and each
@@ -400,7 +424,8 @@ This file is automatically used if found and is not specified with a command par
 The `dataset.png` file can be provided in the main dataset folder
 (no need to provide in every version folder).
 All datasets should provide an image file in order to create a more visually-interesting landing page.
-The file is used by the output `index.html` landing page to provide a visual for the dataset.
+The image for a dataset version may change over time.
+The file is used by the output `index.html` (or `index.md`) landing page to provide a visual for the dataset.
 
 #### `dataset-details.md` - Insert for Dataset Section ####
 
@@ -413,11 +438,11 @@ output `index.html` landing page.
 The file should NOT contain a header and subsections should use level 2 (`##`) headers and smaller.
 Typical sections include:
 
-* ***Overview*** - explanation of the dataset
-* ***Downloads*** - links to download the dataset files
-* ***Workflow*** - a description of the workflow used to create the dataset files
-* ***Credits*** - if any credits are appropriate
-* ***License*** - license to use the dataset
+*   ***Overview*** - explanation of the dataset
+*   ***Downloads*** - links to download the dataset files
+*   ***Workflow*** - a description of the workflow used to create the dataset files
+*   ***Credits*** - if any credits are appropriate
+*   ***License*** - license to use the dataset
 
 ### Command Input Files ###
 
@@ -437,12 +462,12 @@ This file is specified by the `DatasetIndexHeadFile` command parameter.
 Specify the parameter to insert an HTML snippet at the top of the `<head>` section of the `index.html` landing page.
 This can be used, for example, to insert the following:
 
-* Google Analytics tracking `<script>`.
-* `<meta>` elements, for example to specify cache control properties.
-* `<link>` elements to specify CSS files, favicon, etc.
-  The CSS may be used by other content that is inserted.
-* `<script>` code blocks that define JavaScript functions and other code.
-  The code may be used by other content that is inserted.
+*   Google Analytics tracking `<script>`.
+*   `<meta>` elements, for example to specify cache control properties.
+*   `<link>` elements to specify CSS files, favicon, etc.
+    The CSS may be used by other content that is inserted.
+*   `<script>` code blocks that define JavaScript functions and other code.
+    The code may be used by other content that is inserted.
 
 Because the insert may occur for landing pages at any point in a website hierarchy,
 paths to files should be absolute and begin with `/`, for example `/css`, `/js`, `/images`, etc.
@@ -454,8 +479,8 @@ This file is specified by the `DatasetIndexBodyFile` command parameter.
 Specify the parameter to insert an HTML snippet at the top of the `<body>` section of the `index.html` landing page,
 for example:
 
-* `<nav>` block to insert page navigation, such as menus consistent with the overall website.
-  The inserted HTML can use JavaScript code and CSS inserted in the `<body>` insert.
+*   `<nav>` block to insert page navigation, such as menus consistent with the overall website.
+    The inserted HTML can use JavaScript code and CSS inserted in the `<body>` insert.
 
 Because the insert may occur for landing pages at any point in a website hierarchy,
 paths to files should be absolute and begin with `/`, for example `/css`, `/js`, `/images`, etc.
@@ -470,8 +495,8 @@ This file is specified by the `DatasetIndexFooterFile` command parameter.
 
 Specify the parameter to insert an HTML snippet after the `</body>` element of the `index.html` landing page:
 
-* The insert should contain a `<footer>` block to insert a page footer,
-  for example to provide organization contact information.
+*   The insert should contain a `<footer>` block to insert a page footer,
+    for example to provide organization contact information.
 
 Because the insert may occur for landing pages at any point in a website hierarchy,
 paths to files should be absolute and begin with `/`, for example `/css`, `/js`, `/images`, etc.
@@ -482,12 +507,12 @@ This command creates output files based on the parameters.
 Because many files may be created depending on the starting index on S3,
 temporary files are used prior to uploading output files to S3.
 
-* Create for each dataset:
-    + `index.html` - landing page for the dataset
-* Create for the catalog:
-    + `index.html` - landing page for the dataset catalog
-    + `datasets.json` - top-level catalog of dataset metadata,
-      which combines all separate `dataset.json` files
+*   Create for each dataset:
+    +   `index.html` - landing page for the dataset
+*   Create for the catalog:
+    +   `index.html` - landing page for the dataset catalog
+    +   `datasets.json` - top-level catalog of dataset metadata,
+        which combines all separate `dataset.json` files
 
 #### Dataset `index.html` Landing Page ####
 
@@ -555,11 +580,15 @@ that is changed when the file contents are changed.
 
 #### Datasets `index.html` Landing Page ####
 
+**Not yet implemented.**
+
 This file is created in the folder specified by `StartingPrefix`
 and serves as the landing page to provide a catalog of all the datasets.
 This command will upload the file to S3.
 
 #### Datasets `datasets.json` Catalog File ####
+
+**Not yet implemented.**
 
 This file is created in the folder specified by `StartingPrefix`
 and is a catalog of all the datasets,
@@ -620,17 +649,18 @@ Command Parameters
 ||`Profile`|The AWS command line interface profile to use for authentication, can use `${Property}` syntax. | Use the `default` profile or use the single profile if only one profile is provided in the configuration files.|
 ||`Region`| The AWS region to use for service requests. Use the [AWS Management Console website](https://aws.amazon.com/console/) to check which region is used for an account, can use `${Property}` syntax. | Default region from the user's AWS configuration file. |
 ||`Bucket`| The S3 bucket containing objects, can use `${Property}` syntax. | Must be specified for S3 commands that act on specific bucket objects. |
+||`StartingPrefix`| Starting prefix to search for in bucket, with no leading `/` but include trailing `/`, can use `${Property}` notation. | `/` (the underlying S3 maximum keys value will limit results). |
+||`ProcessSubdirectories` | Whether to process subdirectories below the `StartingPrefix`:<ul><li>`False` - do not process subdirectories (used for granular updates to dataset landing pages)</li><li>`True` - process subdirectories (useful for bulk updates to a dataset web site)</li></ul> | `False` |
 ||`IfInputNotFound`| Message level when input is not found:  `Ignore`, `Warn`, or `Fail`. | `Warn` |
-|***Catalog***|`StartingPrefix`| Starting prefix to search for in bucket, with no leading `/` but include trailing `/`, can use `${Property}` notation. | `/` |
-||`CatalogFile`| Top-level catalog JSON file to create, which lists all datasets that are found, can use `${Property}` syntax.  The filename should have a name `datasets.json` (plural). | Do not create the top-level catalog file. |
+| **Dataset** |`DatasetIndexFile`| Dataset-level `index.html` (or `index.md`) file to create, which lists all files for a specific dataset, can use `${Property}` syntax:<ul><li>path to an `index.html` (or `index.md`) file to create, use when processing one dataset</li><li>`Temp.html` (or `Temp.md`) - create temporary index file, use when processing a hierarchy of datasets</li></ul> | Do not create the dataset index file(s). |
+||`DatasetIndexHeadFile`| If creating an HTML index file, the dataset-level `index.html` insert file for the top of the `<head>` section, can use `${Property}`. | |
+||`DatasetIndexBodyFile`| If creating an HTML index file, the dataset-level `index.html` insert file for the top of the `<body>` section, can use `${Property}`. | |
+||`DatasetIndexFooterFile`| If creating an HTML index file, the dataset-level `index.html` insert file for the `<footer>` section (after `</body>`), can use `${Property}`. | |
+||`UploadDatasetFiles`| Whether to upload dataset output files that are created to S3 (`True`) or not (`False`). | `False` (to encourage review before upload). |
+|***Catalog***|`CatalogFile`| Top-level catalog JSON file to create, which lists all datasets that are found, can use `${Property}` syntax.  The filename should have a name `datasets.json` (plural). | Do not create the top-level catalog file. |
 ||`CatalogIndexFile`| Top-level `index.html` file to create, which lists all datasets that are found, can use `${Property}` syntax.  The filename should have a name index.html. | Do not create the top-level index file. |
 ||`UploadCatalogFiles`| Whether to upload catalog output files that are created to S3 (`True`) or not (`False`). `True` is typically specified when creating the main catalog after uploading datasets individually. | `False` (to encourage review before upload). |
 | **CloudFront** |`DistributionId`| The CloudFront distribution identifier that is used to invalidate uploaded files.  Specify as the distribution ID or a `*wildcard*` pattern (preferred since usually more readable) matching the domain for the site. | Files are not invalidated after uploading. |
-| **Dataset** |`DatasetIndexFile`| Dataset-level `index.html` file to create, which lists all datasets that are found, can use `${Property}` syntax:<ul><li>bucket key (object path) to an `index.html` file to create, use when processing one dataset</li><li>`Temp` - create temporary index file, use when processing a hierarchy of datasets</li></ul> | Do not create the dataset index file(s). |
-||`DatasetIndexHeadFile`| Dataset-level `index.html` insert file for the top of the `<head>` section, can use `${Property}`. | |
-||`DatasetIndexBodyFile`| Dataset-level `index.html` insert file for the top of the `<body>` section, can use `${Property}`. | |
-||`DatasetIndexFooterFile`| Dataset-level `index.html` insert file for the `<footer>` section (after `</body>`), can use `${Property}`. | |
-||`UploadDatasetFiles`| Whether to upload dataset output files that are created to S3 (`True`) or not (`False`). | `False` (to encourage review before upload). |
 |***Output***|`OutputTableID`| Table identifier to create containing the list of processed datasets, can use `${Property}` syntax. | Do not create table. |
 ||`KeepFiles`| Whether to keep temporary output files that are created during processing (`True`) or not (`False`), useful for troubleshooting. | `False`|
 
@@ -644,9 +674,9 @@ used to upload the continental divide dataset to S3 and create its landing page.
 
 ## Troubleshooting ##
 
-If there is an error, see the TSTool log file using the ***Tools / Diagnostics - View Log File...*** menu.
+If there is an error, view the TSTool log file using the ***Tools / Diagnostics - View Log File...*** menu.
 
 ## See Also ##
 
-* [`AwsS3`](../AwsS3/AwsS3.md) command
-* [`AwsS3Catalog`](../AwsS3Catalog/AwsS3Catalog.md) command
+*   [`AwsS3`](../AwsS3/AwsS3.md) command
+*   [`AwsS3CloudFront`](../AwsS3CloudFront/AwsS3CloudFront.md) command

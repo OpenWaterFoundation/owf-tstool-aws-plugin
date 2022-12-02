@@ -70,8 +70,11 @@ copyMavenDependencies() {
   # First delete the 'dep' folder contents, but leave the folder itself.
   if [ -d "${pluginDepFolder}" ]; then
     # Remove all the existing files in the 'dep' folder so only the latest are available at runtime:
-    # - do not use double quotes around the following
-    rm ${pluginDepFolder}/*
+    # - only attempt to remove if not empty - otherwise get a warning
+    # - do not use double quotes around the folder with wildcard
+    if [ ! -z "$(ls -A ${pluginDepFolder})" ]; then
+      rm ${pluginDepFolder}/*
+    fi
   else
     # Dependency folder 'dep' does not exist.  Create it.
     mkdir -p "${pluginDepFolder}"
@@ -226,19 +229,22 @@ fi
 echo "Listing of jar file that was created..."
 "${javaInstallHome}/bin/jar" -tvf ${jarFile}
 
-# Print the java file location again.
+# Print the java file location again and check for duplicate jar files.
 echo ""
 echo "Jar file is:  ${jarFile}"
 jarCount=$(ls -1 ${jarFolder} | grep -v 'dep' | wc -l)
 if [ ${jarCount} -eq 1 ]; then
   echo "1 plugin jar file is installed (see below).  OK."
+  # Do not put quotes around the following.
+  ls -1 ${jarFolder}/*.jar
 else
   echoStderr "${errorColor}${jarCount} plugin jar files are installed (see below).${endColor}"
   echoStderr "${errorColor}There should only be one, typically the latest version.${endColor}"
   echoStderr "${errorColor}Remove old versions or move to 'plugins-old' in case need to restore.${endColor}"
+  # Do not put quotes around the following.
+  ls -1 ${jarFolder}/*.jar
+  exit 1
 fi
-# Do not put quotes around the following.
-ls -1 ${jarFolder}/*
 
 # Copy jar file dependencies from Maven to the plugin 'dep' folder.
 copyMavenDependencies

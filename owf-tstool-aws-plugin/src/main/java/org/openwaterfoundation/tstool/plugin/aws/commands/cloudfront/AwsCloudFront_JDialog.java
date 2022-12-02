@@ -85,8 +85,12 @@ private SimpleJButton __ok_JButton = null;
 private SimpleJButton __help_JButton = null;
 private JTabbedPane __main_JTabbedPane = null;
 private SimpleJComboBox __Profile_JComboBox = null;
+private JTextField __ProfileDefault_JTextField = null; // View only (not a command parameter).
+private JLabel __ProfileDefaultNote_JLabel = null; // To explain the default.
 private SimpleJComboBox __CloudFrontCommand_JComboBox = null;
 private SimpleJComboBox __Region_JComboBox = null;
+private JTextField __RegionDefault_JTextField = null; // View only (not a command parameter).
+private JLabel __RegionDefaultNote_JLabel = null; // To explain the default.
 private SimpleJComboBox __DistributionId_JComboBox = null;
 private JTextField __Comment_JTextField = null;
 private SimpleJComboBox __IfInputNotFound_JComboBox = null;
@@ -121,8 +125,8 @@ Command editor constructor.
 @param command Command to edit.
 @param tableIDChoices list of tables to choose from, used if appending
 */
-public AwsCloudFront_JDialog ( JFrame parent, AwsCloudFront_Command command, List<String> tableIDChoices )
-{	super(parent, true);
+public AwsCloudFront_JDialog ( JFrame parent, AwsCloudFront_Command command, List<String> tableIDChoices ) {
+	super(parent, true);
 	initialize ( parent, command, tableIDChoices );
 }
 
@@ -130,15 +134,18 @@ public AwsCloudFront_JDialog ( JFrame parent, AwsCloudFront_Command command, Lis
 Responds to ActionEvents.
 @param event ActionEvent object
 */
-public void actionPerformed( ActionEvent event )
-{	String routine = getClass().getSimpleName() + ".actionPerformed";
+public void actionPerformed( ActionEvent event ) {
+	String routine = getClass().getSimpleName() + ".actionPerformed";
 	if ( this.ignoreEvents ) {
         return; // Startup.
     }
 
 	Object o = event.getSource();
 
-	if ( o == __browseOutput_JButton ) {
+    if ( o == this.__CloudFrontCommand_JComboBox ) {
+    	setTabForS3Command();
+    }
+    else if ( o == __browseOutput_JButton ) {
         String last_directory_selected = JGUIUtil.getLastFileDialogDirectory();
         JFileChooser fc = null;
         if ( last_directory_selected != null ) {
@@ -148,16 +155,16 @@ public void actionPerformed( ActionEvent event )
             fc = JFileChooserFactory.createJFileChooser(__working_dir );
         }
         fc.setDialogTitle( "Select Output File");
-        
+
         if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             String directory = fc.getSelectedFile().getParent();
-            String filename = fc.getSelectedFile().getName(); 
-            String path = fc.getSelectedFile().getPath(); 
-    
+            String filename = fc.getSelectedFile().getName();
+            String path = fc.getSelectedFile().getPath();
+
             if (filename == null || filename.equals("")) {
                 return;
             }
-    
+
             if (path != null) {
 				// Convert path to relative path by default.
 				try {
@@ -207,11 +214,11 @@ public void actionPerformed( ActionEvent event )
 }
 
 /**
-Check the input.  If errors exist, warn the user and set the __error_wait flag
-to true.  This should be called before response() is allowed to complete.
+Check the input.  If errors exist, warn the user and set the __error_wait flag to true.
+This should be called before response() is allowed to complete.
 */
-private void checkInput ()
-{	if ( this.ignoreEvents ) {
+private void checkInput () {
+	if ( this.ignoreEvents ) {
         return; // Startup.
     }
 	// Put together a list of parameters to check.
@@ -272,8 +279,8 @@ private void checkInput ()
 }
 
 /**
-Commit the edits to the command.  In this case the command parameters have
-already been checked and no errors were detected.
+Commit the edits to the command.
+In this case the command parameters have already been checked and no errors were detected.
 */
 private void commitEdits () {
 	String CloudFrontCommand = __CloudFrontCommand_JComboBox.getSelected();
@@ -331,8 +338,8 @@ Instantiates the GUI components.
 @param command Command to edit.
 @param tableIDChoices list of tables to choose from, used if appending
 */
-private void initialize ( JFrame parent, AwsCloudFront_Command command, List<String> tableIDChoices )
-{	this.__command = command;
+private void initialize ( JFrame parent, AwsCloudFront_Command command, List<String> tableIDChoices ) {
+	this.__command = command;
 	//this.__parent = parent;
 	CommandProcessor processor =__command.getCommandProcessor();
 	
@@ -367,12 +374,27 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
     	JGUIUtil.addComponent(main_JPanel, new JLabel ("    " + __working_dir),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     }
+    String config = AwsToolkit.getInstance().getAwsUserConfigFile();
+    File f = null;
+    if ( config != null ) {
+    	f = new File(config);
+    }
+    if ( (f == null) || !f.exists() ) {
+    	JGUIUtil.addComponent(main_JPanel, new JLabel (
+        	"<html><b>ERROR: User's AWS configuration does not exist (errors will occur): " + AwsToolkit.getInstance().getAwsUserConfigFile() + "</b></html>" ),
+        	0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    }
+    else {
+    	JGUIUtil.addComponent(main_JPanel, new JLabel (
+        	"User's AWS configuration: " + AwsToolkit.getInstance().getAwsUserConfigFile() ),
+        	0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    }
     JGUIUtil.addComponent(main_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
    	this.ignoreEvents = true; // So that a full pass of initialization can occur.
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "CloudFront command:"),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "CloudFront command:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__CloudFrontCommand_JComboBox = new SimpleJComboBox ( false );
 	__CloudFrontCommand_JComboBox.setToolTipText("CloudFront command to execute.");
@@ -380,12 +402,12 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 	__CloudFrontCommand_JComboBox.setData(commandChoices);
 	__CloudFrontCommand_JComboBox.select ( 0 );
 	__CloudFrontCommand_JComboBox.addActionListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __CloudFrontCommand_JComboBox,
+    JGUIUtil.addComponent(main_JPanel, __CloudFrontCommand_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel("Required - CloudFront command to run."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Profile:"),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Profile:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__Profile_JComboBox = new SimpleJComboBox ( false );
 	__Profile_JComboBox.setToolTipText("AWS user profile to use for authentication (see user's .aws/config file).");
@@ -398,12 +420,24 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 	// Set the the AWS session here so other choices can display something.
 	this.awsSession = new AwsSession(__Profile_JComboBox.getSelected());
 	__Profile_JComboBox.addItemListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __Profile_JComboBox,
+    JGUIUtil.addComponent(main_JPanel, __Profile_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel("Optional - profile for authentication (default=only profile or 'default')."),
+    JGUIUtil.addComponent(main_JPanel, new JLabel("Optional - profile for authentication (default=see below)."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Region:"),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Profile (default):"),
+		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__ProfileDefault_JTextField = new JTextField ( 20 );
+	__ProfileDefault_JTextField.setToolTipText("Default profile determined from user's .aws/config file).");
+	__ProfileDefault_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(main_JPanel, __ProfileDefault_JTextField,
+		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    __ProfileDefaultNote_JLabel = new JLabel("From: " + AwsToolkit.getInstance().getAwsUserConfigFile());
+    JGUIUtil.addComponent(main_JPanel, __ProfileDefaultNote_JLabel,
+		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	__ProfileDefault_JTextField.setEditable(false);
+
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Region:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__Region_JComboBox = new SimpleJComboBox ( false );
 	__Region_JComboBox.setToolTipText("AWS region that server requests should be sent to.");
@@ -419,18 +453,28 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 		}
 	}
 	Collections.sort(regionChoices);
-	// TODO smalers 2022-05-39 evaluate whether region can default.
-	//regionChoices.add(""); // Default - region is not specified.
+	regionChoices.add(0,""); // Default - region is not specified (get from user's ~/.aws/config file)
 	__Region_JComboBox.setData(regionChoices);
 	__Region_JComboBox.select ( 0 );
 	__Region_JComboBox.addItemListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __Region_JComboBox,
+    JGUIUtil.addComponent(main_JPanel, __Region_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel(
-		"Optional - AWS region (default=from user's ~/.aws/config file)."),
+    JGUIUtil.addComponent(main_JPanel, new JLabel("Optional - AWS region (default=see below)."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "DistributionId:"),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Region (default):"),
+		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__RegionDefault_JTextField = new JTextField ( 20 );
+	__RegionDefault_JTextField.setToolTipText("Default region for profile determined from user's .aws/config file).");
+	__RegionDefault_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(main_JPanel, __RegionDefault_JTextField,
+		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    __RegionDefaultNote_JLabel = new JLabel("From: " + AwsToolkit.getInstance().getAwsUserConfigFile() );
+    JGUIUtil.addComponent(main_JPanel, __RegionDefaultNote_JLabel,
+		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	__RegionDefault_JTextField.setEditable(false);
+
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "DistributionId:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__DistributionId_JComboBox = new SimpleJComboBox ( false );
 	__DistributionId_JComboBox.setToolTipText("AWS CloudFront distribution ID.");
@@ -439,7 +483,7 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
     JGUIUtil.addComponent(main_JPanel, __DistributionId_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel(
-		"Optional - distribution ID (specify the distribution using ID or comment)."),
+		"Optional - distribution ID (specify the distribution using ID)."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     JGUIUtil.addComponent(main_JPanel, new JLabel ( "Comment:"),
@@ -449,14 +493,14 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
     __Comment_JTextField.addKeyListener ( this );
     JGUIUtil.addComponent(main_JPanel, __Comment_JTextField,
         1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Optional - comment to match (specify the distribution using ID or comment)."),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Optional - comment to match (specify the distribution comment, e.g., sub.domain)."),
         3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     __main_JTabbedPane = new JTabbedPane ();
     __main_JTabbedPane.addChangeListener(this);
     JGUIUtil.addComponent(main_JPanel, __main_JTabbedPane,
         0, ++y, 7, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-     
+
     // Panel for 'Invalidate' parameters.
     int yInvalidate = -1;
     JPanel invalidate_JPanel = new JPanel();
@@ -519,19 +563,33 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
         "Optional - wait for invalidation to complete (default=" + __command._True + ")."),
         3, yInvalidate, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
-    // Panel for 'List' parameters:
+    // Panel for 'List Distributions' parameters:
     // - this includes filtering
-    int yList = -1;
-    JPanel list_JPanel = new JPanel();
-    list_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "List", list_JPanel );
+    int yListDist = -1;
+    JPanel listDist_JPanel = new JPanel();
+    listDist_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "List Distributions", listDist_JPanel );
 
-    JGUIUtil.addComponent(list_JPanel, new JLabel ("Use a CloudFront command to list distributions and invalidations."),
-		0, ++yList, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(list_JPanel, new JLabel ("Use the 'Output' tab to specify the output table name and/or file for the list."),
-		0, ++yList, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(list_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
-    	0, ++yList, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(listDist_JPanel, new JLabel ("Use an AWS CloudFront command to list distributions."),
+		0, ++yListDist, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(listDist_JPanel, new JLabel ("No additional input is needed."),
+		0, ++yListDist, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(listDist_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yListDist, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    // Panel for 'List Invalidations' parameters:
+    // - this includes filtering
+    int yListInv = -1;
+    JPanel listInv_JPanel = new JPanel();
+    listInv_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "List Invalidations", listInv_JPanel );
+
+    JGUIUtil.addComponent(listInv_JPanel, new JLabel ("Use an AWS CloudFront command to list invalidations."),
+		0, ++yListInv, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(listInv_JPanel, new JLabel ("No additional input is needed."),
+		0, ++yListInv, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(listInv_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yListInv, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
     // Panel for output.
     int yOutput = -1;
@@ -541,12 +599,12 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 
     JGUIUtil.addComponent(output_JPanel, new JLabel ("The following are used for commands that generate CloudFront distribution lists."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel ("Specify the output file name with extension to indicate the format: 'csv"),
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("Specify the output file name with extension to indicate the format: csv"),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(output_JPanel, new JLabel ("Output file:" ), 
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("Output file:" ),
         0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __OutputFile_JTextField = new JTextField ( 50 );
     __OutputFile_JTextField.setToolTipText("Specify the output file to copy, can use ${Property} notation.");
@@ -569,7 +627,7 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 	JGUIUtil.addComponent(output_JPanel, OutputFile_JPanel,
 		1, yOutput, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Output Table ID:" ), 
+    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Output Table ID:" ),
         0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __OutputTableID_JComboBox = new SimpleJComboBox ( 12, true ); // Allow edit.
     __OutputTableID_JComboBox.setToolTipText("Table for output, available for some commands");
@@ -580,10 +638,10 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
     //__OutputTableID_JComboBox.setMaximumRowCount(tableIDChoices.size());
     JGUIUtil.addComponent(output_JPanel, __OutputTableID_JComboBox,
         1, yOutput, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel( "Optional - table for output."), 
+    JGUIUtil.addComponent(output_JPanel, new JLabel( "Optional - table for output."),
         3, yOutput, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "If input not found?:"),
+
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "If input not found?:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__IfInputNotFound_JComboBox = new SimpleJComboBox ( false );
 	List<String> notFoundChoices = new ArrayList<>();
@@ -594,13 +652,13 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 	__IfInputNotFound_JComboBox.setData(notFoundChoices);
 	__IfInputNotFound_JComboBox.select ( 0 );
 	__IfInputNotFound_JComboBox.addActionListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __IfInputNotFound_JComboBox,
+    JGUIUtil.addComponent(main_JPanel, __IfInputNotFound_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel(
-		"Optional - action if input file is not found (default=" + __command._Warn + ")"), 
+		"Optional - action if input file is not found (default=" + __command._Warn + ")."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Command:" ), 
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Command:" ),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__command_JTextArea = new JTextArea ( 4, 60 );
 	__command_JTextArea.setLineWrap ( true );
@@ -613,7 +671,7 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 	// South Panel: North
 	JPanel button_JPanel = new JPanel();
 	button_JPanel.setLayout(new FlowLayout(FlowLayout.CENTER));
-        JGUIUtil.addComponent(main_JPanel, button_JPanel, 
+        JGUIUtil.addComponent(main_JPanel, button_JPanel,
 		0, ++y, 8, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.CENTER);
 
     button_JPanel.add ( __ok_JButton = new SimpleJButton("OK", this) );
@@ -641,12 +699,15 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 Handle ItemEvent events.
 @param e ItemEvent to handle.
 */
-public void itemStateChanged ( ItemEvent e ) {    
+public void itemStateChanged ( ItemEvent e ) {
 	if ( this.ignoreEvents ) {
         return; // Startup.
     }
 	Object o = e.getSource();
-    if ( o == this.__Profile_JComboBox ) {
+	if ( o == this.__CloudFrontCommand_JComboBox ) {
+		setTabForS3Command();
+	}
+	else if ( o == this.__Profile_JComboBox ) {
 		populateDistributionIdChoices();
 	}
 	else if ( o == this.__Region_JComboBox ) {
@@ -658,25 +719,26 @@ public void itemStateChanged ( ItemEvent e ) {
 /**
 Respond to KeyEvents.
 */
-public void keyPressed ( KeyEvent event )
-{	int code = event.getKeyCode();
+public void keyPressed ( KeyEvent event ) {
+	int code = event.getKeyCode();
 
 	if ( code == KeyEvent.VK_ENTER ) {
 		refresh ();
 	}
 }
 
-public void keyReleased ( KeyEvent event )
-{	refresh();
+public void keyReleased ( KeyEvent event ) {
+	refresh();
 }
 
-public void keyTyped ( KeyEvent event ) {;}
+public void keyTyped ( KeyEvent event ) {
+}
 
 /**
 Indicate if the user pressed OK (cancel otherwise).
 */
-public boolean ok ()
-{	return __ok;
+public boolean ok () {
+	return __ok;
 }
 
 /**
@@ -733,8 +795,8 @@ private void populateDistributionIdChoices() {
 /**
 Refresh the command from the other text field contents.
 */
-private void refresh ()
-{	String routine = getClass().getSimpleName() + ".refresh";
+private void refresh () {
+	String routine = getClass().getSimpleName() + ".refresh";
 	String CloudFrontCommand = "";
 	String Profile = "";
 	String Region = "";
@@ -933,6 +995,8 @@ private void refresh ()
 			(command == AwsCloudFrontCommandType.LIST_INVALIDATIONS) ) {
 			__main_JTabbedPane.setSelectedIndex(0);
 		}
+		// Set the tab for the above selections.
+		setTabForS3Command();
 	}
 	// Regardless, reset the command from the fields.
 	// This is only  visible information that has not been committed in the command.
@@ -966,6 +1030,9 @@ private void refresh ()
 	props.add ( "OutputTableID=" + OutputTableID );
 	props.add ( "IfInputNotFound=" + IfInputNotFound );
 	__command_JTextArea.setText( __command.toString(props) );
+	// Set the default values as FYI.
+	AwsToolkit.getInstance().uiPopulateProfileDefault(__ProfileDefault_JTextField, __ProfileDefaultNote_JLabel);
+	AwsToolkit.getInstance().uiPopulateRegionDefault( __Profile_JComboBox.getSelected(), __RegionDefault_JTextField, __RegionDefaultNote_JLabel);
 	// Check the path and determine what the label on the path button should be.
     if ( __pathOutput_JButton != null ) {
 		if ( (OutputFile != null) && !OutputFile.isEmpty() ) {
@@ -988,11 +1055,10 @@ private void refresh ()
 
 /**
 React to the user response.
-@param ok if false, then the edit is canceled.  If true, the edit is committed
-and the dialog is closed.
+@param ok if false, then the edit is canceled.  If true, the edit is committed and the dialog is closed.
 */
-public void response ( boolean ok )
-{	__ok = ok;
+public void response ( boolean ok ) {
+	__ok = ok;
 	if ( ok ) {
 		// Commit the changes.
 		commitEdits ();
@@ -1007,6 +1073,22 @@ public void response ( boolean ok )
 }
 
 /**
+ * Set the parameter tab based on the selected command.
+ */
+private void setTabForS3Command() {
+	String command = __CloudFrontCommand_JComboBox.getSelected();
+	if ( command.equalsIgnoreCase("" + AwsCloudFrontCommandType.INVALIDATE_DISTRIBUTION) ) {
+		__main_JTabbedPane.setSelectedIndex(0);
+	}
+	else if ( command.equalsIgnoreCase("" + AwsCloudFrontCommandType.LIST_DISTRIBUTIONS) ) {
+		__main_JTabbedPane.setSelectedIndex(1);
+	}
+	else if ( command.equalsIgnoreCase("" + AwsCloudFrontCommandType.LIST_INVALIDATIONS) ) {
+		__main_JTabbedPane.setSelectedIndex(2);
+	}
+}
+
+/**
  * Handle JTabbedPane changes.
  */
 public void stateChanged ( ChangeEvent event ) {
@@ -1018,15 +1100,26 @@ public void stateChanged ( ChangeEvent event ) {
 Responds to WindowEvents.
 @param event WindowEvent object
 */
-public void windowClosing( WindowEvent event )
-{	response ( false );
+public void windowClosing( WindowEvent event ) {
+	response ( false );
 }
 
-public void windowActivated( WindowEvent evt ){;}
-public void windowClosed( WindowEvent evt ){;}
-public void windowDeactivated( WindowEvent evt ){;}
-public void windowDeiconified( WindowEvent evt ){;}
-public void windowIconified( WindowEvent evt ){;}
-public void windowOpened( WindowEvent evt ){;}
+public void windowActivated( WindowEvent evt ) {
+}
+
+public void windowClosed( WindowEvent evt ) {
+}
+
+public void windowDeactivated( WindowEvent evt ) {
+}
+
+public void windowDeiconified( WindowEvent evt ) {
+}
+
+public void windowIconified( WindowEvent evt ) {
+}
+
+public void windowOpened( WindowEvent evt ) {
+}
 
 }

@@ -26,7 +26,7 @@ public class Aws {
 	/**
 	 * Plugin version.
 	 */
-	public static final String VERSION = "1.1.0 (2022-06-10)";
+	public static final String VERSION = "1.1.1 (2022-12-02)";
 	
 	/**
 	 * Get the documentation root Url, used for command help.

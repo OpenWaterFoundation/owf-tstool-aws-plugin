@@ -70,7 +70,6 @@ import RTi.Util.Message.Message;
 import rti.tscommandprocessor.core.TSCommandProcessorUtil;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.RegionMetadata;
-import software.amazon.awssdk.services.s3.model.Bucket;
 
 @SuppressWarnings("serial")
 public class AwsS3_JDialog extends JDialog
@@ -86,8 +85,12 @@ private SimpleJButton __ok_JButton = null;
 private SimpleJButton __help_JButton = null;
 private JTabbedPane __main_JTabbedPane = null;
 private SimpleJComboBox __Profile_JComboBox = null;
+private JTextField __ProfileDefault_JTextField = null; // View only (not a command parameter).
+private JLabel __ProfileDefaultNote_JLabel = null; // To explain the default.
 private SimpleJComboBox __S3Command_JComboBox = null;
 private SimpleJComboBox __Region_JComboBox = null;
+private JTextField __RegionDefault_JTextField = null; // View only (not a command parameter).
+private JLabel __RegionDefaultNote_JLabel = null; // To explain the default.
 private SimpleJComboBox __Bucket_JComboBox = null;
 private SimpleJComboBox __IfInputNotFound_JComboBox = null;
 
@@ -134,8 +137,8 @@ Command editor constructor.
 @param command Command to edit.
 @param tableIDChoices list of tables to choose from, used if appending
 */
-public AwsS3_JDialog ( JFrame parent, AwsS3_Command command, List<String> tableIDChoices )
-{	super(parent, true);
+public AwsS3_JDialog ( JFrame parent, AwsS3_Command command, List<String> tableIDChoices ) {
+	super(parent, true);
 	initialize ( parent, command, tableIDChoices );
 }
 
@@ -143,15 +146,18 @@ public AwsS3_JDialog ( JFrame parent, AwsS3_Command command, List<String> tableI
 Responds to ActionEvents.
 @param event ActionEvent object
 */
-public void actionPerformed( ActionEvent event )
-{	String routine = getClass().getSimpleName() + ".actionPeformed";
+public void actionPerformed( ActionEvent event ) {
+	String routine = getClass().getSimpleName() + ".actionPeformed";
 	if ( this.ignoreEvents ) {
         return; // Startup.
     }
 
 	Object o = event.getSource();
 
-	if ( o == __browseOutput_JButton ) {
+    if ( o == this.__S3Command_JComboBox ) {
+    	setTabForS3Command();
+    }
+    else if ( o == __browseOutput_JButton ) {
         String last_directory_selected = JGUIUtil.getLastFileDialogDirectory();
         JFileChooser fc = null;
         if ( last_directory_selected != null ) {
@@ -161,16 +167,16 @@ public void actionPerformed( ActionEvent event )
             fc = JFileChooserFactory.createJFileChooser(__working_dir );
         }
         fc.setDialogTitle( "Select Output File");
-        
+
         if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             String directory = fc.getSelectedFile().getParent();
-            String filename = fc.getSelectedFile().getName(); 
-            String path = fc.getSelectedFile().getPath(); 
-    
+            String filename = fc.getSelectedFile().getName();
+            String path = fc.getSelectedFile().getPath();
+
             if (filename == null || filename.equals("")) {
                 return;
             }
-    
+
             if (path != null) {
 				// Convert path to relative path by default.
 				try {
@@ -298,11 +304,11 @@ public void actionPerformed( ActionEvent event )
 }
 
 /**
-Check the input.  If errors exist, warn the user and set the __error_wait flag
-to true.  This should be called before response() is allowed to complete.
+Check the input.  If errors exist, warn the user and set the __error_wait flag to true.
+This should be called before response() is allowed to complete.
 */
-private void checkInput ()
-{	if ( this.ignoreEvents ) {
+private void checkInput () {
+	if ( this.ignoreEvents ) {
         return; // Startup.
     }
 	// Put together a list of parameters to check.
@@ -316,9 +322,9 @@ private void checkInput ()
 	String DownloadDirectories = __DownloadDirectories_JTextArea.getText().trim().replace("\n"," ");
 	String DownloadFiles = __DownloadFiles_JTextArea.getText().trim().replace("\n"," ");
 	String DeleteKey = __DeleteKey_JTextField.getText().trim();
+	String Prefix = __Prefix_JTextField.getText().trim();
 	String MaxKeys = __MaxKeys_JTextField.getText().trim();
 	String MaxObjects = __MaxObjects_JTextField.getText().trim();
-	String Prefix = __Prefix_JTextField.getText().trim();
 	String UploadDirectories = __UploadDirectories_JTextArea.getText().trim().replace("\n"," ");
 	String UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
 	String OutputFile = __OutputFile_JTextField.getText().trim();
@@ -355,14 +361,14 @@ private void checkInput ()
 	if ( (DeleteKey != null) && !DeleteKey.isEmpty() ) {
 		props.set ( "DeleteKey", DeleteKey );
 	}
+	if ( (Prefix != null) && !Prefix.isEmpty() ) {
+		props.set ( "Prefix", Prefix );
+	}
 	if ( (MaxKeys != null) && !MaxKeys.isEmpty() ) {
 		props.set ( "MaxKeys", MaxKeys );
 	}
 	if ( (MaxObjects != null) && !MaxObjects.isEmpty() ) {
 		props.set ( "MaxObjects", MaxObjects );
-	}
-	if ( (Prefix != null) && !Prefix.isEmpty() ) {
-		props.set ( "Prefix", Prefix );
 	}
 	if ( (UploadDirectories != null) && !UploadDirectories.isEmpty() ) {
 		props.set ( "UploadDirectories", UploadDirectories );
@@ -390,8 +396,8 @@ private void checkInput ()
 }
 
 /**
-Commit the edits to the command.  In this case the command parameters have
-already been checked and no errors were detected.
+Commit the edits to the command.
+In this case the command parameters have already been checked and no errors were detected.
 */
 private void commitEdits () {
 	String S3Command = __S3Command_JComboBox.getSelected();
@@ -403,9 +409,9 @@ private void commitEdits () {
 	String DeleteKey = __DeleteKey_JTextField.getText().trim();
 	String DownloadDirectories = __DownloadDirectories_JTextArea.getText().trim().replace("\n"," ");
 	String DownloadFiles = __DownloadFiles_JTextArea.getText().trim().replace("\n"," ");
+	String Prefix = __Prefix_JTextField.getText().trim();
 	String MaxKeys = __MaxKeys_JTextField.getText().trim();
 	String MaxObjects = __MaxObjects_JTextField.getText().trim();
-	String Prefix = __Prefix_JTextField.getText().trim();
 	String UploadDirectories = __UploadDirectories_JTextArea.getText().trim().replace("\n"," ");
 	String UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
     String OutputFile = __OutputFile_JTextField.getText().trim();
@@ -420,9 +426,9 @@ private void commitEdits () {
 	__command.setCommandParameter ( "DeleteKey", DeleteKey );
 	__command.setCommandParameter ( "DownloadDirectories", DownloadDirectories );
 	__command.setCommandParameter ( "DownloadFiles", DownloadFiles );
+	__command.setCommandParameter ( "Prefix", Prefix );
 	__command.setCommandParameter ( "MaxKeys", MaxKeys );
 	__command.setCommandParameter ( "MaxObjects", MaxObjects );
-	__command.setCommandParameter ( "Prefix", Prefix );
 	__command.setCommandParameter ( "UploadDirectories", UploadDirectories );
 	__command.setCommandParameter ( "UploadFiles", UploadFiles );
 	__command.setCommandParameter ( "OutputFile", OutputFile );
@@ -461,8 +467,8 @@ Instantiates the GUI components.
 @param command Command to edit.
 @param tableIDChoices list of tables to choose from, used if appending
 */
-private void initialize ( JFrame parent, AwsS3_Command command, List<String> tableIDChoices )
-{	this.__command = command;
+private void initialize ( JFrame parent, AwsS3_Command command, List<String> tableIDChoices ) {
+	this.__command = command;
 	this.__parent = parent;
 	CommandProcessor processor =__command.getCommandProcessor();
 	
@@ -495,12 +501,27 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     	JGUIUtil.addComponent(main_JPanel, new JLabel ("    " + __working_dir),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     }
+    String config = AwsToolkit.getInstance().getAwsUserConfigFile();
+    File f = null;
+    if ( config != null ) {
+    	f = new File(config);
+    }
+    if ( (f == null) || !f.exists() ) {
+    	JGUIUtil.addComponent(main_JPanel, new JLabel (
+        	"<html><b>ERROR: User's AWS configuration does not exist (errors will occur): " + AwsToolkit.getInstance().getAwsUserConfigFile() + "</b></html>" ),
+        	0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    }
+    else {
+    	JGUIUtil.addComponent(main_JPanel, new JLabel (
+        	"User's AWS configuration: " + AwsToolkit.getInstance().getAwsUserConfigFile() ),
+        	0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    }
     JGUIUtil.addComponent(main_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
    	this.ignoreEvents = true; // So that a full pass of initialization can occur.
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "S3 command:"),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "S3 command:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__S3Command_JComboBox = new SimpleJComboBox ( false );
 	__S3Command_JComboBox.setToolTipText("S3 command to execute.");
@@ -508,12 +529,12 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 	__S3Command_JComboBox.setData(commandChoices);
 	__S3Command_JComboBox.select ( 0 );
 	__S3Command_JComboBox.addActionListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __S3Command_JComboBox,
+    JGUIUtil.addComponent(main_JPanel, __S3Command_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel("Required - S3 command to run."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Profile:"),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Profile:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__Profile_JComboBox = new SimpleJComboBox ( false );
 	__Profile_JComboBox.setToolTipText("AWS user profile to use for authentication (see user's .aws/config file).");
@@ -526,12 +547,24 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 	// Set the the AWS session here so other choices can display something.
 	this.awsSession = new AwsSession(__Profile_JComboBox.getSelected());
 	__Profile_JComboBox.addItemListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __Profile_JComboBox,
+    JGUIUtil.addComponent(main_JPanel, __Profile_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel("Optional - profile for authentication (default=only profile or 'default')."),
+    JGUIUtil.addComponent(main_JPanel, new JLabel("Optional - profile for authentication (default=see below)."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Region:"),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Profile (default):"),
+		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__ProfileDefault_JTextField = new JTextField ( 20 );
+	__ProfileDefault_JTextField.setToolTipText("Default profile determined from user's .aws/config file).");
+	__ProfileDefault_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(main_JPanel, __ProfileDefault_JTextField,
+		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    __ProfileDefaultNote_JLabel = new JLabel("From: " + AwsToolkit.getInstance().getAwsUserConfigFile());
+    JGUIUtil.addComponent(main_JPanel, __ProfileDefaultNote_JLabel,
+		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	__ProfileDefault_JTextField.setEditable(false);
+
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Region:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__Region_JComboBox = new SimpleJComboBox ( false );
 	__Region_JComboBox.setToolTipText("AWS region to run service.");
@@ -547,18 +580,29 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 		}
 	}
 	Collections.sort(regionChoices);
-	// TODO smalers 2022-05-39 evaluate whether region can default.
-	//regionChoices.add(""); // Default - region is not specified.
+	regionChoices.add(0,""); // Default - region is not specified (get from user's ~/.aws/config file)
 	__Region_JComboBox.setData(regionChoices);
 	__Region_JComboBox.select ( 0 );
 	__Region_JComboBox.addItemListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __Region_JComboBox,
+    JGUIUtil.addComponent(main_JPanel, __Region_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel(
-		"Optional - AWS region (default=determined by service)."),
+		"Optional - AWS region (default=see below)."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Bucket:"),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Region (default):"),
+		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__RegionDefault_JTextField = new JTextField ( 20 );
+	__RegionDefault_JTextField.setToolTipText("Default region for profile determined from user's .aws/config file).");
+	__RegionDefault_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(main_JPanel, __RegionDefault_JTextField,
+		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    __RegionDefaultNote_JLabel = new JLabel("From: " + AwsToolkit.getInstance().getAwsUserConfigFile() );
+    JGUIUtil.addComponent(main_JPanel, __RegionDefaultNote_JLabel,
+		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	__RegionDefault_JTextField.setEditable(false);
+
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Bucket:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__Bucket_JComboBox = new SimpleJComboBox ( false );
 	__Bucket_JComboBox.setToolTipText("AWS S3 bucket.");
@@ -567,14 +611,14 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(main_JPanel, __Bucket_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel(
-		"Optional - S3 bucket (required by some services)."),
+		"Required (except for ListBuckets command) - S3 bucket."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     __main_JTabbedPane = new JTabbedPane ();
     __main_JTabbedPane.addChangeListener(this);
     JGUIUtil.addComponent(main_JPanel, __main_JTabbedPane,
         0, ++y, 7, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-     
+
     // Panel for 'Copy' parameters:
     // - specify original and copy
     int yCopy = -1;
@@ -582,7 +626,9 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     copy_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "Copy", copy_JPanel );
 
-    JGUIUtil.addComponent(copy_JPanel, new JLabel ("Specify S3 object to copy."),
+    JGUIUtil.addComponent(copy_JPanel, new JLabel ("Specify the S3 object to copy and destination for the copy."),
+		0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(copy_JPanel, new JLabel ("The keys should NOT start or end with /."),
 		0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(copy_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -612,7 +658,9 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     delete_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "Delete", delete_JPanel );
 
-    JGUIUtil.addComponent(delete_JPanel, new JLabel ("Specify S3 object to delete."),
+    JGUIUtil.addComponent(delete_JPanel, new JLabel ("Specify the S3 object to delete."),
+		0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(delete_JPanel, new JLabel ("The key should NOT start or end with /."),
 		0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(delete_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -668,41 +716,58 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(download_JPanel, new SimpleJButton ("Edit","EditDownloadFiles",this),
         3, ++yDownload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
-    // Panel for 'List' parameters:
+    // Panel for 'List Bucket' parameters:
+    // - this includes filtering
+    int yListBuckets = -1;
+    JPanel listBuckets_JPanel = new JPanel();
+    listBuckets_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "List Buckets", listBuckets_JPanel );
+
+    JGUIUtil.addComponent(listBuckets_JPanel, new JLabel ("No additional command parameters are needed to list buckets."),
+		0, ++yListBuckets, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(listBuckets_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yListBuckets, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    // Panel for 'List Bucket Objects' parameters:
     // - this includes filtering
     int yList = -1;
     JPanel list_JPanel = new JPanel();
     list_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "List", list_JPanel );
+    __main_JTabbedPane.addTab ( "List Bucket Objects", list_JPanel );
 
     JGUIUtil.addComponent(list_JPanel, new JLabel ("Use the following to control creation of the S3 object list."),
+		0, ++yList, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, new JLabel ("Specify the key prefix (bucket folder) without leading / and with trailing /."),
 		0, ++yList, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(list_JPanel, new JLabel ("Use the 'Output' tab to specify the output table name and/or file for the list."),
 		0, ++yList, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(list_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yList, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
+    JGUIUtil.addComponent(list_JPanel, new JLabel ( "Key prefix to match:"),
+        0, ++yList, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __Prefix_JTextField = new JTextField ( "", 30 );
+    __Prefix_JTextField.setToolTipText("Specify the bucket folder to list, without leading /.");
+    __Prefix_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(list_JPanel, __Prefix_JTextField,
+        1, yList, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(list_JPanel, new JLabel ( "Optional - object key prefix to list (default=list all)."),
+        3, yList, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
     JGUIUtil.addComponent(list_JPanel, new JLabel ( "Maximum keys:"),
         0, ++yList, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __MaxKeys_JTextField = new JTextField ( "", 10 );
+    __MaxKeys_JTextField.setToolTipText("Used internally by AWS web services.");
     __MaxKeys_JTextField.addKeyListener ( this );
     JGUIUtil.addComponent(list_JPanel, __MaxKeys_JTextField,
         1, yList, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(list_JPanel, new JLabel ( "Optional - Maximum number of object keys read per request (default=1000)."),
         3, yList, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(list_JPanel, new JLabel ( "Key prefix to match:"),
-        0, ++yList, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __Prefix_JTextField = new JTextField ( "", 30 );
-    __Prefix_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(list_JPanel, __Prefix_JTextField,
-        1, yList, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(list_JPanel, new JLabel ( "Optional - object key prefix to match (default=match all)."),
-        3, yList, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
     JGUIUtil.addComponent(list_JPanel, new JLabel ( "Maximum objects:"),
         0, ++yList, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __MaxObjects_JTextField = new JTextField ( "", 10 );
+    __MaxObjects_JTextField.setToolTipText("Use to limit the size of the query results.");
     __MaxObjects_JTextField.addKeyListener ( this );
     JGUIUtil.addComponent(list_JPanel, __MaxObjects_JTextField,
         1, yList, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -764,7 +829,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(output_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(output_JPanel, new JLabel ("Output file:" ), 
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("Output file:" ),
         0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __OutputFile_JTextField = new JTextField ( 50 );
     __OutputFile_JTextField.setToolTipText("Specify the output file to copy, can use ${Property} notation.");
@@ -787,7 +852,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 	JGUIUtil.addComponent(output_JPanel, OutputFile_JPanel,
 		1, yOutput, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Output Table ID:" ), 
+    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Output Table ID:" ),
         0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __OutputTableID_JComboBox = new SimpleJComboBox ( 12, true ); // Allow edit.
     __OutputTableID_JComboBox.setToolTipText("Table for output, available for some commands");
@@ -798,10 +863,10 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     //__OutputTableID_JComboBox.setMaximumRowCount(tableIDChoices.size());
     JGUIUtil.addComponent(output_JPanel, __OutputTableID_JComboBox,
         1, yOutput, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel( "Optional - table for output."), 
+    JGUIUtil.addComponent(output_JPanel, new JLabel( "Optional - table for output."),
         3, yOutput, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "If input not found?:"),
+
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "If input not found?:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__IfInputNotFound_JComboBox = new SimpleJComboBox ( false );
 	List<String> notFoundChoices = new ArrayList<>();
@@ -812,13 +877,13 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 	__IfInputNotFound_JComboBox.setData(notFoundChoices);
 	__IfInputNotFound_JComboBox.select ( 0 );
 	__IfInputNotFound_JComboBox.addActionListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __IfInputNotFound_JComboBox,
+    JGUIUtil.addComponent(main_JPanel, __IfInputNotFound_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel(
-		"Optional - action if input file is not found (default=" + __command._Warn + ")"), 
+		"Optional - action if input file is not found (default=" + __command._Warn + ")."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Command:" ), 
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Command:" ),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__command_JTextArea = new JTextArea ( 4, 60 );
 	__command_JTextArea.setLineWrap ( true );
@@ -831,7 +896,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 	// South Panel: North
 	JPanel button_JPanel = new JPanel();
 	button_JPanel.setLayout(new FlowLayout(FlowLayout.CENTER));
-        JGUIUtil.addComponent(main_JPanel, button_JPanel, 
+        JGUIUtil.addComponent(main_JPanel, button_JPanel,
 		0, ++y, 8, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.CENTER);
 
     button_JPanel.add ( __ok_JButton = new SimpleJButton("OK", this) );
@@ -859,16 +924,19 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 Handle ItemEvent events.
 @param e ItemEvent to handle.
 */
-public void itemStateChanged ( ItemEvent e ) {    
+public void itemStateChanged ( ItemEvent e ) {
 	if ( this.ignoreEvents ) {
         return; // Startup.
     }
 	Object o = e.getSource();
-    if ( o == this.__Profile_JComboBox ) {
-		populateBucketChoices();
+    if ( o == this.__S3Command_JComboBox ) {
+    	setTabForS3Command();
+    }
+    else if ( o == this.__Profile_JComboBox ) {
+        AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Profile_JComboBox, __Bucket_JComboBox );
 	}
 	else if ( o == this.__Region_JComboBox ) {
-		populateBucketChoices();
+        AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Profile_JComboBox, __Bucket_JComboBox );
 	}
 	refresh();
 }
@@ -876,83 +944,33 @@ public void itemStateChanged ( ItemEvent e ) {
 /**
 Respond to KeyEvents.
 */
-public void keyPressed ( KeyEvent event )
-{	int code = event.getKeyCode();
+public void keyPressed ( KeyEvent event ) {
+	int code = event.getKeyCode();
 
 	if ( code == KeyEvent.VK_ENTER ) {
 		refresh ();
 	}
 }
 
-public void keyReleased ( KeyEvent event )
-{	refresh();
+public void keyReleased ( KeyEvent event ) {
+	refresh();
 }
 
-public void keyTyped ( KeyEvent event ) {;}
+public void keyTyped ( KeyEvent event ) {
+}
 
 /**
 Indicate if the user pressed OK (cancel otherwise).
 */
-public boolean ok ()
-{	return __ok;
-}
-
-/**
- * Populate the Bucket choices based no other selections.
- */
-private void populateBucketChoices() {
-	String routine = getClass().getSimpleName() + ".populateBucketChoices";
-	boolean debug = true;
-	if ( awsSession == null ) {
-		// Startup - can't populate the buckets.
-		if ( debug ) {
-			Message.printStatus(2, routine, "Startup - not populating the list of buckets." );
-		}
-		return;
-	}
-	else {
-		if ( debug ) {
-			Message.printStatus(2, routine, "Getting the list of buckets." );
-		}
-		// Get the list of buckets.
-		String region = getSelectedRegion();
-		if ( region == null ) {
-			// Startup - can't populate the buckets.
-			if ( debug ) {
-				Message.printStatus(2, routine, "Region is null - can't populate the list of buckets." );
-			}
-			return;
-		}
-		else {
-			// Have a region.
-			if ( debug ) {
-				Message.printStatus(2, routine, "Region is \"" + region + "\" - populating the list of buckets." );
-			}	
-			List<Bucket> buckets = AwsToolkit.getInstance().getS3Buckets(awsSession, region);
-			List<String> bucketChoices = new ArrayList<>();
-			for ( Bucket bucket : buckets ) {
-				bucketChoices.add ( bucket.name() );
-				if ( debug ) {
-					Message.printStatus(2, routine, "Populated bucket: " + bucket.name() );
-				}
-			}
-			Collections.sort(bucketChoices);
-			// Add a blank because some services don't use
-			bucketChoices.add(0,"");
-			__Bucket_JComboBox.setData(bucketChoices);
-			if ( __Bucket_JComboBox.getItemCount() > 0 ) {
-				// Select the first bucket by default.
-				__Bucket_JComboBox.select ( 0 );
-			}
-		}
-	}
+public boolean ok () {
+	return __ok;
 }
 
 /**
 Refresh the command from the other text field contents.
 */
-private void refresh ()
-{	String routine = getClass().getSimpleName() + ".refresh";
+private void refresh () {
+	String routine = getClass().getSimpleName() + ".refresh";
 	String S3Command = "";
 	String Profile = "";
 	String Region = "";
@@ -962,8 +980,8 @@ private void refresh ()
 	String DeleteKey = "";
 	String DownloadDirectories = "";
 	String DownloadFiles = "";
-	String MaxKeys = "";
 	String Prefix = "";
+	String MaxKeys = "";
 	String MaxObjects = "";
 	String UploadDirectories = "";
 	String UploadFiles = "";
@@ -983,8 +1001,8 @@ private void refresh ()
 		DeleteKey = parameters.getValue ( "DeleteKey" );
 		DownloadDirectories = parameters.getValue ( "DownloadDirectories" );
 		DownloadFiles = parameters.getValue ( "DownloadFiles" );
-		MaxKeys = parameters.getValue ( "MaxKeys" );
 		Prefix = parameters.getValue ( "Prefix" );
+		MaxKeys = parameters.getValue ( "MaxKeys" );
 		MaxObjects = parameters.getValue ( "MaxObjects" );
 		UploadDirectories = parameters.getValue ( "UploadDirectories" );
 		UploadFiles = parameters.getValue ( "UploadFiles" );
@@ -1073,7 +1091,8 @@ private void refresh ()
             Message.printWarning ( 1, routine, "Existing command references an invalid\n"+
                 "Region parameter \"" + Region + "\".  Select a\ndifferent value or Cancel." );
         }
-        populateBucketChoices();
+        // Populate the bucket choices, which depends on the above profile and region.
+        AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Profile_JComboBox, __Bucket_JComboBox );
 		if ( JGUIUtil.isSimpleJComboBoxItem(__Bucket_JComboBox, Bucket,JGUIUtil.NONE, null, null ) ) {
 			__Bucket_JComboBox.select ( Bucket );
 		}
@@ -1106,11 +1125,11 @@ private void refresh ()
         if ( DownloadFiles != null ) {
             __DownloadFiles_JTextArea.setText ( DownloadFiles );
         }
-        if ( MaxKeys != null ) {
-            __MaxKeys_JTextField.setText ( MaxKeys );
-        }
         if ( Prefix != null ) {
             __Prefix_JTextField.setText ( Prefix );
+        }
+        if ( MaxKeys != null ) {
+            __MaxKeys_JTextField.setText ( MaxKeys );
         }
         if ( MaxObjects != null ) {
             __MaxObjects_JTextField.setText ( MaxObjects );
@@ -1176,6 +1195,8 @@ private void refresh ()
 		else if ( command == AwsS3CommandType.UPLOAD_OBJECTS ) {
 			__main_JTabbedPane.setSelectedIndex(4);
 		}
+		// Set the tab for selected S3 command.
+		setTabForS3Command();
 	}
 	// Regardless, reset the command from the fields.
 	// This is only  visible information that has not been committed in the command.
@@ -1221,6 +1242,9 @@ private void refresh ()
 	props.add ( "OutputTableID=" + OutputTableID );
 	props.add ( "IfInputNotFound=" + IfInputNotFound );
 	__command_JTextArea.setText( __command.toString(props) );
+	// Set the default values as FYI.
+	AwsToolkit.getInstance().uiPopulateProfileDefault(__ProfileDefault_JTextField, __ProfileDefaultNote_JLabel);
+	AwsToolkit.getInstance().uiPopulateRegionDefault( __Profile_JComboBox.getSelected(), __RegionDefault_JTextField, __RegionDefaultNote_JLabel);
 	// Check the path and determine what the label on the path button should be.
     if ( __pathOutput_JButton != null ) {
 		if ( (OutputFile != null) && !OutputFile.isEmpty() ) {
@@ -1243,11 +1267,10 @@ private void refresh ()
 
 /**
 React to the user response.
-@param ok if false, then the edit is canceled.  If true, the edit is committed
-and the dialog is closed.
+@param ok if false, then the edit is canceled.  If true, the edit is committed and the dialog is closed.
 */
-public void response ( boolean ok )
-{	__ok = ok;
+public void response ( boolean ok ) {
+	__ok = ok;
 	if ( ok ) {
 		// Commit the changes.
 		commitEdits ();
@@ -1262,6 +1285,31 @@ public void response ( boolean ok )
 }
 
 /**
+ * Set the parameter tab based on the selected command.
+ */
+private void setTabForS3Command() {
+	String command = __S3Command_JComboBox.getSelected();
+	if ( command.equalsIgnoreCase("" + AwsS3CommandType.COPY_OBJECT) ) {
+		__main_JTabbedPane.setSelectedIndex(0);
+	}
+	else if ( command.equalsIgnoreCase("" + AwsS3CommandType.DELETE_OBJECT) ) {
+		__main_JTabbedPane.setSelectedIndex(1);
+	}
+	else if ( command.equalsIgnoreCase("" + AwsS3CommandType.DOWNLOAD_OBJECTS) ) {
+		__main_JTabbedPane.setSelectedIndex(2);
+	}
+	else if ( command.equalsIgnoreCase("" + AwsS3CommandType.LIST_BUCKETS) ) {
+		__main_JTabbedPane.setSelectedIndex(3);
+	}
+	else if ( command.equalsIgnoreCase("" + AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
+		__main_JTabbedPane.setSelectedIndex(4);
+	}
+	else if ( command.equalsIgnoreCase("" + AwsS3CommandType.UPLOAD_OBJECTS) ) {
+		__main_JTabbedPane.setSelectedIndex(5);
+	}
+}
+
+/**
  * Handle JTabbedPane changes.
  */
 public void stateChanged ( ChangeEvent event ) {
@@ -1273,15 +1321,25 @@ public void stateChanged ( ChangeEvent event ) {
 Responds to WindowEvents.
 @param event WindowEvent object
 */
-public void windowClosing( WindowEvent event )
-{	response ( false );
+public void windowClosing( WindowEvent event ) {
+	response ( false );
 }
 
-public void windowActivated( WindowEvent evt ){;}
-public void windowClosed( WindowEvent evt ){;}
-public void windowDeactivated( WindowEvent evt ){;}
-public void windowDeiconified( WindowEvent evt ){;}
-public void windowIconified( WindowEvent evt ){;}
-public void windowOpened( WindowEvent evt ){;}
+public void windowActivated( WindowEvent evt ) {
+}
+
+public void windowClosed( WindowEvent evt ) {
+}
+
+public void windowDeactivated( WindowEvent evt ) {
+}
+
+public void windowDeiconified( WindowEvent evt ) {
+}
+
+public void windowIconified( WindowEvent evt ) {
+}
+
+public void windowOpened( WindowEvent evt ) {;}
 
 }
