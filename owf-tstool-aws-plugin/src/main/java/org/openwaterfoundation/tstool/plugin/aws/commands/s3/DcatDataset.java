@@ -139,7 +139,7 @@ public class DcatDataset {
 
 	/**
 	 * This is an OWF extension.
-	 * Local JSON file used as Markdown input to the index file "Dataset Details" section.
+	 * Local JSON file used as Markdown input to the index file "Dataset Details" section (e.g., 'dataset-details.md').
 	 */
 	@JsonIgnore
 	private String localMarkdownPath = null;
@@ -273,24 +273,21 @@ public class DcatDataset {
 	}
 
 	/**
-	 * Return the path to the local image file,
-	 * for example the path to a downloaded image file.
+	 * Return the path to the local image file, for example the path to a downloaded image file (e.g., 'dataset.png).
 	 */
 	public String getLocalImagePath() {
 		return this.localImagePath;
 	}
 
 	/**
-	 * Return the path to the local markdown file,
-	 * for example the path to a downloaded image file.
+	 * Return the path to the local markdown file (e.g., dataset-details.md).
 	 */
 	public String getLocalMarkdownPath() {
 		return this.localMarkdownPath;
 	}
 
 	/**
-	 * Return the path to the local resource file,
-	 * for example the path to a downloaded file.
+	 * Return the path to the local resource file, for example the path to a downloaded 'dataset.json' file.
 	 */
 	public String getLocalPath() {
 		return this.localPath;
@@ -367,7 +364,7 @@ public class DcatDataset {
 	}
 
 	/**
-	 * Set the local path to the dataset MarkDown file.
+	 * Set the local path to the dataset MarkDown file (dataset-details.md).
 	 */
 	public void setLocalMarkdownPath ( String localMarkdownPath ) {
 		this.localMarkdownPath = localMarkdownPath;

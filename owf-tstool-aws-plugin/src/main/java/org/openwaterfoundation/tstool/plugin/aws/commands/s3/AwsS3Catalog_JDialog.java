@@ -69,7 +69,6 @@ import RTi.Util.Message.Message;
 import rti.tscommandprocessor.core.TSCommandProcessorUtil;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.RegionMetadata;
-import software.amazon.awssdk.services.s3.model.Bucket;
 
 @SuppressWarnings("serial")
 public class AwsS3Catalog_JDialog extends JDialog
@@ -95,12 +94,17 @@ private SimpleJButton __ok_JButton = null;
 private SimpleJButton __help_JButton = null;
 private JTabbedPane __main_JTabbedPane = null;
 private SimpleJComboBox __Profile_JComboBox = null;
+private JTextField __ProfileDefault_JTextField = null; // View only (not a command parameter).
+private JLabel __ProfileDefaultNote_JLabel = null; // To explain the default.
 private SimpleJComboBox __Region_JComboBox = null;
+private JTextField __RegionDefault_JTextField = null; // View only (not a command parameter).
+private JLabel __RegionDefaultNote_JLabel = null; // To explain the default.
 private SimpleJComboBox __Bucket_JComboBox = null;
 private SimpleJComboBox __IfInputNotFound_JComboBox = null;
 
 // Catalog tab.
 private JTextField __StartingPrefix_JTextField = null;
+private SimpleJComboBox __ProcessSubdirectories_JComboBox = null;
 private JTextField __CatalogIndexFile_JTextField = null;
 private JTextField __CatalogFile_JTextField = null;
 private SimpleJComboBox __UploadCatalogFiles_JComboBox = null;
@@ -142,8 +146,8 @@ Command editor constructor.
 @param command Command to edit.
 @param tableIDChoices list of tables to choose from, used if appending
 */
-public AwsS3Catalog_JDialog ( JFrame parent, AwsS3Catalog_Command command, List<String> tableIDChoices )
-{	super(parent, true);
+public AwsS3Catalog_JDialog ( JFrame parent, AwsS3Catalog_Command command, List<String> tableIDChoices ) {
+	super(parent, true);
 	initialize ( parent, command, tableIDChoices );
 }
 
@@ -151,8 +155,8 @@ public AwsS3Catalog_JDialog ( JFrame parent, AwsS3Catalog_Command command, List<
 Responds to ActionEvents.
 @param event ActionEvent object
 */
-public void actionPerformed( ActionEvent event )
-{	String routine = getClass().getSimpleName() + ".actionPeformed";
+public void actionPerformed( ActionEvent event ) {
+	String routine = getClass().getSimpleName() + ".actionPeformed";
 	if ( this.ignoreEvents ) {
         return; // Startup.
     }
@@ -169,16 +173,16 @@ public void actionPerformed( ActionEvent event )
             fc = JFileChooserFactory.createJFileChooser(__working_dir );
         }
         fc.setDialogTitle( "Select Catalog File");
-        
+
         if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             String directory = fc.getSelectedFile().getParent();
-            String filename = fc.getSelectedFile().getName(); 
-            String path = fc.getSelectedFile().getPath(); 
-    
+            String filename = fc.getSelectedFile().getName();
+            String path = fc.getSelectedFile().getPath();
+
             if (filename == null || filename.equals("")) {
                 return;
             }
-    
+
             if (path != null) {
 				// Convert path to relative path by default.
 				try {
@@ -202,16 +206,16 @@ public void actionPerformed( ActionEvent event )
             fc = JFileChooserFactory.createJFileChooser(__working_dir );
         }
         fc.setDialogTitle( "Select Catalog Index File");
-        
+
         if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             String directory = fc.getSelectedFile().getParent();
-            String filename = fc.getSelectedFile().getName(); 
-            String path = fc.getSelectedFile().getPath(); 
-    
+            String filename = fc.getSelectedFile().getName();
+            String path = fc.getSelectedFile().getPath();
+
             if (filename == null || filename.equals("")) {
                 return;
             }
-    
+
             if (path != null) {
 				// Convert path to relative path by default.
 				try {
@@ -235,16 +239,16 @@ public void actionPerformed( ActionEvent event )
             fc = JFileChooserFactory.createJFileChooser(__working_dir );
         }
         fc.setDialogTitle( "Select Dataset Index File");
-        
+
         if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             String directory = fc.getSelectedFile().getParent();
-            String filename = fc.getSelectedFile().getName(); 
-            String path = fc.getSelectedFile().getPath(); 
-    
+            String filename = fc.getSelectedFile().getName();
+            String path = fc.getSelectedFile().getPath();
+
             if (filename == null || filename.equals("")) {
                 return;
             }
-    
+
             if (path != null) {
 				// Convert path to relative path by default.
 				try {
@@ -268,16 +272,16 @@ public void actionPerformed( ActionEvent event )
             fc = JFileChooserFactory.createJFileChooser(__working_dir );
         }
         fc.setDialogTitle( "Select Dataset Index Body File");
-        
+
         if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             String directory = fc.getSelectedFile().getParent();
-            String filename = fc.getSelectedFile().getName(); 
-            String path = fc.getSelectedFile().getPath(); 
-    
+            String filename = fc.getSelectedFile().getName();
+            String path = fc.getSelectedFile().getPath();
+
             if (filename == null || filename.equals("")) {
                 return;
             }
-    
+
             if (path != null) {
 				// Convert path to relative path by default.
 				try {
@@ -301,16 +305,16 @@ public void actionPerformed( ActionEvent event )
             fc = JFileChooserFactory.createJFileChooser(__working_dir );
         }
         fc.setDialogTitle( "Select Dataset Index Footer File");
-        
+
         if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             String directory = fc.getSelectedFile().getParent();
-            String filename = fc.getSelectedFile().getName(); 
-            String path = fc.getSelectedFile().getPath(); 
-    
+            String filename = fc.getSelectedFile().getName();
+            String path = fc.getSelectedFile().getPath();
+
             if (filename == null || filename.equals("")) {
                 return;
             }
-    
+
             if (path != null) {
 				// Convert path to relative path by default.
 				try {
@@ -443,8 +447,8 @@ public void actionPerformed( ActionEvent event )
 Check the input.  If errors exist, warn the user and set the __error_wait flag
 to true.  This should be called before response() is allowed to complete.
 */
-private void checkInput ()
-{	if ( this.ignoreEvents ) {
+private void checkInput () {
+	if ( this.ignoreEvents ) {
         return; // Startup.
     }
 	// Put together a list of parameters to check.
@@ -453,6 +457,7 @@ private void checkInput ()
 	String Region = getSelectedRegion();
 	String Bucket = __Bucket_JComboBox.getSelected();
 	String StartingPrefix = __StartingPrefix_JTextField.getText().trim();
+	String ProcessSubdirectories = __ProcessSubdirectories_JComboBox.getSelected();
 	String CatalogFile = __CatalogFile_JTextField.getText().trim();
 	String CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
 	String UploadCatalogFiles = __UploadCatalogFiles_JComboBox.getSelected();
@@ -477,6 +482,9 @@ private void checkInput ()
 	}
 	if ( (StartingPrefix != null) && !StartingPrefix.isEmpty() ) {
 		props.set ( "StartingPrefix", StartingPrefix );
+	}
+	if ( (ProcessSubdirectories != null) && !ProcessSubdirectories.isEmpty() ) {
+		props.set ( "ProcessSubdirectories", ProcessSubdirectories );
 	}
     if ( CatalogFile.length() > 0 ) {
         props.set ( "CatalogFile", CatalogFile );
@@ -533,6 +541,7 @@ private void commitEdits () {
 	String Region = getSelectedRegion();
 	String Bucket = __Bucket_JComboBox.getSelected();
 	String StartingPrefix = __StartingPrefix_JTextField.getText().trim();
+	String ProcessSubdirectories = __ProcessSubdirectories_JComboBox.getSelected();
 	String CatalogFile = __CatalogFile_JTextField.getText().trim();
 	String CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
 	String UploadCatalogFiles = __UploadCatalogFiles_JComboBox.getSelected();
@@ -549,6 +558,7 @@ private void commitEdits () {
 	__command.setCommandParameter ( "Region", Region );
 	__command.setCommandParameter ( "Bucket", Bucket );
 	__command.setCommandParameter ( "StartingPrefix", StartingPrefix );
+	__command.setCommandParameter ( "ProcessSubdirectories", ProcessSubdirectories );
 	__command.setCommandParameter ( "CatalogFile", CatalogFile );
 	__command.setCommandParameter ( "CatalogIndexFile", CatalogIndexFile );
 	__command.setCommandParameter ( "UploadCatalogFiles", UploadCatalogFiles );
@@ -594,8 +604,8 @@ Instantiates the GUI components.
 @param command Command to edit.
 @param tableIDChoices list of tables to choose from, used if appending
 */
-private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<String> tableIDChoices )
-{	this.__command = command;
+private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<String> tableIDChoices ) {
+	this.__command = command;
 	//this.__parent = parent;
 	CommandProcessor processor =__command.getCommandProcessor();
 	
@@ -612,9 +622,15 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	getContentPane().add ( "North", main_JPanel );
 	int y = -1;
 
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("Create a dataset catalog and landing page by searching an S3 directory." ),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("This command does one or both of the following by searching for datasets in an S3 directory:"),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("This can be used, for example, to create a catalog of datasets." ),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("  1. Create a landing page for each found dataset (see Dataset tab)." ),
+		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("  2. Create a landing page and catalog of all found datasets (see Catalog tab)." ),
+		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("Use multiple commands as appropriate to process a single or multiple datasets." ),
+		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("The output files can have .html or .md (Markdown) extension." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel ("Datasets must each have a DCAT dataset.json file to be included in the catalog." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -648,8 +664,20 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	__Profile_JComboBox.addItemListener ( this );
    JGUIUtil.addComponent(main_JPanel, __Profile_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel("Optional - profile for authentication (default=only profile or 'default')."),
+    JGUIUtil.addComponent(main_JPanel, new JLabel("Optional - profile for authentication (default=see below)."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Profile (default):"),
+		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__ProfileDefault_JTextField = new JTextField ( 20 );
+	__ProfileDefault_JTextField.setToolTipText("Default profile determined from user's .aws/config file).");
+	__ProfileDefault_JTextField.addKeyListener ( this );
+   JGUIUtil.addComponent(main_JPanel, __ProfileDefault_JTextField,
+		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+   __ProfileDefaultNote_JLabel = new JLabel("From: " + AwsToolkit.getInstance().getAwsUserConfigFile());
+    JGUIUtil.addComponent(main_JPanel, __ProfileDefaultNote_JLabel,
+		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	__ProfileDefault_JTextField.setEditable(false);
 
    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Region:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
@@ -667,16 +695,26 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 		}
 	}
 	Collections.sort(regionChoices);
-	// TODO smalers 2022-05-39 evaluate whether region can default.
-	//regionChoices.add(""); // Default - region is not specified.
+	regionChoices.add(0,""); // Default - region is not specified (get from user's ~/.aws/config file)
 	__Region_JComboBox.setData(regionChoices);
 	__Region_JComboBox.select ( 0 );
 	__Region_JComboBox.addItemListener ( this );
    JGUIUtil.addComponent(main_JPanel, __Region_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel(
-		"Optional - AWS region (default=determined by service)."),
+    JGUIUtil.addComponent(main_JPanel, new JLabel("Optional - AWS region (default=see below)."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Region (default):"),
+		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__RegionDefault_JTextField = new JTextField ( 20 );
+	__RegionDefault_JTextField.setToolTipText("Default region for profile determined from user's .aws/config file).");
+	__RegionDefault_JTextField.addKeyListener ( this );
+   JGUIUtil.addComponent(main_JPanel, __RegionDefault_JTextField,
+		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    __RegionDefaultNote_JLabel = new JLabel("From: " + AwsToolkit.getInstance().getAwsUserConfigFile() );
+    JGUIUtil.addComponent(main_JPanel, __RegionDefaultNote_JLabel,
+		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	__RegionDefault_JTextField.setEditable(false);
 
    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Bucket:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
@@ -686,131 +724,39 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	__Bucket_JComboBox.addActionListener ( this );
     JGUIUtil.addComponent(main_JPanel, __Bucket_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel(
-		"Optional - S3 bucket (required by some services)."),
+    JGUIUtil.addComponent(main_JPanel, new JLabel( "Required - S3 bucket."),
+		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Starting prefix (directory):"),
+        0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __StartingPrefix_JTextField = new JTextField ( "", 30 );
+    __StartingPrefix_JTextField.setToolTipText("Starting prefix (directory) to search for datasets, no / at start, ending with /");
+    __StartingPrefix_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(main_JPanel, __StartingPrefix_JTextField,
+        1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Optional - starting object key prefix (default=/)."),
+        3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Process subdirectories?:"),
+		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__ProcessSubdirectories_JComboBox = new SimpleJComboBox ( false );
+	__ProcessSubdirectories_JComboBox.setToolTipText("Whether to process all datasets in a directory (folder) and subdirectories.");
+	List<String> subChoices = new ArrayList<>();
+	subChoices.add("");
+	subChoices.add(__command._False);
+	subChoices.add(__command._True);
+	__ProcessSubdirectories_JComboBox.setData(subChoices);
+	__ProcessSubdirectories_JComboBox.select ( 0 );
+	__ProcessSubdirectories_JComboBox.addItemListener ( this );
+    JGUIUtil.addComponent(main_JPanel, __ProcessSubdirectories_JComboBox,
+		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(main_JPanel, new JLabel("Optional - process subdirectories (default=" + __command._False + ")."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     __main_JTabbedPane = new JTabbedPane ();
     __main_JTabbedPane.addChangeListener(this);
     JGUIUtil.addComponent(main_JPanel, __main_JTabbedPane,
         0, ++y, 7, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-    // Panel for 'Catalog' parameters:
-    // - this includes filtering by starting prefix
-    int yCatalog = -1;
-    JPanel catalog_JPanel = new JPanel();
-    catalog_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "Catalog", catalog_JPanel );
-
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Use the following parameters to control creation of the catalog."),
-		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("The catalog file contains a merged list of individual dataset metadata files."),
-		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("The catalog index file is a landing page for all the datasets."),
-		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Use the parameters in the 'Output' tab to specify the output file and table."),
-		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(catalog_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
-    	0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ( "Starting prefix:"),
-        0, ++yCatalog, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __StartingPrefix_JTextField = new JTextField ( "", 30 );
-    __StartingPrefix_JTextField.setToolTipText("Starting prefix (directory) to search for datasets, no / at start, ending with /");
-    __StartingPrefix_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(catalog_JPanel, __StartingPrefix_JTextField,
-        1, yCatalog, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ( "Optional - starting object key prefix (default=/)."),
-        3, yCatalog, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Catalog file:" ),
-        0, ++yCatalog, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __CatalogFile_JTextField = new JTextField ( 50 );
-    __CatalogFile_JTextField.setToolTipText("Specify the catalog file to create, can use ${Property} notation.");
-    __CatalogFile_JTextField.addKeyListener ( this );
-    // Output file layout fights back with other rows so put in its own panel.
-	JPanel CatalogFile_JPanel = new JPanel();
-	CatalogFile_JPanel.setLayout(new GridBagLayout());
-    JGUIUtil.addComponent(CatalogFile_JPanel, __CatalogFile_JTextField,
-		0, 0, 1, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-	__browseCatalogFile_JButton = new SimpleJButton ( "...", this );
-	__browseCatalogFile_JButton.setToolTipText("Browse for file");
-    JGUIUtil.addComponent(CatalogFile_JPanel, __browseCatalogFile_JButton,
-		1, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.CENTER);
-	if ( __working_dir != null ) {
-		// Add the button to allow conversion to/from relative path.
-		__pathCatalogFile_JButton = new SimpleJButton( __RemoveWorkingDirectory,this);
-		JGUIUtil.addComponent(CatalogFile_JPanel, __pathCatalogFile_JButton,
-			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-	}
-	JGUIUtil.addComponent(catalog_JPanel, CatalogFile_JPanel,
-		1, yCatalog, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Catalog index file:" ),
-        0, ++yCatalog, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __CatalogIndexFile_JTextField = new JTextField ( 50 );
-    __CatalogIndexFile_JTextField.setToolTipText("Specify the catalog index file to create, can use ${Property} notation.");
-    __CatalogIndexFile_JTextField.addKeyListener ( this );
-    // Output file layout fights back with other rows so put in its own panel.
-	JPanel CatalogIndexFile_JPanel = new JPanel();
-	CatalogIndexFile_JPanel.setLayout(new GridBagLayout());
-    JGUIUtil.addComponent(CatalogIndexFile_JPanel, __CatalogIndexFile_JTextField,
-		0, 0, 1, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-	__browseCatalogIndexFile_JButton = new SimpleJButton ( "...", this );
-	__browseCatalogIndexFile_JButton.setToolTipText("Browse for file");
-    JGUIUtil.addComponent(CatalogIndexFile_JPanel, __browseCatalogIndexFile_JButton,
-		1, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.CENTER);
-	if ( __working_dir != null ) {
-		// Add the button to allow conversion to/from relative path.
-		__pathCatalogIndexFile_JButton = new SimpleJButton( __RemoveWorkingDirectory,this);
-		JGUIUtil.addComponent(CatalogIndexFile_JPanel, __pathCatalogIndexFile_JButton,
-			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-	}
-	JGUIUtil.addComponent(catalog_JPanel, CatalogIndexFile_JPanel,
-		1, yCatalog, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-   JGUIUtil.addComponent(catalog_JPanel, new JLabel ( "Upload catalog files?:"),
-		0, ++yCatalog, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-	__UploadCatalogFiles_JComboBox = new SimpleJComboBox ( false );
-	__UploadCatalogFiles_JComboBox.setToolTipText("Indicate whether to upload catalog index and datasets.json files?");
-	List<String> uploadCatalogChoices = new ArrayList<>();
-	uploadCatalogChoices.add ( "" );	// Default.
-	uploadCatalogChoices.add ( __command._False );
-	uploadCatalogChoices.add ( __command._True );
-	__UploadCatalogFiles_JComboBox.setData(uploadCatalogChoices);
-	__UploadCatalogFiles_JComboBox.select ( 0 );
-	__UploadCatalogFiles_JComboBox.addActionListener ( this );
-   JGUIUtil.addComponent(catalog_JPanel, __UploadCatalogFiles_JComboBox,
-		1, yCatalog, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel(
-		"Optional - upload catalog files? (default=" + __command._False + ")."),
-		3, yCatalog, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
-    // Panel for 'CloudFront' parameters:
-    // - controls the index file created for the dataset
-    int yCloudFront = -1;
-    JPanel cloudfront_JPanel = new JPanel();
-    cloudfront_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "CloudFront", cloudfront_JPanel );
-
-    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("Use the following parameters to control CloudFront invalidations."),
-		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("Files must be invalidated to be visible on the CloudFront-fronted website."),
-		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("Specify the distribution ID using a *comment pattern*."),
-		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(cloudfront_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
-    	0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ( "Distribution ID:"),
-        0, ++yCloudFront, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __DistributionId_JTextField = new JTextField ( "", 30 );
-    __DistributionId_JTextField.setToolTipText("CloudFront distribution ID or comment pattern surrounded by *.");
-    __DistributionId_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(cloudfront_JPanel, __DistributionId_JTextField,
-        1, yCloudFront, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ( "Optional - CloudFront distribution ID (default=no invalidation)."),
-        3, yCloudFront, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     // Panel for 'Dataset' parameters:
     // - controls the index file created for the dataset
@@ -819,12 +765,18 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
     dataset_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "Dataset", dataset_JPanel );
 
-    JGUIUtil.addComponent(dataset_JPanel, new JLabel ("Use the following parameters to control creation of the dataset landing page."),
-		0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(dataset_JPanel, new JLabel ("The dataset index will not be created unless a file is specified."),
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel (
+    	"Dataset index (landing) pages will be created for all found dataset.json files, but only if the dataset index file is specified."),
 		0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(dataset_JPanel, new JLabel (
-    	"Use the parameters in the 'Output' tab to specify the dataset table and whether to keep temporary files and upload created files."),
+    	"The index file typically is 'index.html' for HTML or 'index.md' for markdown, optionally with a leading path to the local file."),
+		0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel ("Use the following parameters to control creation of the dataset index (landing) page."),
+		0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel ("A dataset index file with .html extension can use optional <head>, <body>, and <footer> HTML files as input."),
+		0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel (
+    	"Use the parameters in the 'Output' tab to specify the dataset table and whether to keep temporary files."),
 		0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(dataset_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -932,11 +884,126 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	__UploadDatasetFiles_JComboBox.setData(uploadFilesChoices);
 	__UploadDatasetFiles_JComboBox.select ( 0 );
 	__UploadDatasetFiles_JComboBox.addActionListener ( this );
-   JGUIUtil.addComponent(dataset_JPanel, __UploadDatasetFiles_JComboBox,
+    JGUIUtil.addComponent(dataset_JPanel, __UploadDatasetFiles_JComboBox,
 		1, yDataset, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(dataset_JPanel, new JLabel(
 		"Optional - upload dataset files? (default=" + __command._False + ")."),
 		3, yDataset, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    // Panel for 'Catalog' parameters:
+    // - this includes filtering by starting prefix
+    int yCatalog = -1;
+    JPanel catalog_JPanel = new JPanel();
+    catalog_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "Catalog", catalog_JPanel );
+
+    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("<html><b>Under development.</b></html>"),
+		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Use the following parameters to control creation of the catalog (list of datasets)."),
+		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Creating the catalog is optional (use the Dataset tab to process only dataset landing pages)."),
+		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("The catalog file contains a merged list of individual dataset.json files."),
+		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("The catalog index file is a landing page for all the datasets.  Specify with .html or .md (Markdown) extension."),
+		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Use the parameters in the 'Output' tab to specify whether to keep temporary files."),
+		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(catalog_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Catalog file:" ),
+        0, ++yCatalog, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __CatalogFile_JTextField = new JTextField ( 50 );
+    __CatalogFile_JTextField.setToolTipText(
+    	"Specify the catalog file (list of datasets) to create with .html or .md extension, can use ${Property} notation.");
+    __CatalogFile_JTextField.addKeyListener ( this );
+    // Output file layout fights back with other rows so put in its own panel.
+	JPanel CatalogFile_JPanel = new JPanel();
+	CatalogFile_JPanel.setLayout(new GridBagLayout());
+    JGUIUtil.addComponent(CatalogFile_JPanel, __CatalogFile_JTextField,
+		0, 0, 1, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+	__browseCatalogFile_JButton = new SimpleJButton ( "...", this );
+	__browseCatalogFile_JButton.setToolTipText("Browse for file");
+    JGUIUtil.addComponent(CatalogFile_JPanel, __browseCatalogFile_JButton,
+		1, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.CENTER);
+	if ( __working_dir != null ) {
+		// Add the button to allow conversion to/from relative path.
+		__pathCatalogFile_JButton = new SimpleJButton( __RemoveWorkingDirectory,this);
+		JGUIUtil.addComponent(CatalogFile_JPanel, __pathCatalogFile_JButton,
+			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	}
+	JGUIUtil.addComponent(catalog_JPanel, CatalogFile_JPanel,
+		1, yCatalog, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Catalog index file:" ),
+        0, ++yCatalog, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __CatalogIndexFile_JTextField = new JTextField ( 50 );
+    __CatalogIndexFile_JTextField.setToolTipText(
+    	"Specify the catalog index (dataset landing page) file to create with .html or .md extension, can use ${Property} notation.");
+    __CatalogIndexFile_JTextField.addKeyListener ( this );
+    // Output file layout fights back with other rows so put in its own panel.
+	JPanel CatalogIndexFile_JPanel = new JPanel();
+	CatalogIndexFile_JPanel.setLayout(new GridBagLayout());
+    JGUIUtil.addComponent(CatalogIndexFile_JPanel, __CatalogIndexFile_JTextField,
+		0, 0, 1, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+	__browseCatalogIndexFile_JButton = new SimpleJButton ( "...", this );
+	__browseCatalogIndexFile_JButton.setToolTipText("Browse for file");
+    JGUIUtil.addComponent(CatalogIndexFile_JPanel, __browseCatalogIndexFile_JButton,
+		1, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.CENTER);
+	if ( __working_dir != null ) {
+		// Add the button to allow conversion to/from relative path.
+		__pathCatalogIndexFile_JButton = new SimpleJButton( __RemoveWorkingDirectory,this);
+		JGUIUtil.addComponent(CatalogIndexFile_JPanel, __pathCatalogIndexFile_JButton,
+			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	}
+	JGUIUtil.addComponent(catalog_JPanel, CatalogIndexFile_JPanel,
+		1, yCatalog, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+   JGUIUtil.addComponent(catalog_JPanel, new JLabel ( "Upload catalog files?:"),
+		0, ++yCatalog, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__UploadCatalogFiles_JComboBox = new SimpleJComboBox ( false );
+	__UploadCatalogFiles_JComboBox.setToolTipText("Indicate whether to upload catalog index and datasets.json files?");
+	List<String> uploadCatalogChoices = new ArrayList<>();
+	uploadCatalogChoices.add ( "" );	// Default.
+	uploadCatalogChoices.add ( __command._False );
+	uploadCatalogChoices.add ( __command._True );
+	__UploadCatalogFiles_JComboBox.setData(uploadCatalogChoices);
+	__UploadCatalogFiles_JComboBox.select ( 0 );
+	__UploadCatalogFiles_JComboBox.addActionListener ( this );
+    JGUIUtil.addComponent(catalog_JPanel, __UploadCatalogFiles_JComboBox,
+		1, yCatalog, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(catalog_JPanel, new JLabel(
+		"Optional - upload catalog files? (default=" + __command._False + ")."),
+		3, yCatalog, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    // Panel for 'CloudFront' parameters:
+    // - controls the index file created for the dataset
+    int yCloudFront = -1;
+    JPanel cloudfront_JPanel = new JPanel();
+    cloudfront_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "CloudFront", cloudfront_JPanel );
+
+    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("Use the following parameters to control CloudFront invalidations."),
+		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("Files must be invalidated to be visible with small latency on the CloudFront-fronted website."),
+		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("All uploaded files will be included in the invalidation path list."),
+		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("Specify the distribution ID using a *comment pattern* (e.g., the sub.domain or S3 bucket)."),
+		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cloudfront_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ( "Distribution ID:"),
+        0, ++yCloudFront, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __DistributionId_JTextField = new JTextField ( "", 30 );
+    __DistributionId_JTextField.setToolTipText("CloudFront distribution ID or comment pattern surrounded by *.");
+    __DistributionId_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(cloudfront_JPanel, __DistributionId_JTextField,
+        1, yCloudFront, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ( "Optional - CloudFront distribution ID (default=no invalidation)."),
+        3, yCloudFront, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     // Panel for output.
     int yOutput = -1;
@@ -946,12 +1013,16 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 
     JGUIUtil.addComponent(output_JPanel, new JLabel ("The following are used for commands that generate bucket and bucket object lists."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("The table contains a list of datasets in the catalog (if a catalog is generated)."),
+		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("Temporary files can be kept to facilitate troubleshooting."),
+		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     //JGUIUtil.addComponent(output_JPanel, new JLabel ("Specify the output file name with extension to indicate the format: 'csv'"),
 	//	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Output Table ID:" ), 
+    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Output Table ID:" ),
         0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __OutputTableID_JComboBox = new SimpleJComboBox ( 12, true ); // Allow edit.
     __OutputTableID_JComboBox.setToolTipText("Table for output, available for some commands");
@@ -962,7 +1033,7 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
     //__OutputTableID_JComboBox.setMaximumRowCount(tableIDChoices.size());
     JGUIUtil.addComponent(output_JPanel, __OutputTableID_JComboBox,
         1, yOutput, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel( "Optional - table for output."), 
+    JGUIUtil.addComponent(output_JPanel, new JLabel( "Optional - table for output."),
         3, yOutput, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Keep files?:"),
@@ -976,7 +1047,7 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	__KeepFiles_JComboBox.setData(keepFilesChoices);
 	__KeepFiles_JComboBox.select ( 0 );
 	__KeepFiles_JComboBox.addActionListener ( this );
-   JGUIUtil.addComponent(output_JPanel, __KeepFiles_JComboBox,
+    JGUIUtil.addComponent(output_JPanel, __KeepFiles_JComboBox,
 		1, yOutput, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JLabel(
 		"Optional - keep temporary files? (default=" + __command._False + ")."),
@@ -993,13 +1064,13 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	__IfInputNotFound_JComboBox.setData(notFoundChoices);
 	__IfInputNotFound_JComboBox.select ( 0 );
 	__IfInputNotFound_JComboBox.addActionListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __IfInputNotFound_JComboBox,
+    JGUIUtil.addComponent(main_JPanel, __IfInputNotFound_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel(
 		"Optional - action if input file is not found (default=" + __command._Warn + ")."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Command:" ), 
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Command:" ),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__command_JTextArea = new JTextArea ( 4, 60 );
 	__command_JTextArea.setLineWrap ( true );
@@ -1012,7 +1083,7 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	// South Panel: North
 	JPanel button_JPanel = new JPanel();
 	button_JPanel.setLayout(new FlowLayout(FlowLayout.CENTER));
-        JGUIUtil.addComponent(main_JPanel, button_JPanel, 
+        JGUIUtil.addComponent(main_JPanel, button_JPanel,
 		0, ++y, 8, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.CENTER);
 
     button_JPanel.add ( __ok_JButton = new SimpleJButton("OK", this) );
@@ -1040,16 +1111,16 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 Handle ItemEvent events.
 @param e ItemEvent to handle.
 */
-public void itemStateChanged ( ItemEvent e ) {    
+public void itemStateChanged ( ItemEvent e ) {
 	if ( this.ignoreEvents ) {
         return; // Startup.
     }
 	Object o = e.getSource();
     if ( o == this.__Profile_JComboBox ) {
-		populateBucketChoices();
+        AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Profile_JComboBox, __Bucket_JComboBox );
 	}
 	else if ( o == this.__Region_JComboBox ) {
-		populateBucketChoices();
+        AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Profile_JComboBox, __Bucket_JComboBox );
 	}
 	refresh();
 }
@@ -1057,87 +1128,38 @@ public void itemStateChanged ( ItemEvent e ) {
 /**
 Respond to KeyEvents.
 */
-public void keyPressed ( KeyEvent event )
-{	int code = event.getKeyCode();
+public void keyPressed ( KeyEvent event ) {
+	int code = event.getKeyCode();
 
 	if ( code == KeyEvent.VK_ENTER ) {
 		refresh ();
 	}
 }
 
-public void keyReleased ( KeyEvent event )
-{	refresh();
+public void keyReleased ( KeyEvent event ) {
+	refresh();
 }
 
-public void keyTyped ( KeyEvent event ) {;}
+public void keyTyped ( KeyEvent event ) {
+}
 
 /**
 Indicate if the user pressed OK (cancel otherwise).
 */
-public boolean ok ()
-{	return __ok;
-}
-
-/**
- * Populate the Bucket choices based no other selections.
- */
-private void populateBucketChoices() {
-	String routine = getClass().getSimpleName() + ".populateBucketChoices";
-	boolean debug = true;
-	if ( awsSession == null ) {
-		// Startup - can't populate the buckets.
-		if ( debug ) {
-			Message.printStatus(2, routine, "Startup - not populating the list of buckets." );
-		}
-		return;
-	}
-	else {
-		if ( debug ) {
-			Message.printStatus(2, routine, "Getting the list of buckets." );
-		}
-		// Get the list of buckets.
-		String region = getSelectedRegion();
-		if ( region == null ) {
-			// Startup - can't populate the buckets.
-			if ( debug ) {
-				Message.printStatus(2, routine, "Region is null - can't populate the list of buckets." );
-			}
-			return;
-		}
-		else {
-			// Have a region.
-			if ( debug ) {
-				Message.printStatus(2, routine, "Region is \"" + region + "\" - populating the list of buckets." );
-			}	
-			List<Bucket> buckets = AwsToolkit.getInstance().getS3Buckets(awsSession, region);
-			List<String> bucketChoices = new ArrayList<>();
-			for ( Bucket bucket : buckets ) {
-				bucketChoices.add ( bucket.name() );
-				if ( debug ) {
-					Message.printStatus(2, routine, "Populated bucket: " + bucket.name() );
-				}
-			}
-			Collections.sort(bucketChoices);
-			// Add a blank because some services don't use
-			bucketChoices.add(0,"");
-			__Bucket_JComboBox.setData(bucketChoices);
-			if ( __Bucket_JComboBox.getItemCount() > 0 ) {
-				// Select the first bucket by default.
-				__Bucket_JComboBox.select ( 0 );
-			}
-		}
-	}
+public boolean ok () {
+	return __ok;
 }
 
 /**
 Refresh the command from the other text field contents.
 */
-private void refresh ()
-{	String routine = getClass().getSimpleName() + ".refresh";
+private void refresh () {
+	String routine = getClass().getSimpleName() + ".refresh";
 	String Profile = "";
 	String Region = "";
 	String Bucket = "";
 	String StartingPrefix = "";
+	String ProcessSubdirectories = "";
 	String CatalogFile = "";
 	String CatalogIndexFile = "";
 	String UploadCatalogFiles = "";
@@ -1158,6 +1180,7 @@ private void refresh ()
 		Region = parameters.getValue ( "Region" );
 		Bucket = parameters.getValue ( "Bucket" );
 		StartingPrefix = parameters.getValue ( "StartingPrefix" );
+		ProcessSubdirectories = parameters.getValue ( "ProcessSubdirectories" );
 		CatalogFile = parameters.getValue ( "CatalogFile" );
 		CatalogIndexFile = parameters.getValue ( "CatalogIndexFile" );
 		UploadCatalogFiles = parameters.getValue ( "UploadCatalogFiles" );
@@ -1237,7 +1260,7 @@ private void refresh ()
             Message.printWarning ( 1, routine, "Existing command references an invalid\n"+
                 "Region parameter \"" + Region + "\".  Select a\ndifferent value or Cancel." );
         }
-        populateBucketChoices();
+        AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Profile_JComboBox, __Bucket_JComboBox );
 		if ( JGUIUtil.isSimpleJComboBoxItem(__Bucket_JComboBox, Bucket,JGUIUtil.NONE, null, null ) ) {
 			__Bucket_JComboBox.select ( Bucket );
 		}
@@ -1258,6 +1281,21 @@ private void refresh ()
         if ( StartingPrefix != null ) {
             __StartingPrefix_JTextField.setText ( StartingPrefix );
         }
+		if ( JGUIUtil.isSimpleJComboBoxItem(__ProcessSubdirectories_JComboBox, ProcessSubdirectories,JGUIUtil.NONE, null, null ) ) {
+			__ProcessSubdirectories_JComboBox.select ( ProcessSubdirectories );
+		}
+		else {
+            if ( (ProcessSubdirectories == null) ||	ProcessSubdirectories.equals("") ) {
+				// New command...select the default.
+				__ProcessSubdirectories_JComboBox.select ( 0 );
+			}
+			else {
+				// Bad user command.
+				Message.printWarning ( 1, routine,
+				"Existing command references an invalid\n"+
+				"ProcessSubdirectories parameter \"" + ProcessSubdirectories + "\".  Select a value or Cancel." );
+			}
+		}
         if ( CatalogFile != null ) {
             __CatalogFile_JTextField.setText ( CatalogFile );
         }
@@ -1373,6 +1411,7 @@ private void refresh ()
 		Bucket = "";
 	}
 	StartingPrefix = __StartingPrefix_JTextField.getText().trim();
+	ProcessSubdirectories = __ProcessSubdirectories_JComboBox.getSelected();
 	CatalogFile = __CatalogFile_JTextField.getText().trim();
 	CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
 	UploadCatalogFiles = __UploadCatalogFiles_JComboBox.getSelected();
@@ -1390,6 +1429,7 @@ private void refresh ()
 	props.add ( "Region=" + Region );
 	props.add ( "Bucket=" + Bucket );
 	props.add ( "StartingPrefix=" + StartingPrefix );
+	props.add ( "ProcessSubdirectories=" + ProcessSubdirectories );
 	props.add ( "CatalogFile=" + CatalogFile );
 	props.add ( "CatalogIndexFile=" + CatalogIndexFile );
 	props.add ( "UploadCatalogFiles=" + UploadCatalogFiles );
@@ -1403,6 +1443,9 @@ private void refresh ()
 	props.add ( "KeepFiles=" + KeepFiles );
 	props.add ( "IfInputNotFound=" + IfInputNotFound );
 	__command_JTextArea.setText( __command.toString(props) );
+	// Set the default values as FYI.
+	AwsToolkit.getInstance().uiPopulateProfileDefault(__ProfileDefault_JTextField, __ProfileDefaultNote_JLabel);
+	AwsToolkit.getInstance().uiPopulateRegionDefault( __Profile_JComboBox.getSelected(), __RegionDefault_JTextField, __RegionDefaultNote_JLabel);
 	// Check the path and determine what the label on the path button should be.
     if ( __pathCatalogFile_JButton != null ) {
 		if ( (CatalogFile != null) && !CatalogFile.isEmpty() ) {
@@ -1513,8 +1556,8 @@ React to the user response.
 @param ok if false, then the edit is canceled.  If true, the edit is committed
 and the dialog is closed.
 */
-public void response ( boolean ok )
-{	__ok = ok;
+public void response ( boolean ok ) {
+	__ok = ok;
 	if ( ok ) {
 		// Commit the changes.
 		commitEdits ();
@@ -1540,15 +1583,26 @@ public void stateChanged ( ChangeEvent event ) {
 Responds to WindowEvents.
 @param event WindowEvent object
 */
-public void windowClosing( WindowEvent event )
-{	response ( false );
+public void windowClosing( WindowEvent event ) {
+	response ( false );
 }
 
-public void windowActivated( WindowEvent evt ){;}
-public void windowClosed( WindowEvent evt ){;}
-public void windowDeactivated( WindowEvent evt ){;}
-public void windowDeiconified( WindowEvent evt ){;}
-public void windowIconified( WindowEvent evt ){;}
-public void windowOpened( WindowEvent evt ){;}
+public void windowActivated( WindowEvent evt ) {
+}
+
+public void windowClosed( WindowEvent evt ) {
+}
+
+public void windowDeactivated( WindowEvent evt ) {
+}
+
+public void windowDeiconified( WindowEvent evt ) {
+}
+
+public void windowIconified( WindowEvent evt ) {
+}
+
+public void windowOpened( WindowEvent evt ) {
+}
 
 }
