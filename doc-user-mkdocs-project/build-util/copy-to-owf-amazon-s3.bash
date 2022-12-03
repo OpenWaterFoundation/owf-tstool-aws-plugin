@@ -1,10 +1,12 @@
 #!/bin/bash
+(set -o igncr) 2>/dev/null && set -o igncr; # This comment is required.
+# The above line ensures that the script can be run on Cygwin/Linux even with Windows CRNL.
 #
-# Copy the site/* contents to the software.openwaterfoundation.org website
+# Copy the site/* contents to the software.openwaterfoundation.org website:
 # - replace all the files on the web with local files
 # - must specify Amazon profile as argument to the script
 
-# Supporting functions, alphabetized
+# Supporting functions, alphabetized.
 
 # Make sure the MkDocs version is consistent with the documentation content:
 # - require that at least version 1.0 is used because of use_directory_urls = True default
@@ -15,19 +17,13 @@ checkMkdocsVersion() {
   requiredMajorVersion="1"
   # On Cygwin, mkdocs --version gives:  mkdocs, version 1.0.4 from /usr/lib/python3.6/site-packages/mkdocs (Python 3.6)
   # On Debian Linux, similar to Cygwin:  mkdocs, version 0.17.3
-  if [ "${operatingSystem}" = "cygwin" -o "${operatingSystem}" = "linux" ]; then
-    mkdocsVersionFull=$(mkdocs --version)
-  elif [ "${operatingSystem}" = "mingw" ]; then
-    mkdocsVersionFull=$(py -m mkdocs --version)
-  else
-    echo ""
-    echo "Don't know how to run on operating system ${operatingSystem}"
-    exit 1
-  fi
+  # On newer windows: MkDocs --version:  python -m mkdocs, version 1.3.1 from C:\Users\steve\AppData\Local\Programs\Python\Python310\lib\site-packages\mkdocs (Python 3.10)
+  # The following should work for any version after a comma.
+  mkdocsVersionFull=$(${mkdocsExe} --version | sed -e 's/.*, \(version .*\)/\1/g' | cut -d ' ' -f 2)
   echo "MkDocs --version:  ${mkdocsVersionFull}"
-  mkdocsVersion=$(echo ${mkdocsVersionFull} | cut -d ' ' -f 3)
+  mkdocsVersion=$(echo "${mkdocsVersionFull}" | cut -d ' ' -f 3)
   echo "MkDocs full version number:  ${mkdocsVersion}"
-  mkdocsMajorVersion=$(echo ${mkdocsVersion} | cut -d '.' -f 1)
+  mkdocsMajorVersion=$(echo "${mkdocsVersion}" | cut -d '.' -f 1)
   echo "MkDocs major version number:  ${mkdocsMajorVersion}"
   if [ "${mkdocsMajorVersion}" -lt ${requiredMajorVersion} ]; then
     echo ""
@@ -43,12 +39,12 @@ checkMkdocsVersion() {
 # Determine the operating system that is running the script:
 # - mainly care whether Cygwin or MINGW
 checkOperatingSystem() {
-  if [ ! -z "${operatingSystem}" ]; then
+  if [ -n "${operatingSystem}" ]; then
     # Have already checked operating system so return.
     return
   fi
   operatingSystem="unknown"
-  os=$(uname | tr [a-z] [A-Z])
+  os=$(uname | tr '[:lower:]' '[:upper:]')
   case "${os}" in
     CYGWIN*)
       operatingSystem="cygwin"
@@ -147,35 +143,41 @@ logWarning() {
    echoStderr "[WARNING] $@"
 }
 
-# Set the 'aws' executable based on the operating system.
-# This allows the rest of the script to call the program without issue.
-setAwsExe () {
-  awsExe=""
-  if [ -z "${operatingSystem}" ]; then
-    logError "The opererating system is unknown.  Cannot determine 'aws' program.  Exiting."
-    exit 1
-  elif [ "${operatingSystem}" = "cygwin" -o "${operatingSystem}" = "linux" ]; then
-    # aws is in a standard location such as /usr/bin/aws and is found via the PATH.
+# Set the AWS executable:
+# - handle different operating systems
+# - for AWS CLI V2, can call an executable
+# - for AWS CLI V1, have to deal with Python
+# - once set, use ${awsExe} as the command to run, followed by necessary command parameters
+setAwsExe() {
+  if [ "${operatingSystem}" = "mingw" ]; then
+    # "mingw" is Git Bash:
+    # - the following should work for V2
+    # - if "aws" is in path, use it
+    awsExe=$(command -v aws)
+    if [ -n "${awsExe}" ]; then
+      # Found aws in the PATH.
+      awsExe="aws"
+    else
+      # Might be older V1.
+      # Figure out the Python installation path.
+      pythonExePath=$(py -c "import sys; print(sys.executable)")
+      if [ -n "${pythonExePath}" ]; then
+        # Path will be something like:  C:\Users\sam\AppData\Local\Programs\Python\Python37\python.exe
+        # - so strip off the exe and substitute Scripts
+        # - convert the path to posix first
+        pythonExePathPosix="/$(echo "${pythonExePath}" | sed 's/\\/\//g' | sed 's/://')"
+        pythonScriptsFolder="$(dirname "${pythonExePathPosix}")/Scripts"
+        echo "${pythonScriptsFolder}"
+        awsExe="${pythonScriptsFolder}/aws"
+      else
+        echo "[ERROR] Unable to find Python installation location to find 'aws' script"
+        echo "[ERROR] Make sure Python 3.x is installed on Windows so 'py' is available in PATH"
+        exit 1
+      fi
+    fi
+  else
+    # For other Linux, including Cygwin, just try to run.
     awsExe="aws"
-  elif [ "${operatingSystem}" = "mingw" ]; then
-    # For Windows Python 3.7, aws may be installed in Windows %USERPROFILE%\AppData\Local\Programs\Python\Python37\scripts
-    # - use Linux-like path to avoid backslash issues
-    # - TODO smalers 2019-01-04 could try to find where py thinks Python is installed but not sure how
-    awsExe="${HOME}/AppData/Local/Programs/Python/Python37/scripts/aws"
-  else
-    logError ""
-    logError "Don't know how to run on operating system ${operatingSystem}"
-    exit 1
-  fi
-  # Make sure that the command is found.
-  if [ -z "${awsExe}" ]; then
-    logError "The opererating system is unknown.  Cannot determine 'aws' program.  Exiting."
-  elif ! command -v "${awsExe}"; then
-    logError "Could not find 'aws' program: ${awsExe}"
-    exit 1
-  else
-    logInfo "Found 'aws': ${awsExe}"
-    return 0
   fi
 }
 

@@ -25,9 +25,10 @@ extra_css:
 # ------------------------------------------------
 # Google Analytics
 # - see:  https://squidfunk.github.io/mkdocs-material/getting-started/#google-analytics
-google_analytics:
-- 'UA-135465513-1'
-- auto
+extra:
+  analytics:
+    provider: google
+    property: 'G-KJFMBY739T'
 # ------------------------------------------------
 # Favicon is supposed to automatically be found:
 # - in docs/img/favicon.ico

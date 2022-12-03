@@ -122,7 +122,7 @@ echo '<style>
 <body>
 <h1>Open Water Foundation TSTool AWS Plugin Software Downloads</h1>
 <p>
-The TSTool AWS Plugin software is available for Windows. Cygwin and Linux versions can be created if requested.
+The TSTool AWS Plugin software is available for Windows. Cygwin and Linux versions can be created if requested or use the Windows files on Linux.
 </p>
 <p>
 <ul>
@@ -131,11 +131,11 @@ The TSTool AWS Plugin software is available for Windows. Cygwin and Linux versio
      <li> Use the TSTool <b>Help / About TSTool</b> menu to check the TSTool version.</li>
      <li> Check the plugin install files in the user'\''s <code>.tstool/NN/plugins</code> folder to check the plugin version.</li>
      </ul></li>
-<li> See the latest <a href="http://software.openwaterfoundation.org/tstool-aws-plugin/latest/doc-user/appendix-install/install/">TSTool AWS Plugin installation documentation</a>
+<li> See the latest <a href="https://software.openwaterfoundation.org/tstool-aws-plugin/latest/doc-user/appendix-install/install/">TSTool AWS Plugin installation documentation</a>
      for installation information (or follow a link below for specific version documentation).</li>
 <li>The TSTool AWS Plugin requires that TSTool is also installed if not already installed:</li>
     <ul>
-    <li><a href="https://opencdss.state.co.us/tstool/index.html">Download TSTool</a>.</li>
+    <li><a href="https://opencdss.state.co.us/tstool/">Download TSTool</a>.</li>
     </ul>
 <li><b>If clicking on a file download link does not download the file, right-click on the link and use "Save link as..." (or similar).</b></li>
 </ul>
@@ -154,7 +154,7 @@ The TSTool AWS Plugin software is available for Windows. Cygwin and Linux versio
   createIndexHtmlFile_Table win
 
 echo '<h2>Linux Download</h2>
-<p>Linux versions of the TSTool AWS Plugin are currently not actively developed, pending finalizing the Windows release.
+<p>Linux versions of the TSTool AWS Plugin are currently not actively developed.
 Contact OWF if if a Linux release of the plugin is needed.</p>
 
 <hr>' >> ${indexHtmlTmpFile}
@@ -214,7 +214,7 @@ createIndexHtmlFile_Table() {
           downloadFileOs=downloadFileParts[5]
         }
         # Set the URL to the download file.
-        downloadFileUrl=sprintf("http://software.openwaterfoundation.org/tstool-aws-plugin/%s/software/%s", downloadFileVersion, downloadFile)
+        downloadFileUrl=sprintf("https://software.openwaterfoundation.org/tstool-aws-plugin/%s/software/%s", downloadFileVersion, downloadFile)
         product = "TSTool AWS Plugin"
         if ( downloadFileOs == "cyg" ) {
           downloadFileOs = "Cygwin"
@@ -269,6 +269,17 @@ createIndexHtmlFile_Table() {
     :
   fi
   echo '</table>' >> ${indexHtmlTmpFile}
+}
+
+# Get the CloudFront distribution ID from the bucket so the ID is not hard-coded.
+# The distribution ID is echoed and can be assigned to a variable.
+# The output is similar to the following (obfuscated here):
+# ITEMS   arn:aws:cloudfront::123456789000:distribution/ABCDEFGHIJKLMN    learn.openwaterfoundation.org   123456789abcde.cloudfront.net   True    HTTP2   ABCDEFGHIJKLMN  True    2022-01-05T23:29:28.127000+00:00        PriceClass_100  Deployed
+getCloudFrontDistribution() {
+  local cloudFrontDistributionId subdomain
+  subdomain="learn.openwaterfoundation.org"
+  cloudFrontDistributionId=$(${awsExe} cloudfront list-distributions --output text --profile "${awsProfile}" | grep ${subdomain} | grep "arn:" | awk '{print $2}' | cut -d ':' -f 6 | cut -d '/' -f 2)
+  echo ${cloudFrontDistributionId}
 }
 
 # Get the user's login.
@@ -413,35 +424,41 @@ printVersion() {
   echoStderr ""
 }
 
-# Set the 'aws' executable based on the operating system.
-# This allows the rest of the script to call the program without issue.
-setAwsExe () {
-  awsExe=""
-  if [ -z "${operatingSystem}" ]; then
-    logError "The opererating system is unknown.  Cannot determine 'aws' program.  Exiting."
-    exit 1
-  elif [ "${operatingSystem}" = "cygwin" -o "${operatingSystem}" = "linux" ]; then
-    # aws is in a standard location such as /usr/bin/aws and is found via the PATH.
+# Set the AWS executable:
+# - handle different operating systems
+# - for AWS CLI V2, can call an executable
+# - for AWS CLI V1, have to deal with Python
+# - once set, use ${awsExe} as the command to run, followed by necessary command parameters
+setAwsExe() {
+  if [ "${operatingSystem}" = "mingw" ]; then
+    # "mingw" is Git Bash:
+    # - the following should work for V2
+    # - if "aws" is in path, use it
+    awsExe=$(command -v aws)
+    if [ -n "${awsExe}" ]; then
+      # Found aws in the PATH.
+      awsExe="aws"
+    else
+      # Might be older V1.
+      # Figure out the Python installation path.
+      pythonExePath=$(py -c "import sys; print(sys.executable)")
+      if [ -n "${pythonExePath}" ]; then
+        # Path will be something like:  C:\Users\sam\AppData\Local\Programs\Python\Python37\python.exe
+        # - so strip off the exe and substitute Scripts
+        # - convert the path to posix first
+        pythonExePathPosix="/$(echo "${pythonExePath}" | sed 's/\\/\//g' | sed 's/://')"
+        pythonScriptsFolder="$(dirname "${pythonExePathPosix}")/Scripts"
+        echo "${pythonScriptsFolder}"
+        awsExe="${pythonScriptsFolder}/aws"
+      else
+        echo "[ERROR] Unable to find Python installation location to find 'aws' script"
+        echo "[ERROR] Make sure Python 3.x is installed on Windows so 'py' is available in PATH"
+        exit 1
+      fi
+    fi
+  else
+    # For other Linux, including Cygwin, just try to run.
     awsExe="aws"
-  elif [ "${operatingSystem}" = "mingw" ]; then
-    # For Windows Python 3.7, aws may be installed in Windows %USERPROFILE%\AppData\Local\Programs\Python\Python37\scripts
-    # - use Linux-like path to avoid backslash issues
-    # - TODO smalers 2019-01-04 could try to find where py thinks Python is installed but not sure how
-    awsExe="${HOME}/AppData/Local/Programs/Python/Python37/scripts/aws"
-  else
-    logError ""
-    logError "Don't know how to run on operating system ${operatingSystem}"
-    exit 1
-  fi
-  # Make sure that the command is found.
-  if [ -z "${awsExe}" ]; then
-    logError "The opererating system is unknown.  Cannot determine 'aws' program.  Exiting."
-  elif ! command -v "${awsExe}"; then
-    logError "Could not find 'aws' program: ${awsExe}"
-    exit 1
-  else
-    logInfo "Found 'aws': ${awsExe}"
-    return 0
   fi
 }
 
@@ -504,9 +521,9 @@ uploadIndexFiles() {
   # The distribution list contains a line like the following (the actual distribution ID is not included here):
   # ITEMS   arn:aws:cloudfront::132345689123:distribution/E1234567891234    software.openwaterfoundation.org  something.cloudfront.net    True    HTTP2   E1234567891334  True    2022-01-06T19:02:50.640Z        PriceClass_100Deployed
   subdomain="software.openwaterfoundation.org"
-  cloudFrontDistributionId=$(${awsExe} cloudfront list-distributions --output text --profile "${awsProfile}" | grep ${subdomain} | grep "arn" | awk '{print $2}' | cut -d ':' -f 6 | cut -d '/' -f 2)
+  cloudFrontDistributionId=$(getCloudFrontDistribution)
   if [ -z "${cloudFrontDistributionId}" ]; then
-    logError "Unable to find CloudFront distribution ID."
+    logError "Unable to find CloudFront distribution."
     return 1
   else
     logInfo "Found CloudFront distribution ID: ${cloudFrontDistributionId}"
@@ -514,7 +531,8 @@ uploadIndexFiles() {
   logInfo "Invalidating files so that CloudFront will make new files available..."
   # TODO smalers 2022-06-08 for some reason index.html does not work so have to use index.html*
   #${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/index.html*" "/tstool-aws-plugin/" "/tstool-aws-plugin" --profile "${awsProfile}"
-  ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/index.html*" --profile "${awsProfile}"
+  #${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/index.html*" --profile "${awsProfile}"
+  ${awsExe} cloudfront create-invalidation --distribution-id "${cloudFrontDistributionId}" --paths '/tstool-aws-plugin/index*' --output json --profile "${awsProfile}"
   #${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin" --profile "${awsProfile}"
   errorCode=$?
   if [ ${errorCode} -ne 0 ]; then
@@ -559,7 +577,7 @@ doUpload="yes"
 
 # Root AWS S3 location where files are to be uploaded.
 s3FolderUrl="s3://software.openwaterfoundation.org/tstool-aws-plugin"
-gpDownloadUrl="http://software.openwaterfoundation.org/tstool-aws-plugin"
+gpDownloadUrl="https://software.openwaterfoundation.org/tstool-aws-plugin"
 
 # Parse the command line.
 parseCommandLine "$@"

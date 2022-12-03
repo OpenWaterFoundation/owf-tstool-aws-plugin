@@ -12,6 +12,7 @@
         - [Insert for `<footer>`](#insert-for-footer)
     +   [Command Output Files](#command-output-files)
         - [Dataset `index.html` Landing Page](#dataset-indexhtml-landing-page)
+        - [Dataset `index.md` Landing Page](#dataset-indexmd-landing-page)
         - [Datasets `index.html` Landing Page](#datasets-indexhtml-landing-page)
         - [Datasets `datasets.json` Catalog File](#datasets-datasetsjson-catalog-file)
 *   [Command Editor](#command-editor)
@@ -503,18 +504,22 @@ paths to files should be absolute and begin with `/`, for example `/css`, `/js`,
 
 ### Command Output Files ###
 
-This command creates output files based on the parameters.
-Because many files may be created depending on the starting index on S3,
-temporary files are used prior to uploading output files to S3.
+This command creates output files based on the command parameters.
+If `ProcessSubdirectories=True`, multiple datasets may be processed.
+Therefore, use `DatasetIndexFile=Temp.html` or `DatasetIndexFile=Temp.md` to use temporary files for output files prior.
+Otherwise output files for multiple datasets will overwrite.
+If processing a single dataset, a specific output file (e.g., `DatasetIndexFile=index.html` or `DatasetIndexFile=index.md`) can be used.
 
 *   Create for each dataset:
-    +   `index.html` - landing page for the dataset
-*   Create for the catalog:
-    +   `index.html` - landing page for the dataset catalog
+    +   `index.html` (or `index.md`) - landing page for the dataset
+*   Create for the catalog (**NOT YET IMPLEMENTED**):
+    +   `index.html` (or `index.md`) - landing page for the dataset catalog
     +   `datasets.json` - top-level catalog of dataset metadata,
         which combines all separate `dataset.json` files
 
 #### Dataset `index.html` Landing Page ####
+
+This file is created if `DatasetIndexFile` is specified with `.html` extension.
 
 This file is created in the same S3 bucket folder as the `dataset.json` input file
 and serves as the landing page for the dataset.
@@ -578,6 +583,76 @@ that is changed when the file contents are changed.
   }
 ```
 
+#### Dataset `index.md` Landing Page ####
+
+This file is created if `DatasetIndexFile` is specified with `.md` extension.
+
+This file is created in the same S3 bucket folder as the `dataset.json` input file
+and serves as the landing page for the dataset.
+This command will upload the file to S3 and invalidate the file if CloudFront information is specified.
+Because the website has a Markdown file and not `index.html`,
+the web server or browser application mus be able to render Markdown to HTML for viewing.
+
+The created `index.md` file is similar to the `index.html` (see previous section) but
+the formatting is simpler because Markdown is simpler than HTML.
+No HTML insert files are currently used; therefore the "skin" of the resulting page does not include website menus or other features
+(unless more complex handling of the Markdown is implemented).
+The output file has a layout similar to the following.
+
+
+```
+# <title from dataset.json> #
+
+## Dataset: <title from dataset.json> ##
+
+<dataset.png - NOT CURRENTLY INSERTED - layout in Markdown is not as flexible as HTML>
+
+<table of properties from dataset.json>
+
+## Dataset Publisher ##
+
+<table of properties from dataset.json>
+
+## Dataset Details ##
+
+<contents of dataset-details.json if available on S3,
+typically includes something like the following and
+try to standardize in an organization across datasets:
+
+## Overview ##
+
+Summary of the dataset.
+
+## Downloads ##
+
+As much is needed to list files with links,
+for example table of files, including versioned datasets in sub-folders.
+
+## Workflow ##
+
+Explain or link to workflow such as repository with TSTool workflow.
+
+## Update Frequency and Versions ##
+
+Explain frequency of udpates and how versions are handled.
+
+## Credits ##
+
+Credits, if any.
+
+## License ##
+
+Distribution license if any.
+
+...end of dataset-details.md insert>
+
+```
+
+The command will auto-generate the top of the file from the `dataset.json` and `dataset.png` files.
+If a `dataset-details.md` file is available on S3, it is appended as is under the "Dataset Details" section heading.
+If any dynamic processing is needed to create the `dataset-details.md` file,
+do that and upload to S3 before calling this command.
+
 #### Datasets `index.html` Landing Page ####
 
 **Not yet implemented.**
@@ -600,6 +675,14 @@ This command will upload the file to S3.
 The following dialog is used to edit the command and illustrates the syntax for the command.
 
 **<p style="text-align: center;">
+![AwsS3Catalog-dataset](AwsS3Catalog-dataset.png)
+</p>**
+
+**<p style="text-align: center;">
+`AwsS3Catalog` Command Editor for Dataset Parameters (<a href="../AwsS3Catalog-dataset.png">see also the full-size image)</a>
+</p>**
+
+**<p style="text-align: center;">
 ![AwsS3Catalog-catalog](AwsS3Catalog-catalog.png)
 </p>**
 
@@ -613,14 +696,6 @@ The following dialog is used to edit the command and illustrates the syntax for 
 
 **<p style="text-align: center;">
 `AwsS3Catalog` Command Editor for CloudFront Parameters (<a href="../AwsS3Catalog-cloudfront.png">see also the full-size image)</a>
-</p>**
-
-**<p style="text-align: center;">
-![AwsS3Catalog-dataset](AwsS3Catalog-dataset.png)
-</p>**
-
-**<p style="text-align: center;">
-`AwsS3Catalog` Command Editor for Dataset Parameters (<a href="../AwsS3Catalog-dataset.png">see also the full-size image)</a>
 </p>**
 
 **<p style="text-align: center;">
@@ -679,4 +754,4 @@ If there is an error, view the TSTool log file using the ***Tools / Diagnostics 
 ## See Also ##
 
 *   [`AwsS3`](../AwsS3/AwsS3.md) command
-*   [`AwsS3CloudFront`](../AwsS3CloudFront/AwsS3CloudFront.md) command
+*   [`AwsS3CloudFront`](../AwsCloudFront/AwsCloudFront.md) command
