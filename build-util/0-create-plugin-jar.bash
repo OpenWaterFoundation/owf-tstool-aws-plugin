@@ -232,7 +232,7 @@ echo "Listing of jar file that was created..."
 # Print the java file location again and check for duplicate jar files.
 echo ""
 echo "Jar file is:  ${jarFile}"
-jarCount=$(ls -1 ${jarFolder} | grep -v 'dep' | wc -l)
+jarCount=$(ls -1 ${jarFolder} | grep -v 'dep' | grep -v 'zip' | wc -l)
 if [ ${jarCount} -eq 1 ]; then
   echo "1 plugin jar file is installed (see below).  OK."
   # Do not put quotes around the following.

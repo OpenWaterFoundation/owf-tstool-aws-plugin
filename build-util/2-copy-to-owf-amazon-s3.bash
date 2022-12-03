@@ -231,35 +231,41 @@ printVersion() {
   echoStderr ""
 }
 
-# Set the 'aws' executable based on the operating system.
-# This allows the rest of the script to call the program without issue.
-setAwsExe () {
-  awsExe=""
-  if [ -z "${operatingSystem}" ]; then
-    logError "The operating system is unknown.  Cannot determine 'aws' program.  Exiting."
-    exit 1
-  elif [ "${operatingSystem}" = "cygwin" -o "${operatingSystem}" = "linux" ]; then
-    # aws is in a standard location such as /usr/bin/aws and is found via the PATH.
+# Set the AWS executable:
+# - handle different operating systems
+# - for AWS CLI V2, can call an executable
+# - for AWS CLI V1, have to deal with Python
+# - once set, use ${awsExe} as the command to run, followed by necessary command parameters
+setAwsExe() {
+  if [ "${operatingSystem}" = "mingw" ]; then
+    # "mingw" is Git Bash:
+    # - the following should work for V2
+    # - if "aws" is in path, use it
+    awsExe=$(command -v aws)
+    if [ -n "${awsExe}" ]; then
+      # Found aws in the PATH.
+      awsExe="aws"
+    else
+      # Might be older V1.
+      # Figure out the Python installation path.
+      pythonExePath=$(py -c "import sys; print(sys.executable)")
+      if [ -n "${pythonExePath}" ]; then
+        # Path will be something like:  C:\Users\sam\AppData\Local\Programs\Python\Python37\python.exe
+        # - so strip off the exe and substitute Scripts
+        # - convert the path to posix first
+        pythonExePathPosix="/$(echo "${pythonExePath}" | sed 's/\\/\//g' | sed 's/://')"
+        pythonScriptsFolder="$(dirname "${pythonExePathPosix}")/Scripts"
+        echo "${pythonScriptsFolder}"
+        awsExe="${pythonScriptsFolder}/aws"
+      else
+        echo "[ERROR] Unable to find Python installation location to find 'aws' script"
+        echo "[ERROR] Make sure Python 3.x is installed on Windows so 'py' is available in PATH"
+        exit 1
+      fi
+    fi
+  else
+    # For other Linux, including Cygwin, just try to run.
     awsExe="aws"
-  elif [ "${operatingSystem}" = "mingw" ]; then
-    # For Windows Python 3.7, aws may be installed in Windows %USERPROFILE%\AppData\Local\Programs\Python\Python37\scripts
-    # - use Linux-like path to avoid backslash issues
-    # - TODO smalers 2019-01-04 could try to find where py thinks Python is installed but not sure how
-    awsExe="${HOME}/AppData/Local/Programs/Python/Python37/scripts/aws"
-  else
-    logError ""
-    logError "Don't know how to run on operating system ${operatingSystem}"
-    exit 1
-  fi
-  # Make sure that the command is found.
-  if [ -z "${awsExe}" ]; then
-    logError "The operating system is unknown.  Cannot determine 'aws' program.  Exiting."
-  elif ! command -v "${awsExe}"; then
-    logError "Could not find 'aws' program: ${awsExe}"
-    exit 1
-  else
-    logInfo "Found 'aws': ${awsExe}"
-    return 0
   fi
 }
 
