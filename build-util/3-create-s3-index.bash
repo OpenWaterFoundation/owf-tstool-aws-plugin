@@ -274,12 +274,12 @@ createIndexHtmlFile_Table() {
 # Get the CloudFront distribution ID from the bucket so the ID is not hard-coded.
 # The distribution ID is echoed and can be assigned to a variable.
 # The output is similar to the following (obfuscated here):
-# ITEMS   arn:aws:cloudfront::123456789000:distribution/ABCDEFGHIJKLMN    learn.openwaterfoundation.org   123456789abcde.cloudfront.net   True    HTTP2   ABCDEFGHIJKLMN  True    2022-01-05T23:29:28.127000+00:00        PriceClass_100  Deployed
+# ITEMS   arn:aws:cloudfront::123456789000:distribution/ABCDEFGHIJKLMN    software.openwaterfoundation.org   123456789abcde.cloudfront.net   True    HTTP2   ABCDEFGHIJKLMN  True    2022-01-05T23:29:28.127000+00:00        PriceClass_100  Deployed
 getCloudFrontDistribution() {
   local cloudFrontDistributionId subdomain
-  subdomain="learn.openwaterfoundation.org"
+  subdomain="software.openwaterfoundation.org"
   cloudFrontDistributionId=$(${awsExe} cloudfront list-distributions --output text --profile "${awsProfile}" | grep ${subdomain} | grep "arn:" | awk '{print $2}' | cut -d ':' -f 6 | cut -d '/' -f 2)
-  echo ${cloudFrontDistributionId}
+  logInfo "CloudFront distribution ID = ${cloudFrontDistributionId}"
 }
 
 # Get the user's login.
@@ -466,6 +466,8 @@ setAwsExe() {
 # - index.html
 # - catalog.txt?
 uploadIndexFiles() {
+  local cloudFrontDistributionId invalidationId tmpFile
+
   # ===========================================================================
   # Step 1. Create and upload installer files
   #  - was done by 3-copy-gp-to-amazon.sh script and exist on S3
@@ -528,13 +530,36 @@ uploadIndexFiles() {
   else
     logInfo "Found CloudFront distribution ID: ${cloudFrontDistributionId}"
   fi
+  # The invalidation output is like the following where "Id" is the invalidation ID.
+  #  {
+  #    "Location": "https://cloudfront.amazonaws.com/2020-05-31/distribution/E1OLDBANEI7OML/invalidation/I2SM79N0DN566C",
+  #    "Invalidation": {
+  #        "Id": "I2SM79N0DN566C",
+  #        "Status": "InProgress",
+  #        "CreateTime": "2022-12-03T07:38:35.307000+00:00",
+  #        "InvalidationBatch": {
+  #            "Paths": {
+  #                "Quantity": 1,
+  #                "Items": [
+  #                    "/tstool-aws-plugin/index*"
+  #                ]
+  #            },
+  #            "CallerReference": "cli-1670053115-235914"
+  #        }
+  #    }
+  #  }
+
+  # Save the output to a temporary file and then extract the invalidation ID.
+  tmpFile=$(mktemp)
   logInfo "Invalidating files so that CloudFront will make new files available..."
+  logInfo "  Save output to: ${tmpFile}"
   # TODO smalers 2022-06-08 for some reason index.html does not work so have to use index.html*
   #${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/index.html*" "/tstool-aws-plugin/" "/tstool-aws-plugin" --profile "${awsProfile}"
   #${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/index.html*" --profile "${awsProfile}"
-  ${awsExe} cloudfront create-invalidation --distribution-id "${cloudFrontDistributionId}" --paths '/tstool-aws-plugin/index*' --output json --profile "${awsProfile}"
+  ${awsExe} cloudfront create-invalidation --distribution-id "${cloudFrontDistributionId}" --paths '/tstool-aws-plugin/index*' --output json --profile "${awsProfile}" | tee ${tmpFile}
   #${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin" --profile "${awsProfile}"
-  errorCode=$?
+  invalidationId=$(cat ${tmpFile} | grep '"Id":' | cut -d ':' -f 2 | tr -d ' ' | tr -d '"' | tr -d ',')
+  errorCode=${PIPESTATUS[0]}
   if [ ${errorCode} -ne 0 ]; then
     logError " "
     logError "Error invalidating CloudFront file(s)."
@@ -542,6 +567,66 @@ uploadIndexFiles() {
   else
     logInfo "Success invalidating CloudFront file(s)."
   fi
+
+  # Now wait on the invalidation.
+  waitOnInvalidation ${cloudFrontDistributionId} ${invalidationId}
+
+  return 0
+}
+
+# Wait on an invalidation until it is complete:
+# - first parameter is the CloudFront distribution ID
+# - second parameter is the CloudFront invalidation ID
+waitOnInvalidation () {
+  local distributionId invalidationId output totalTime
+  local inProgressCount totalTime waitSeconds
+
+  distributionId=$1
+  invalidationId=$2
+  if [ -z "${distributionId}" ]; then
+    logError "No distribution ID provided."
+    return 1
+  fi
+  if [ -z "${invalidationId}" ]; then
+    logError "No invalidation ID provided."
+    return 1
+  fi
+
+  # Output looks like this:
+  #   INVALIDATIONLIST        False           100     67
+  #   ITEMS   2022-12-03T07:00:47.490000+00:00        I3UE1HOF68YV8W  InProgress
+  #   ITEMS   2022-12-03T07:00:17.684000+00:00        I30WL0RTQ51PXW  Completed
+  #   ITEMS   2022-12-03T00:46:38.567000+00:00        IFMPVDA8EX53R   Completed
+
+  totalTime=0
+  waitSeconds=5
+  logInfo "Waiting on invalidation for distribution ${distributionId} invalidation ${invalidationId} to complete..."
+  while true; do
+    # The following should always return 0 or greater.
+    #logInfo "Running: ${awsExe} cloudfront list-invalidations --distribution-id \"${cloudFrontDistributionId}\" --no-paginate --output text --profile \"${awsProfile}\""
+    #${awsExe} cloudfront list-invalidations --distribution-id "${cloudFrontDistributionId}" --no-paginate --output text --profile "${awsProfile}"
+    inProgressCount=$(${awsExe} cloudfront list-invalidations --distribution-id "${cloudFrontDistributionId}" --no-paginate --output text --profile "${awsProfile}" | grep "${invalidationId}" | grep InProgress | wc -l)
+    #logInfo "inProgressCount=${inProgressCount}"
+
+    if [ -z "${inProgressCount}" ]; then
+      # This should not happen?
+      logError "No output from listing invalidations for distribution ID:  ${cloudFrontDistributionId}"
+      return 1
+    fi
+
+    if [ ${inProgressCount} -gt 0 ]; then
+      logInfo "Invalidation status is InProgress.  Waiting ${waitSeconds} seconds (${totalTime} seconds total)..."
+      sleep ${waitSeconds}
+    else
+      # Done with invalidation.
+      break
+    fi
+
+    # Increment the total time.
+    totalTime=$(( ${totalTime} + ${waitSeconds} ))
+  done
+
+  logInfo "Invalidation is complete (${totalTime} seconds total)."
 
   return 0
 }
