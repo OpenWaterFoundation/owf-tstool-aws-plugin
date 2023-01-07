@@ -3,6 +3,8 @@
 *   [Introduction](#introduction)
 *   [TSTool use with Amazon Web Services](#tstool-use-with-amazon-web-services)
 
+----------
+
 ## Introduction ##
 
 TSTool is a powerful software tool that automates time series processing and product generation.

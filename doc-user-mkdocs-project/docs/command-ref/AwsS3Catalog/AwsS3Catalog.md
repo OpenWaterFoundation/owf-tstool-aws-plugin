@@ -259,7 +259,7 @@ Conventions for organizing datasets are as follows.
 Dataset Versioning Types
 </p>**
 
-| **Dataset Versioning** | **Descriptio** |
+| **Dataset Versioning** | **Description** |
 | -- | -- |
 | Single version | This type of dataset has no `latest` or versioned folders, which is appropriate for relatively frequent updates where archiving snapshots is unnecessary or prohibitive due to the amount of data. In this case, the dataset files exist in the top level of the dataset's folder. |
 | Only `latest` version | This type of dataset has a `latest` folder but no versioned folder(s), which is appropriate for a dataset that might have version snapshots in the future but currently only has a single latest version. |
