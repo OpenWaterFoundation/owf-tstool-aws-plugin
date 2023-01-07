@@ -1,11 +1,11 @@
 # TSTool / Command / AwsCloudFront #
 
-* [Overview](#overview)
-* [Command Editor](#command-editor)
-* [Command Syntax](#command-syntax)
-* [Examples](#examples)
-* [Troubleshooting](#troubleshooting)
-* [See Also](#see-also)
+*   [Overview](#overview)
+*   [Command Editor](#command-editor)
+*   [Command Syntax](#command-syntax)
+*   [Examples](#examples)
+*   [Troubleshooting](#troubleshooting)
+*   [See Also](#see-also)
 
 -------------------------
 
@@ -101,4 +101,4 @@ If there is an error, view the TSTool log file using the ***Tools / Diagnostics 
 
 ## See Also ##
 
-* [`AwsS3`](../AwsS3/AwsS3.md) command
+*   [`AwsS3`](../AwsS3/AwsS3.md) command

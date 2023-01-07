@@ -5,6 +5,7 @@ This plugin allows automation of workflows that use AWS services such as S3 stor
 
 *   [Acknowledgements](#acknowledgements)
 *   [How to Use this Documentation](#how-to-use-this-documentation)
+*   [Software Download Page](#software-download-page)
 
 This documentation has been updated for:
 
@@ -17,6 +18,8 @@ This documentation has been updated for:
 
 TSTool has been developed by the [Open Water Foundation (OWF)](https://openwaterfoundation.org) with significant
 funding by the State of Colorado and other sources.
+
+The AWS plugin has been developed with funding from the Open Water Foundation.
 
 ## How to Use this Documentation ##
 
@@ -35,3 +38,7 @@ See also the full TSTool documentation:
 *   [Latest TSTool User Documentation](https://opencdss.state.co.us/tstool/latest/doc-user/) available on the OpenCDSS website
 *   [TSTool download page](https://opencdss.state.co.us/tstool/) on the OpenCDSS website
     with access to documentation for different TSTool versions
+
+## Software Download Page ##
+
+See the [TSTool AWS Plugin](https://software.openwaterfoundation.org/tstool-aws-plugin/) download page.

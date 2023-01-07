@@ -7,11 +7,11 @@ The TSTool core product also has many commands (see the
 Additional functionality may be added in the future in additional commands or by enhancing the core TSTool software.
 
 **<p style="text-align: center;">
-NovaStar TSTool Commands
+AWS Plugin TSTool Commands
 </p>**
 
 | **Command** | **Description** |
 | -- | -- |
 | [`AwsS3`](AwsS3/AwsS3.md) | AWS S3 service integration. |
-| [`AwsS3Catalog`](AwsS3Catalog/AwsS3Catalog.md) | AWS S3 catalog generator for datasets. |
+| [`AwsS3Catalog`](AwsS3Catalog/AwsS3Catalog.md) | AWS S3 catalog landing page generator for datasets and other products. |
 | [`AwsCloudFront`](AwsCloudFront/AwsCloudFront.md) | AWS CloudFront integration. |

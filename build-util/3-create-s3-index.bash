@@ -122,14 +122,16 @@ echo '<style>
 <body>
 <h1>Open Water Foundation TSTool AWS Plugin Software Downloads</h1>
 <p>
-The TSTool AWS Plugin software is available for Windows. Cygwin and Linux versions can be created if requested or use the Windows files on Linux.
+The TSTool Amazon Web Services (AWS) Plugin software is available for Windows.
+The same installer can also be installed on Linux.
 </p>
 <p>
 <ul>
 <li> It is recommended to use the latest plugin version with the latest TSTool version:
      <ul>
      <li> Use the TSTool <b>Help / About TSTool</b> menu to check the TSTool version.</li>
-     <li> Check the plugin install files in the user'\''s <code>.tstool/NN/plugins</code> folder to check the plugin version.</li>
+     <li> Use the TSTool <b>View / Datastores</b> menu to check the plugin version.</li>
+     <li> Also check the plugin install files in the user'\''s <code>.tstool/NN/plugins</code> folder to check the plugin version.</li>
      </ul></li>
 <li> See the latest <a href="https://software.openwaterfoundation.org/tstool-aws-plugin/latest/doc-user/appendix-install/install/">TSTool AWS Plugin installation documentation</a>
      for installation information (or follow a link below for specific version documentation).</li>
@@ -142,7 +144,7 @@ The TSTool AWS Plugin software is available for Windows. Cygwin and Linux versio
 
 <hr>
 <h2>Windows Download</h2>
-<p>The Windows version is under active development.</p>
+<p>The Windows version is the primary development version.</p>
 
 <ol>
 <li> Download a TSTool AWS Plugin Windows installer (zip file) from below.</li>
@@ -154,8 +156,9 @@ The TSTool AWS Plugin software is available for Windows. Cygwin and Linux versio
   createIndexHtmlFile_Table win
 
 echo '<h2>Linux Download</h2>
-<p>Linux versions of the TSTool AWS Plugin are currently not actively developed.
-Contact OWF if if a Linux release of the plugin is needed.</p>
+<p>Linux versions of the TSTool AWS Plugin are not actively developed.
+The Windows plugin can be installed on Linux.
+Contact OWF if additional help is needed.</p>
 
 <hr>' >> ${indexHtmlTmpFile}
 
@@ -182,7 +185,7 @@ createIndexHtmlFile_Table() {
     # Replace normal version to have -zzz at end and "dev" version to be "-dev" so that sort is correct,
     #   then change back to previous strings for output.
     # The use space as the delimiter and sort on the 3rd token.
-    echo '<tr><th>Download File</th><th>Product</th><th>Version</th><th>File Timestamp (UTC)</th><th>Size (KB)</th><th>Operating System</th><th>User Doc</th><th>Dev Doc</th></tr>' >> ${indexHtmlTmpFile}
+    echo '<tr><th>Download File</th><th>Product</th><th>Version</th><th>File Timestamp</th><th>Size (Bytes)</th><th>Operating System</th><th>User Doc</th><th>Dev Doc</th></tr>' >> ${indexHtmlTmpFile}
     # Version before sort...
     # cat "${tmpS3CatalogPath}" | grep "${downloadOs}-" | sort -r | awk '
     cat "${tmpS3CatalogPath}" | grep "${downloadOs}-" | awk '{ printf "%s %s %s %s\n", $1, $2, $3, $4 }' | sed -E 's|([0-9][0-9]/)|\1-zzz|g' | sed 's|/-zzz|-zzz|g' | sed 's|dev|-dev|g' | sort -r -k4,4 | sed 's|-zzz||g' | sed 's|-dev|dev|g'  | awk '
@@ -280,6 +283,8 @@ getCloudFrontDistribution() {
   subdomain="software.openwaterfoundation.org"
   cloudFrontDistributionId=$(${awsExe} cloudfront list-distributions --output text --profile "${awsProfile}" | grep ${subdomain} | grep "arn:" | awk '{print $2}' | cut -d ':' -f 6 | cut -d '/' -f 2)
   logInfo "CloudFront distribution ID = ${cloudFrontDistributionId}"
+  # Echo so that calling code can set to a variable.
+  echo ${cloudFrontDistributionId}
 }
 
 # Get the user's login.
