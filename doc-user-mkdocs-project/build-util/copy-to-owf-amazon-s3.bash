@@ -212,6 +212,63 @@ setMkDocsExe() {
   return 0
 }
 
+# Wait on an invalidation until it is complete:
+# - first parameter is the CloudFront distribution ID
+# - second parameter is the CloudFront invalidation ID
+waitOnInvalidation () {
+  local distributionId invalidationId output totalTime
+  local inProgressCount totalTime waitSeconds
+
+  distributionId=$1
+  invalidationId=$2
+  if [ -z "${distributionId}" ]; then
+    logError "No distribution ID provided."
+    return 1
+  fi
+  if [ -z "${invalidationId}" ]; then
+    logError "No invalidation ID provided."
+    return 1
+  fi
+
+  # Output looks like this:
+  #   INVALIDATIONLIST        False           100     67
+  #   ITEMS   2022-12-03T07:00:47.490000+00:00        I3UE1HOF68YV8W  InProgress
+  #   ITEMS   2022-12-03T07:00:17.684000+00:00        I30WL0RTQ51PXW  Completed
+  #   ITEMS   2022-12-03T00:46:38.567000+00:00        IFMPVDA8EX53R   Completed
+
+  totalTime=0
+  waitSeconds=5
+  logInfo "Waiting on invalidation for distribution ${distributionId} invalidation ${invalidationId} to complete..."
+  while true; do
+    # The following should always return 0 or greater.
+    #logInfo "Running: ${awsExe} cloudfront list-invalidations --distribution-id \"${cloudFrontDistributionId}\" --no-paginate --output text --profile \"${awsProfile}\""
+    #${awsExe} cloudfront list-invalidations --distribution-id "${cloudFrontDistributionId}" --no-paginate --output text --profile "${awsProfile}"
+    inProgressCount=$(${awsExe} cloudfront list-invalidations --distribution-id "${cloudFrontDistributionId}" --no-paginate --output text --profile "${awsProfile}" | grep "${invalidationId}" | grep InProgress | wc -l)
+    #logInfo "inProgressCount=${inProgressCount}"
+
+    if [ -z "${inProgressCount}" ]; then
+      # This should not happen?
+      logError "No output from listing invalidations for distribution ID:  ${cloudFrontDistributionId}"
+      return 1
+    fi
+
+    if [ ${inProgressCount} -gt 0 ]; then
+      logInfo "Invalidation status is InProgress.  Waiting ${waitSeconds} seconds (${totalTime} seconds total)..."
+      sleep ${waitSeconds}
+    else
+      # Done with invalidation.
+      break
+    fi
+
+    # Increment the total time.
+    totalTime=$(( ${totalTime} + ${waitSeconds} ))
+  done
+
+  logInfo "Invalidation is complete (${totalTime} seconds total)."
+
+  return 0
+}
+
 # Entry point into the script.
 
 # Configure the echo command to output color.
@@ -297,9 +354,11 @@ if [ -n "${pluginVersion}" ]; then
 
   # Also invalidate the CloudFront distribution so that new version will be displayed:
   # - see:  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
+  # - save the output to a temporary file and then extract the invalidation ID progress can be checked
   # Determine the distribution ID:
   # The distribution list contains a line like the following (the actual distribution ID is not included here):
   # ITEMS   arn:aws:cloudfront::132345689123:distribution/E1234567891234    software.openwaterfoundation.org  something.cloudfront.net    True    HTTP2   E1234567891334  True    2022-01-06T19:02:50.640Z        PriceClass_100Deployed
+  tmpFile=$(mktemp)
   subdomain="software.openwaterfoundation.org"
   cloudFrontDistributionId=$(${awsExe} cloudfront list-distributions --output text --profile "${awsProfile}" | grep ${subdomain} | grep "arn" | awk '{print $2}' | cut -d ':' -f 6 | cut -d '/' -f 2)
   if [ -z "${cloudFrontDistributionId}" ]; then
@@ -309,14 +368,18 @@ if [ -n "${pluginVersion}" ]; then
     logInfo "Found CloudFront distribution ID: ${cloudFrontDistributionId}"
   fi
   logInfo "Invalidating files so that CloudFront will make new files available..."
-  ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/${pluginVersion}/doc-user/*" --profile "${awsProfile}"
-  errorCode=$?
+  logInfo "Running: ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths \"/tstool-aws-plugin/${pluginVersion}/doc-user/*\" --output json --profile \"${awsProfile}\""
+  ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/${pluginVersion}/doc-user/*" --output json --profile "${awsProfile}" | tee ${tmpFile}
+  errorCode=${PIPESTATUS[0]}
   if [ $errorCode -ne 0 ]; then
     logError " "
     logError "Error invalidating CloudFront file(s)."
     exit 1
   else
     logInfo "Success invalidating CloudFront file(s)."
+    invalidationId=$(cat ${tmpFile} | grep '"Id":' | cut -d ':' -f 2 | tr -d ' ' | tr -d '"' | tr -d ',')
+    # Wait on the invalidation.
+    waitOnInvalidation ${cloudFrontDistributionId} ${invalidationId}
   fi
 fi
 
@@ -334,9 +397,11 @@ if [ "${answer}" = "y" ]; then
 
   # Also invalidate the CloudFront distribution so that new version will be displayed:
   # - see:  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
+  # - save the output to a temporary file and then extract the invalidation ID progress can be checked
   # Determine the distribution ID:
   # The distribution list contains a line like the following (the actual distribution ID is not included here):
   # ITEMS   arn:aws:cloudfront::132345689123:distribution/E1234567891234    software.openwaterfoundation.org  something.cloudfront.net    True    HTTP2   E1234567891334  True    2022-01-06T19:02:50.640Z        PriceClass_100Deployed
+  tmpFile=$(mktemp)
   subdomain="software.openwaterfoundation.org"
   cloudFrontDistributionId=$(${awsExe} cloudfront list-distributions --output text --profile "${awsProfile}" | grep ${subdomain} | grep "arn" | awk '{print $2}' | cut -d ':' -f 6 | cut -d '/' -f 2)
   if [ -z "${cloudFrontDistributionId}" ]; then
@@ -346,14 +411,18 @@ if [ "${answer}" = "y" ]; then
     logInfo "Found CloudFront distribution ID: ${distributionId}"
   fi
   logInfo "Invalidating files so that CloudFront will make new files available..."
-  ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/latest/doc-user/*" --profile "${awsProfile}"
-  errorCode=$?
-  if [ $errorCode -ne 0 ]; then
+  logInfo "Running: ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths \"/tstool-aws-plugin/latest/doc-user/*\" --output json --profile \"${awsProfile}\""
+  ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/latest/doc-user/*" --output json --profile "${awsProfile}" | tee ${tmpFile}
+  errorCode=${PIPESTATUS[0]}
+  if [ ${errorCode} -ne 0 ]; then
     logError " "
     logError "Error invalidating CloudFront file(s)."
     exit 1
   else
     logInfo "Success invalidating CloudFront file(s)."
+    invalidationId=$(cat ${tmpFile} | grep '"Id":' | cut -d ':' -f 2 | tr -d ' ' | tr -d '"' | tr -d ',')
+    # Wait on the invalidation.
+    waitOnInvalidation ${cloudFrontDistributionId} ${invalidationId}
   fi
 fi
 
