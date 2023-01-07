@@ -6,8 +6,10 @@ This plugin can be installed to enable commands that integrate TSTool with AWS.
 TSTool is part of [Colorado's Decision Support Systems (CDSS)](https://www.colorado.gov/cdss).
 See the following online resources:
 
-*   [TSTool Developer Documentation](https://opencdss.state.co.us/tstool/latest/doc-dev/)
+*   [TSTool AWS Plugin download page](https://software.openwaterfoundation.org/tstool-aws-plugin/)
+*   [TSTool AWS Plugin Documentation](https://software.openwaterfoundation.org/tstool-aws-plugin/latest/doc-user/)
 *   [TSTool User Documentation](https://opencdss.state.co.us/tstool/latest/doc-user/)
+*   [TSTool Developer Documentation](https://opencdss.state.co.us/tstool/latest/doc-dev/)
 
 See the following sections in this page:
 
@@ -101,12 +103,12 @@ During development, plugins are handled as follows:
 
 1.  Eclipse project:
     1.  The `owf-tstool-aws-plugin` repository is added as a Maven project.
-    2.  The project's build path is configured to use appropriate Maven dependencies, such as the AWS libraries
-        and other TSTool projects, such as `cdss-lib-common-java`.
+    2.  The project's build path is configured to use appropriate Maven dependencies,
+        such as the AWS libraries and other TSTool projects, such as `cdss-lib-common-java`.
 2.  Plugin jar file:
     1.  The plugin is recognized by TSTool via the plugin design, not the Eclipse build path.
         In other words, plugins are handled as per the production code.
-    2.  Therefore, run the `build-util/create-plubin-jar.bash` script to create the
+    2.  Therefore, run the `build-util/0-create-plugin-jar.bash` script to create the
         plugin `jar` file in the user's `.tstool/NN/plugins` folder in order to test the plugin.
     3.  The above script relies on the `owf-tstool-aws-plugin/src/main/resources/META-INF/MANIFEST.MF`
         file to provide information about the plugin to TSTool,

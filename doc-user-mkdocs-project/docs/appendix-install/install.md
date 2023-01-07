@@ -2,50 +2,73 @@
 
 This appendix describes how to install the AWS Plugin.
 
-* [Overview](#overview)
-* [Install TSTool](#install-tstool)
-* [Install and Configure the TSTool AWS Plugin](#install-and-configure-the-tstool-aws-plugin)
+*   [Overview](#overview)
+*   [Install TSTool](#install-tstool)
+*   [Install and Configure the TSTool AWS Plugin](#install-and-configure-the-tstool-aws-plugin)
 
 -------
 
 ## Overview ##
 
 TSTool is used with AWS to automate file uploads and downloads.
-The TSTool AWS plugin is currently only available for Windows
-and must be installed after the TSTool software is installed.
-
-Multiple versions of TSTool can be installed at the same time, which allows transition during software updates.
+The TSTool AWS plugin is developed and tested on Windows but can also be installed on Linux.
 
 ## Install TSTool ##
 
-See the core product [Install TSTool appendix](https://opencdss.state.co.us/tstool/latest/doc-user/appendix-install/install/)
-for general information about installing TSTool.
-The core product must be installed first before plugins are installed.
+TSTool must be installed before installing the AWS plugin.
+Typically the latest stable release should be used, although a development version can be installed
+in order to use new features.
+Multiple versions of TSTool can be installed at the same time.
+
+1.  Download TSTool:
+    *   Download the Windows version from the
+        [State of Colorado's TSTool Software Downloads](https://opencdss.state.co.us/tstool/) page.
+    *   Download the Linux version from the
+        [Open Water Foundation TSTool download page](https://software.openwaterfoundation.org/tstool/).
+2.  Run the installer and accept defaults.
+3.  Run TSTool once by using the ***Start / CDSS / TSTool-Version*** menu on Windows
+    (or run the `tstool` program on Linux).
+    This will automatically create folders needed to install the plugin.
 
 ## Install and Configure the TSTool AWS Plugin ##
 
-The AWS plugin software is currently installed by unzipping the installation file.
-The plugin is currently only available for Windows.
+TSTool must have been previously installed and run at least once.
 
-Download the TSTool AWS Plugin from the [OWF Software page](https://software.openwaterfoundation.org/tstool-aws-plugin/),
-for example saving in the `Downloads` folder on Windows.
-Use a tool such as [7zip](https://www.7-zip.org/) or open the zip file using Windows File Explorer to see its contents.
-Unzip (or copy) the zip file contents to the folder `C:\Users\user\.tstool\14\plugins\owf-tstool-aws-plugin` similar to the following,
-where `user` should be replaced with the specific user's login:
+1.  Download the `tstool-aws-plugin` software installer file from the
+    [TSTool AWS Download page](https://software.openwaterfoundation.org/tstool-aws-plugin/).
+    For example with a name similar to `tstool-aws-plugin-1.1.1-win-202212021709.zip`.
+2.  If installing the plugin in user files and if TSTool was not run before,
+    run TSTool once to automatically create user folders and files needed by the plugin.
+3.  The plugin installation folder is as follows, where `C:\Users\user` should match the specific user's folder:
+    1.  If installing in user files (`NN` is the TSTool major version):
+        *   Windows: `C:\Users\user\.tstool\NN\plugins\`
+        *   Linux (`~` indicates the user's home folder): `~/.tstool/NN/plugins/`
+    2.  If installing in system files on Linux (`opt`), install in the following folder:
+        *   Linux: `/opt/tstool-version/plugins/`
+4.  If an old version of the plugin was previous installed:
+    1.  Delete the old `jar` file or move to the `plugins-old/` folder (same level as the `plugins` folder) to archive.
+        Only one copy of the plugin `jar` file can be found in the `plugins` folder to avoid software conflicts.
+    2.  Similarly, the contents of the `dep/` folder should be deleted or moved before installing the plugin.
+        These files are required by the AWS plugin software and multiple versions of the files will confuse the plugin software.
+5.  Copy the `owf-tstool-aws-plugin` folder from the zip file to the following folder:
+    1.  If installing in user files (`NN` is the TSTool major version):
+        *   Windows: `C:\Users\user\.tstool\NN\plugins\`
+        *   Linux (`~` indicates the user's home folder): `~/.tstool/NN/plugins/`
+    2.  If installing in system files on Linux (`opt`), install in the following folder:
+        *   Linux: `/opt/tstool-version/plugins/`
+6.  Restart TSTool and test the commands.
+    Try a simple command like using the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command to list S3 buckets.
+7.  Troubleshooting:
+    1.  If the AWS plugin features are not functioning properly, it may be due to conflicting jar files.
+        The ***Commands(Plugin)*** menu will usually contain duplicate menus if
+        multiple `jar` files with different versions are found in the `plugins` folder.
+    2.  See the [Troubleshooting](../troubleshooting/troubleshooting.md) documentation.
 
+After installing, the plugin software folders should be similar to the following,
+where `C:\Users\user` is the specific user's folder.
 ```
 C:\Users\user\.tstool\plugins\owf-tstool-aws-plugin\
-  owf-tstool-aws-plugin-1.0.0.jar
+  owf-tstool-aws-plugin-1.1.1.jar
   dep\
     *.jar (many files)
 ```
-
-If the `plugins` folder does not exist, make sure to run TSTool at least one time to automatically create the folders
-before installing the plugin.
-
-If a previous version of the plugin was installed, remove the files before installing.
-
-Restart TSTool.
-The plugin commands described in the next section should be listed in the ***Commmands(Plugin)*** menu.
-
-TSTool will be enhanced in the future to provide a "plugin manager" to help with these tasks.

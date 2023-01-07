@@ -14,6 +14,15 @@ article ul ul ul {
 }
 
 /*
+ * Older Material theme used dark grey background with bold white text for table heading.
+ * Newer Material uses white background with bold black text, but the heading does not stand out well.
+ * Instead, set the background to a light gray, which works OK.
+*/
+thead th {
+	background-color: #cccccc;
+}
+
+/*
  * None of these seem to work
  * Center tables horizontally on page.
 table {
