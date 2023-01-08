@@ -1,6 +1,5 @@
-# Files to ignore and not commit to the repository.
+# Files to ignore and not commit to the repository:
+# - see also the 'results/.gitignore' file
 
-/*
-!.gitignore
-!README.md
-!results/README.md
+# The following is created by the ../create/create-run-test-suite.tstool command file.
+run-test-suite.tstool

@@ -13,4 +13,4 @@ StartLog(LogFile="Results/create-run-test-suite.tstool.log")
 #
 #  See the repository issues for outstanding test problems.
 # =======================================================================================================
-CreateRegressionTestCommandFile(SearchFolder="../../commands",OutputFile="../run/run-test-suite.tstool",SetupCommandFile="include/create-run-test-suite-setup.tstool",TestResultsFile="Results/create-run-test-suite-out-${NowString}.txt",EndCommandFile="include/create-run-test-suite-end.tstool",Append=False,IncludeTestSuite="*",TestResultsTableID="TestResults")
+CreateRegressionTestCommandFile(SearchFolder="../../commands",OutputFile="../run/run-test-suite.tstool",SetupCommandFile="include/create-run-test-suite-setup.tstool",TestResultsFile="results/create-run-test-suite-out-${NowString}.txt",EndCommandFile="include/create-run-test-suite-end.tstool",Append=False,IncludeTestSuite="*",TestResultsTableID="TestResults")
