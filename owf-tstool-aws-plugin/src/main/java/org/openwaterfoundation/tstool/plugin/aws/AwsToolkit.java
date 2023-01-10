@@ -38,6 +38,7 @@ import RTi.Util.Message.Message;
 import RTi.Util.Time.TimeUtil;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.regions.RegionMetadata;
 import software.amazon.awssdk.services.cloudfront.CloudFrontClient;
 import software.amazon.awssdk.services.cloudfront.model.CreateInvalidationRequest;
 //import software.amazon.awssdk.services.cloudfront.model.CreateInvalidationResponse;
@@ -473,10 +474,12 @@ public class AwsToolkit {
 
     /**
      * UI helper to populate the Bucket choices based on profile and region selections.
-     * @param selectedRegion the selected region
+     * @param awsSession the AwsSession instance for the session, for authentication
+     * @param region the selected region
+     * @param bucket_JComboBox the combo box for buckets
+     * @param icludeBlank if true, include a blank choice at the top
      */
-    public void uiPopulateBucketChoices ( AwsSession awsSession, String region,
-    	SimpleJComboBox Profile_JComboBox, SimpleJComboBox Bucket_JComboBox) {
+    public void uiPopulateBucketChoices ( AwsSession awsSession, String region, SimpleJComboBox bucket_JComboBox, boolean includeBlank) {
     	String routine = getClass().getSimpleName() + ".uiPopulateBucketChoices";
     	boolean debug = true;
     	List<String> bucketChoices = new ArrayList<>();
@@ -488,6 +491,7 @@ public class AwsToolkit {
     		return;
     	}
     	else {
+    		String profile = awsSession.getProfile();
     		if ( debug ) {
     			Message.printStatus(2, routine, "Getting the list of buckets." );
     		}
@@ -496,7 +500,6 @@ public class AwsToolkit {
     			// Startup or region specified:
     			// - try to get the default region from the user's configuration file
     			// - can't populate the buckets.
-    			String profile = Profile_JComboBox.getSelected();
     			if ( (profile == null) || profile.isEmpty() ) {
     				// Get the default profile.
     				profile = AwsToolkit.getInstance().getDefaultProfile();
@@ -508,7 +511,7 @@ public class AwsToolkit {
     				region = AwsToolkit.getInstance().getDefaultRegion(profile);
     				if ( (region == null) || region.isEmpty() ) {
     					Message.printStatus(2, routine, "Region is not specified and no default profile - can't populate the list of buckets." );
-    					Bucket_JComboBox.setData(bucketChoices);
+    					bucket_JComboBox.setData(bucketChoices);
     					return;
     				}
     				else {
@@ -528,12 +531,14 @@ public class AwsToolkit {
     			}
     		}
     		Collections.sort(bucketChoices);
-    		// Add a blank because some services don't use.
-    		bucketChoices.add(0,"");
-    		Bucket_JComboBox.setData(bucketChoices);
-    		if ( Bucket_JComboBox.getItemCount() > 0 ) {
+    		if ( includeBlank ) {
+    			// Add a blank because some services don't use.
+    			bucketChoices.add(0,"");
+    		}
+    		bucket_JComboBox.setData(bucketChoices);
+    		if ( bucket_JComboBox.getItemCount() > 0 ) {
     			// Select the first bucket by default.
-    			Bucket_JComboBox.select ( 0 );
+    			bucket_JComboBox.select ( 0 );
     		}
     	}
     }
@@ -553,6 +558,36 @@ public class AwsToolkit {
     		// Default profile exists.
     		ProfileDefault_JTextField.setText(profile);
     		ProfileDefaultNote_JLabel.setText("From: " + getAwsUserConfigFile() );
+    	}
+    }
+
+    /**
+     * UI helper to populate the Region choices based on profile.
+     * @param awsSession the AwsSession instance for the session, for authentication
+     * @param region_JComboBox the region combo box to populate
+     */
+    public void uiPopulateRegionChoices ( AwsSession awsSession, SimpleJComboBox region_JComboBox) {
+    	// Getting the regions does not require authentication.
+    	List<Region> regions = Region.regions();
+	   	List<String> regionChoices = new ArrayList<>();
+	   	for ( Region region : regions ) {
+		   	RegionMetadata meta = region.metadata();
+		   	if ( meta == null ) {
+		   		regionChoices.add ( region.id() );
+		   	}
+		   	else {
+			   	regionChoices.add ( region.id() + " - " + region.metadata().description());
+		   	}
+	   	}
+
+   		Collections.sort(regionChoices);
+
+   		// Add a blank because some services don't use.
+   		regionChoices.add(0,"");
+   		region_JComboBox.setData(regionChoices);
+    	if ( region_JComboBox.getItemCount() > 0 ) {
+    		// Select the first bucket by default.
+    		region_JComboBox.select ( 0 );
     	}
     }
 
