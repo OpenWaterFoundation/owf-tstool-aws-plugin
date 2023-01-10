@@ -1117,10 +1117,10 @@ public void itemStateChanged ( ItemEvent e ) {
     }
 	Object o = e.getSource();
     if ( o == this.__Profile_JComboBox ) {
-        AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Profile_JComboBox, __Bucket_JComboBox );
+        AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Bucket_JComboBox, true );
 	}
 	else if ( o == this.__Region_JComboBox ) {
-        AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Profile_JComboBox, __Bucket_JComboBox );
+        AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Bucket_JComboBox, true );
 	}
 	refresh();
 }
@@ -1260,7 +1260,7 @@ private void refresh () {
             Message.printWarning ( 1, routine, "Existing command references an invalid\n"+
                 "Region parameter \"" + Region + "\".  Select a\ndifferent value or Cancel." );
         }
-        AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Profile_JComboBox, __Bucket_JComboBox );
+        AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Bucket_JComboBox, true );
 		if ( JGUIUtil.isSimpleJComboBoxItem(__Bucket_JComboBox, Bucket,JGUIUtil.NONE, null, null ) ) {
 			__Bucket_JComboBox.select ( Bucket );
 		}

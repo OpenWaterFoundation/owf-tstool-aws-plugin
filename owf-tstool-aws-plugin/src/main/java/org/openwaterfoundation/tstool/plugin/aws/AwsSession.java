@@ -22,6 +22,8 @@ NoticeEnd */
 
 package org.openwaterfoundation.tstool.plugin.aws;
 
+import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
+
 /*
  * AWS session for a user, corresponding to a profile.
  */
@@ -31,6 +33,12 @@ public class AwsSession {
 	 * Profile name for AWS session.
 	 */
 	private String profile = "";
+
+	/**
+	 * AWS credentials provider, used to authenticate S3 client, etc.
+	 * The credentials are applicable throughout the session.
+	 */
+	ProfileCredentialsProvider profileCredentialsProvider = null;
 	
 	/**
 	 * Whether a default profile can be used.
@@ -56,9 +64,10 @@ public class AwsSession {
 		this.profile = profile;
 		this.useDefaultProfile = useDefaultProfile;
 	}
-	
+
 	/**
 	 * Return the profile to use for AWS operations.
+	 * The default profile may be used.
 	 * @return the profile.
 	 */
 	public String getProfile () {
@@ -73,5 +82,23 @@ public class AwsSession {
 		else {
 			return this.profile;
 		}
+	}
+
+	/**
+	 * Return the profile credentials provider to use for AWS operations.
+	 * @return the profile credentials provider to use for AWS operations.
+	 */
+	public ProfileCredentialsProvider getProfileCredentialsProvider () {
+		return this.profileCredentialsProvider;
+	}
+
+	/**
+	 * Set the ProfileCredentialsProvider instance used with the session.
+	 * This facilitates passing the AwSession to methods.
+	 * @param credentialsProvider ProfileCredentialsProvider instance to use to instantiate
+	 * AWS components such as S3 client.
+	 */
+	public void setProfileCredentialsProvider ( ProfileCredentialsProvider credentialsProvider ) {
+		this.profileCredentialsProvider = credentialsProvider;
 	}
 }

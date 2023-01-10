@@ -1001,7 +1001,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    	// TODO smalers 2022-05-31 for now use UTC time.
     	    	String timezone = "Z";
     	    	ZoneId zoneId = ZoneId.of("Z");
-    	    	int behaviorFlag = 0;
+    	    	int dateTimeBehaviorFlag = 0;
     	    	boolean done = false;
     	    	int objectCount = 0;
     	    	while ( !done ) {
@@ -1031,7 +1031,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
     	    					rec.setFieldValue(objectOwnerCol,s3Object.owner().displayName());
     	    				}
     	    				rec.setFieldValue(objectLastModifiedCol,
-    	    					new DateTime(OffsetDateTime.ofInstant(s3Object.lastModified(), zoneId), behaviorFlag, timezone));
+    	    					new DateTime(OffsetDateTime.ofInstant(s3Object.lastModified(), zoneId), dateTimeBehaviorFlag, timezone));
     	    				// Increment the count of objects processed.
     	    				++objectCount;
     	    			}
