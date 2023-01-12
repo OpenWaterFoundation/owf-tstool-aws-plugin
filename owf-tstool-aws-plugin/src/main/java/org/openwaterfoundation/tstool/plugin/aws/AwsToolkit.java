@@ -481,7 +481,10 @@ public class AwsToolkit {
      */
     public void uiPopulateBucketChoices ( AwsSession awsSession, String region, SimpleJComboBox bucket_JComboBox, boolean includeBlank) {
     	String routine = getClass().getSimpleName() + ".uiPopulateBucketChoices";
-    	boolean debug = true;
+    	boolean debug = false;
+    	if ( Message.isDebugOn ) {
+    		debug = true;
+    	}
     	List<String> bucketChoices = new ArrayList<>();
     	if ( awsSession == null ) {
     		// Startup - can't populate the buckets.

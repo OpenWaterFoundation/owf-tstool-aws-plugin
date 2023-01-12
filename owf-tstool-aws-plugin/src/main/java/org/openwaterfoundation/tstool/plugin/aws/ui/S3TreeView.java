@@ -27,19 +27,22 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
-import org.openwaterfoundation.tstool.plugin.aws.commands.s3.AwsS3_Object;
+import org.openwaterfoundation.tstool.plugin.aws.commands.s3.AwsS3Object;
+import org.openwaterfoundation.tstool.plugin.aws.commands.s3.AwsS3ObjectType;
 
 import RTi.Util.GUI.SimpleJTree_Node;
 import RTi.Util.Message.Message;
 import RTi.Util.Time.DateTime;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 /**
 Organizes S3 objects in an hierarchical tree.
+This class manages a tree view without including all of the UI components.
 */
 public class S3TreeView {
     
@@ -51,7 +54,12 @@ public class S3TreeView {
 	/**
 	The list of TreeViewNode objects.
 	*/
-	private SimpleJTree_Node rootNode;
+	private S3JTreeNode rootNode = null;
+
+	/**
+	 * Tree used for the view.
+	 */
+    private S3JTree s3JTree = null;
 
 	/**
 	 * S3 client to use for S3 interactions.
@@ -102,23 +110,26 @@ public class S3TreeView {
 
 	/**
 	Create the S3 view by querying S3.
+	This sets up the tree the first time.
+	@problems problems that occur setting up the tree
 	*/
 	public void createTreeView ( List<String> problems ) throws IOException {
 		String routine = getClass().getSimpleName() + ".createTreeView";
 
-    	SimpleJTree_Node folderNode = null; // Active node (a "folder").
-    	SimpleJTree_Node nodePrev = null; // The node processed in the previous row.
-
-    	// Root node matches the bucket.
-        this.rootNode = new SimpleJTree_Node(this.bucket);
-        folderNode = this.rootNode;
-        nodePrev = folderNode;
+    	// Root node matches the bucket:
+    	// - use a null tree because it is created below
+		Message.printStatus(2, routine, "Creating root node for bucket: " + this.bucket);
+        AwsS3Object rootS3Object = new AwsS3Object(this.bucket);
+        this.rootNode = new S3JTreeNode(rootS3Object, null);
         
-        // Create a tree.
-        S3TreeView_JTree s3JTree = new S3TreeView_JTree(this.rootNode);
+        // Create a tree with the root node:
+        // - because the root node did not have the tree set, set it below
+        this.s3JTree = new S3JTree(this.rootNode);
+        this.rootNode.setS3JTree(s3JTree);
         
-        // Add the top-level folders under the bucket:
-        // - prefix="" and delimeter="/" will return the top-level folders
+        // Create the tree under the bucket:
+        // - if lazy load will only populate the top level folders
+        // - currently the full tree is populated (doLazyLoad=false)
         listObjects ( s3JTree, this.rootNode, "", this.doLazyLoad );
 	}
 
@@ -141,34 +152,55 @@ public class S3TreeView {
 	 * List objects and add to a folder.
 	 * @param parentNode the parent tree node under which to list files and folders
 	 * @param prefix the prefix used to query the results
-	 * @param lazyLoad if true do a lazy load when folders are expanded, if false load the whole tree up front
+	 * @param doLazyLoad if true do a lazy load when folders are expanded, if false load the whole tree up front
 	 */
-	private void listObjects ( S3TreeView_JTree s3JTree, SimpleJTree_Node parentNode, String prefix, boolean lazyLoad ) {
+	private void listObjects ( S3JTree s3JTree, S3JTreeNode parentNode, String prefix, boolean doLazyLoad ) {
 		String routine = getClass().getSimpleName() + ".listObjects";
 		int maxKeys = -1;
 		String delim = "/";
-		if ( !lazyLoad ) {
-			// Set the behavior to load all the bucket files.
+		boolean debug = false;
+		if ( Message.isDebugOn ) {
+			debug = true;
+		}
+
+		if ( doLazyLoad ) {
+			// Lazy load:
+			// - only add the top-level folders and files
+			prefix = "";
+			delim = "/";
+		}
+		else {
+			// Doing a full load:
+			// - set the behavior to load all the bucket files
 			prefix = null;
 			delim = null;
 		}
+
+		// TODO smalers 2023-01-10 use the following to test combinations, comment out when done testing.
+		//prefix = "state/co/dwr/";
+		//delim = "/";
+
+		// Indicates whether to process the two main representations for node data:
+		// - CommonPrefix is is used with prefix and delimiter to list folders
+		// - S3Object is used to list files
+		boolean doCommonPrefix = true;
+		boolean doS3Object = true;
+
        	software.amazon.awssdk.services.s3.model.ListObjectsV2Request.Builder builder = ListObjectsV2Request
     		.builder()
     		.fetchOwner(Boolean.TRUE)
     		.bucket(bucket);
-       	if ( prefix != null ) {
+    	if ( (prefix != null) && !prefix.isEmpty() ) {
+    		// Set the key prefix to match.
     		builder.prefix(prefix);
-       	}
-       	if ( delim != null ) {
+    	}
+       	if ( (delim != null) && !delim.isEmpty() ) {
+       		// Add the requested delimiter to the request.
     		builder.delimiter(delim);
        	}
     	if ( maxKeys > 0 ) {
     		// Set the maximum number of keys that will be returned.
     		builder.maxKeys(maxKeys);
-    	}
-    	if ( (prefix != null) && !prefix.isEmpty() ) {
-    		// Set the key prefix to match.
-    		builder.prefix(prefix);
     	}
     	    	
     	ListObjectsV2Request request = builder.build();
@@ -176,41 +208,134 @@ public class S3TreeView {
        	//int dateTimeBehaviorFlag = 0;
        	boolean done = false;
       	int objectCount = 0;
-      	int maxObjects = 2000;
+      	int commonPrefixCount = 0;
+      	int maxObjects = 10000;
 
        	while ( !done ) {
        		response = s3.listObjectsV2(request);
-   			Message.printStatus(2, routine, "S3 list response for bucket=" + bucket
-   				+ " prefix=" + prefix
-   				+ " delimiter=\"" + delim + "\""
-   				+ " has " + response.contents().size() + " objects.");
-       		for ( S3Object serviceS3Object : response.contents() ) {
-       			// Check the maximum object count, to protect against runaway processes.
-       			if ( objectCount >= maxObjects ) {
-       				break;
-       			}
-       			// Transfer the AWS S3Object into an AwsS3_Object for use with the tree node.
-       			AwsS3_Object s3Object = new AwsS3_Object(
-       				serviceS3Object.key(),
-       				serviceS3Object.size(),
-       				serviceS3Object.owner().displayName(),
-       				serviceS3Object.lastModified() );
-       			Message.printStatus(2, routine, "Adding node: " + s3Object.getKey());
-       			parentNode.add( new S3JTree_Node(s3Object, s3JTree));
-       			/*
-       				rec.setFieldValue(objectSizeKbCol,s3Object.size());
-       				if ( s3Object.owner() == null ) {
-       					rec.setFieldValue(objectOwnerCol,"");
-       				}
-       				else {
-       					rec.setFieldValue(objectOwnerCol,s3Object.owner().displayName());
-       				}
-       				rec.setFieldValue(objectLastModifiedCol,
-       					new DateTime(OffsetDateTime.ofInstant(s3Object.lastModified(), zoneId), behaviorFlag, timezone));
-       				// Increment the count of objects processed.
-       			*/
-       			++objectCount;
+       		if ( debug ) {
+       			Message.printStatus(2, routine,
+       				"S3 list response for bucket=" + bucket
+   					+ " prefix=" + prefix
+   					+ " delimiter=\"" + delim + "\""
+   					+ " has " + response.contents().size() + " S3Objects and "
+   					+ response.commonPrefixes().size() + " common prefixes"
+       			);
        		}
+   			if ( doLazyLoad ) {
+   				// TODO smalers 2023-01-10 only load the top-level folders and files and wait for
+   				// folders to be clicked on before loading them.
+   				Message.printWarning(3, routine, "Lazy load of the tree is not implemented.");
+   			}
+   			else {
+   				// Load the full tree up front.
+   				if ( debug ) {
+   					Message.printStatus(2, routine, "Doing a full load of the tree.");
+   				}
+   				if ( doCommonPrefix ) { // Keep this for now if need for testing.
+   				for ( CommonPrefix commonPrefix : response.commonPrefixes() ) {
+   					// Check the maximum object count, to protect against runaway processes.
+   					if ( commonPrefixCount >= maxObjects ) {
+   						// TODO smalers 2023-01-10 use continue during development to understand the response
+   						//break;
+   						continue;
+   					}
+   					// Transfer the AWS S3Object into an AwsS3_Object for use with the tree node.
+   					AwsS3Object s3Object = new AwsS3Object(
+   							bucket,
+   							commonPrefix.prefix(),
+   							null,
+   							null,
+   							null );
+   					if ( debug ) {
+   						Message.printStatus(2, routine, "Adding CommonPrefix node as folder: " + s3Object.getKey());
+   					}
+   					s3JTree.addFolder( parentNode, s3Object);
+   					++commonPrefixCount;
+   				}
+   				}
+   				if ( doS3Object ) { // Keep this for now if need for testing.
+   				for ( S3Object serviceS3Object : response.contents() ) {
+   					// Check the maximum object count, to protect against runaway processes.
+   					if ( objectCount >= maxObjects ) {
+   						// TODO smalers 2023-01-10 use continue during development to understand the response
+   						//break;
+   						continue;
+   					}
+   					// Transfer the AWS S3Object into an AwsS3_Object for use with the tree node.
+   					AwsS3Object s3Object = new AwsS3Object(
+   							bucket,
+   							serviceS3Object.key(),
+   							serviceS3Object.size(),
+   							serviceS3Object.owner().displayName(),
+   							serviceS3Object.lastModified() );
+   					if ( serviceS3Object.key().endsWith("/") ) {
+   						// Add a folder.
+   						if ( debug ) {
+   							Message.printStatus(2, routine, "Adding S3Object node as folder: " + s3Object.getKey());
+   						}
+   						s3JTree.addFolder( parentNode, s3Object);
+   					}
+   					else {
+   						// Add a file.
+   						if ( debug ) {
+   							Message.printStatus(2, routine, "Adding S3Object node as file: " + s3Object.getKey());
+   						}
+   						s3JTree.addFile( parentNode, s3Object);
+   					}
+   					
+   					++objectCount;
+   				}
+   				}
+   			}
+   			boolean doTest = false;
+   			if ( doTest ) {
+   			// TODO smalers 2023-01-10 this code worked to test solutions but implement the production code above.
+   			if ( doCommonPrefix ) {
+   				for ( CommonPrefix commonPrefix : response.commonPrefixes() ) {
+   					// Check the maximum object count, to protect against runaway processes.
+   					if ( commonPrefixCount >= maxObjects ) {
+   						// TODO smalers 2023-01-10 use continue during development to understand the response
+   						//break;
+   						continue;
+   					}
+   					// Transfer the AWS S3Object into an AwsS3_Object for use with the tree node.
+   					AwsS3Object s3Object = new AwsS3Object(
+   							bucket,
+   							commonPrefix.prefix(),
+   							null,
+   							null,
+   							null );
+   					if ( debug ) {
+   						Message.printStatus(2, routine, "Adding CommonPrefix node: " + s3Object.getKey());
+   					}
+   					parentNode.add( new S3JTreeNode(s3Object, s3JTree));
+   					++commonPrefixCount;
+   				}
+   			}
+   			if ( doS3Object ) {
+   				for ( S3Object serviceS3Object : response.contents() ) {
+   					// Check the maximum object count, to protect against runaway processes.
+   					if ( objectCount >= maxObjects ) {
+   						// TODO smalers 2023-01-10 use continue during development to understand the response
+   						//break;
+   						continue;
+   					}
+   					// Transfer the AWS S3Object into an AwsS3_Object for use with the tree node.
+   					AwsS3Object s3Object = new AwsS3Object(
+   							bucket,
+   							serviceS3Object.key(),
+   							serviceS3Object.size(),
+   							serviceS3Object.owner().displayName(),
+   							serviceS3Object.lastModified() );
+   					if ( debug ) {
+   						Message.printStatus(2, routine, "Adding S3Object node: " + s3Object.getKey());
+   					}
+   					parentNode.add( new S3JTreeNode(s3Object, s3JTree));
+   					++objectCount;
+   				}
+       		}
+   			}
        		if ( response.nextContinuationToken() == null ) {
        			done = true;
        		}
@@ -218,6 +343,55 @@ public class S3TreeView {
       				.continuationToken(response.nextContinuationToken())
       				.build();
        	}
+       	if ( debug ) {
+       		Message.printStatus(2, routine, "Total S3Object=" + objectCount + " total CommonPrefix=" + commonPrefixCount);
+       	}
+	}
+
+	/**
+	Refresh the S3 view based on the current settings,
+	for example in response to selecting a new bucket.
+	@problems problems that occur setting up the tree
+	*/
+	public void refresh( List<String> problems ) throws IOException {
+		String routine = getClass().getSimpleName() + ".refresh";
+
+		// Remove the children from the the root node.
+        if ( Message.isDebugOn ) {
+        	Message.printStatus(2,routine,"Removing all children from " + this.rootNode.getText());
+        }
+		this.rootNode.removeAllChildren();
+		
+    	// Root node matches the bucket:
+    	// - do not set the tree because it is created below
+        //this.rootNode = new S3JTreeNode(new AwsS3Object(this.bucket, AwsS3ObjectType.BUCKET), null);
+        if ( Message.isDebugOn ) {
+        	Message.printStatus(2,routine,"Setting root node 'name', 'text', and bucket to: " + this.bucket);
+        }
+		this.rootNode.getS3Object().setBucket(this.bucket);
+		this.rootNode.setText(this.bucket);
+		this.rootNode.setName(this.bucket);
+		this.rootNode.refresh();
+        
+        // Create a tree with the root node:
+        // - because the root node did not have the tree set, set it below
+        //S3JTree s3JTree = new S3JTree(this.rootNode);
+        //this.rootNode.setS3JTree(s3JTree);
+        
+        // Create the tree under the bucket:
+        // - if lazy load will only populate the top level folders
+        // - currently the full tree is populated (doLazyLoad=false)
+        listObjects ( this.s3JTree, this.rootNode, "", this.doLazyLoad );
+        // Redraw the tree.
+        if ( Message.isDebugOn ) {
+        	Message.printStatus(2,routine,"Refreshing the tree...");
+        }
+		// Expand the root node to show its immediate children.
+        this.s3JTree.expandNode(this.rootNode);
+        this.s3JTree.refresh();
+        if ( Message.isDebugOn ) {
+        	Message.printStatus(2,routine,"...done refreshing the tree.");
+        }
 	}
 
 	/**

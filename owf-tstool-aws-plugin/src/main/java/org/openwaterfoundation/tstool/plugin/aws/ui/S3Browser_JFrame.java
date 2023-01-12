@@ -61,6 +61,16 @@ public class S3Browser_JFrame extends JFrame implements ActionListener, WindowLi
 	 * Close button.
 	 */
 	private JButton closeButton = null;
+
+	/**
+	 * Refresh button.
+	 */
+	private JButton refreshButton = null;
+
+	/**
+	 * The panel containing the browswer content, including the tree.
+	 */
+	S3Browser_JPanel s3Panel = null;
 	
 	/**
 	 * Open the S3Browser application window.
@@ -85,6 +95,9 @@ public class S3Browser_JFrame extends JFrame implements ActionListener, WindowLi
 		Object o = e.getSource();
 		if ( o == this.closeButton ) {
 			closeWindow();
+		}
+		else if ( o == this.refreshButton ) {
+			this.s3Panel.refresh();
 		}
 	}
 	
@@ -131,16 +144,21 @@ public class S3Browser_JFrame extends JFrame implements ActionListener, WindowLi
 		setIcon();
 		addWindowListener ( this ); // Handles the "X" event.
 
-		S3Browser_JPanel s3Panel = new S3Browser_JPanel ( this.awsSession, this.region );
+		this.s3Panel = new S3Browser_JPanel ( this.awsSession, this.region );
 		getContentPane().add ( s3Panel );
 
-		// Put the buttons on the bottom of the window...
+		// Put the buttons on the bottom of the window.
 
 		JPanel button_JPanel = new JPanel ();
 		button_JPanel.setLayout ( new FlowLayout(FlowLayout.CENTER) );
 
+		this.refreshButton = new SimpleJButton ("Refresh", this );
+		button_JPanel.add ( this.refreshButton );
+		this.refreshButton.setToolTipText("Refresh the view from the S3 bucket contents" );
+
 		this.closeButton = new SimpleJButton ("Close", this );
-		button_JPanel.add ( closeButton );
+		this.closeButton.setToolTipText("Close the browser (will close the browser application)" );
+		button_JPanel.add ( this.closeButton );
 
 		getContentPane().add ( "South", button_JPanel );
 
