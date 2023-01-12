@@ -35,19 +35,24 @@ import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.tree.TreePath;
 
+import org.openwaterfoundation.tstool.plugin.aws.commands.s3.AwsS3Object;
+
 import RTi.TS.TS;
 import RTi.Util.GUI.JGUIUtil;
 import RTi.Util.GUI.SimpleJMenuItem;
 import RTi.Util.GUI.SimpleJTree;
 import RTi.Util.GUI.SimpleJTree_Node;
 import RTi.Util.Message.Message;
+import RTi.Util.String.StringUtil;
 
 /**
-JTree to use in the TimeSeriesTreeView.  This primarily uses SimpleJTree functionality, with some
-overrides for popup menus.
+JTree to use in the TimeSeriesTreeView.
+This primarily uses SimpleJTree functionality, with some overrides for popup menus.
+The parent SimpleJTree class methods should be used when manipulating the tree rather than
+node methods so that the tree refreshes.
 */
 @SuppressWarnings("serial")
-public class S3TreeView_JTree extends SimpleJTree implements ActionListener, ItemListener, MouseListener {
+public class S3JTree extends SimpleJTree implements ActionListener, ItemListener, MouseListener {
     
 	/**
 	Strings used in menus.
@@ -71,7 +76,7 @@ public class S3TreeView_JTree extends SimpleJTree implements ActionListener, Ite
 	This creates a tree containing the provided root node.
 	@param root the root node to use to initialize the tree.
 	*/
-	public S3TreeView_JTree( SimpleJTree_Node root ) {
+	public S3JTree( SimpleJTree_Node root ) {
     	super(root);
     	//__folderIcon = getClosedIcon();     
     	showRootHandles(true);
@@ -141,6 +146,147 @@ public class S3TreeView_JTree extends SimpleJTree implements ActionListener, Ite
 	}
 
 	/**
+	 * Add a file node to the tree by parsing the object key.
+	 * The key is of the form 'folder1/folder2/file'.
+	 * This should not be called for folders (e.g., 'folder1/' or 'folder1/folder2/').
+	 * @param parentNode the parent node under which to add the node
+	 * @param s3Object the S3 object to add
+	 */
+   	public void addFile ( S3JTreeNode parentNode,  AwsS3Object s3Object ) {
+   		String routine = getClass().getSimpleName() + ".addFile";
+   		String key = s3Object.getKey();
+   		boolean debug = false;
+   		if ( key.endsWith("/") ) {
+   			Message.printWarning(3, routine, "Adding a file and key does ends in /: " + key );
+   		}
+   		if ( StringUtil.patternCount(key, "/") > 0 ) {
+   			// The key in s3Object contains multiple levels so split.
+   			String [] keyParts = splitKey(s3Object.getKey());
+   			String keyTotal = "";
+   			for ( int ipart = 0; ipart < keyParts.length; ipart++ ) {
+   				String keyPart = keyParts[ipart];
+   				if ( ipart == (keyParts.length - 1) ) {
+   					// Last part:
+   					// - will be a file
+					// - create a new AwsS3Object distinct from the full key, inheriting the original properties
+ 					keyTotal += keyPart;
+					AwsS3Object newS3Object = new AwsS3Object(s3Object.getBucket(), keyTotal,
+						s3Object.getSize(), s3Object.getOwner(), s3Object.getLastModified());
+					// The following only uses the last part for the visible name.
+					if ( debug ) {
+						Message.printStatus(2, routine, "Adding file node with key=" + newS3Object.getKey());
+					}
+					S3JTreeNode newFileNode = new S3JTreeNode(newS3Object,this);
+					parentNode.add(newFileNode);
+   				}
+   				else {
+   					// Not the last part:
+   					// - is a folder
+   					// - find the matching top-level folder
+   					S3JTreeNode folderNode = parentNode.findFolderMatchingText(keyPart);
+   					// Folder keys always have a slash at the end.
+					keyTotal += keyPart + "/";
+   					if ( folderNode == null ) {
+   						// Folder does not exist:
+   						// - add it using a partial path for the key
+   						// - create a new AwsS3Object distinct from the full key (folders don't have other properties)
+   						AwsS3Object newS3Object = new AwsS3Object( s3Object.getBucket(), keyTotal);
+   						// The following only uses the last part for the visible name.
+   						S3JTreeNode newFolderNode = new S3JTreeNode(newS3Object,this);
+   						if ( debug ) {
+							Message.printStatus(2, routine, "Adding sub-folder node with key=" + newS3Object.getKey());
+						}
+   						parentNode.add(newFolderNode);
+   						// The parent for additional adds is the new node.
+   						parentNode = newFolderNode;
+   					}
+   					else {
+   						// The folder node exists so no need to add.
+   						if ( debug ) {
+							Message.printStatus(2, routine, "Found sub-folder node with keyTotal=" + keyTotal + " keyPart=" + keyPart);
+						}
+   						parentNode = folderNode;
+   					}
+   				}
+   			}
+   		}
+   		else {
+   			// Single top-level file (e.g., "index.html"):
+   			// - can use a the passed-in 's3Object' as is since the key is accurate
+			if ( debug ) {
+				Message.printStatus(2, routine, "Adding top-level file node with key=" + s3Object.getKey());
+			}
+			parentNode.add(new S3JTreeNode(s3Object, this));
+   		}
+   	}
+
+	/**
+	 * Add a folder node to the tree.
+	 * @param parentNode the parent node under which to add the node
+	 * @param s3Object the S3 object to add
+	 */
+   	public void addFolder ( S3JTreeNode parentNode, AwsS3Object s3Object ) {
+   		String routine = getClass().getSimpleName() + ".addFolder";
+   		String key = s3Object.getKey();
+   		boolean debug = false;
+   		if ( !key.endsWith("/") ) {
+   			Message.printWarning(3, routine, "Adding a folder and key does not end in /: " + key );
+   		}
+   		if ( StringUtil.patternCount(key, "/") > 1 ) {
+   			// The key in s3Object contains multiple levels so split.
+   			String [] keyParts = splitKey(s3Object.getKey());
+   			String keyTotal = "";
+   			for ( int ipart = 0; ipart < keyParts.length; ipart++ ) {
+   				String keyPart = keyParts[ipart];
+   				if ( ipart == (keyParts.length - 1) ) {
+   					// Last part:
+   					// - will be a folder
+					// - create a new AwsS3Object distinct from the full key (folders don't have other properties)
+					keyTotal += keyPart + "/";
+					AwsS3Object newS3Object = new AwsS3Object(s3Object.getBucket(), keyTotal);
+					if ( debug ) {
+						Message.printStatus(2, routine, "Adding last folder node with key=" + newS3Object.getKey());
+					}
+					S3JTreeNode newNode = new S3JTreeNode(newS3Object,this);
+					parentNode.add(newNode);
+   				}
+   				else {
+   					// Not the last part:
+   					// - is a folder
+   					// - find the matching top-level folder
+   					S3JTreeNode folderNode = parentNode.findFolderMatchingText(keyPart);
+   					if ( folderNode == null ) {
+   						// Folder does not exist:
+   						// - add it using a partial path for the key
+   						// - create a new AwsS3Object distinct from the full key (folders don't have other properties)
+   						keyTotal += keyPart + "/";
+   						AwsS3Object newS3Object = new AwsS3Object(s3Object.getBucket(), keyTotal);
+   						S3JTreeNode newFolderNode = new S3JTreeNode(newS3Object,this);
+   						if ( debug ) {
+							Message.printStatus(2, routine, "Adding sub-folder node with key=" + newS3Object.getKey());
+						}
+   						parentNode.add(newFolderNode);
+   						// The parent for additional adds is the new node.
+   						parentNode = newFolderNode;
+   					}
+   					else {
+   						// The folder node exists so no need to add.
+   						parentNode = folderNode;
+   					}
+   				}
+   			}
+   		}
+   		else {
+   			// Single top-level folder (e.g., "folder/"):
+   			// - can use a the passed-in 's3Object' as is since the key is accurate
+			if ( debug ) {
+				Message.printStatus(2, routine, "Should not happen. Adding top-folder with no / key=" + s3Object.getKey());
+			}
+			parentNode.add(new S3JTreeNode(s3Object, this));
+   		}
+   	}
+
+	/**
 	Handle ItemEvent events.
 	@param e ItemEvent to handle.
 	*/
@@ -182,6 +328,13 @@ public class S3TreeView_JTree extends SimpleJTree implements ActionListener, Ite
 	*/
 	public void mouseReleased(MouseEvent event) {
     	showPopupMenu(event);
+	}
+
+	/**
+	 * Remove all the child nodes from a node.
+	 */
+	public void removeAll(S3JTreeNode node) {
+		node.removeAllChildren();
 	}
 
 	/**
@@ -229,5 +382,16 @@ public class S3TreeView_JTree extends SimpleJTree implements ActionListener, Ite
     	Point pt = JGUIUtil.computeOptimalPosition ( e.getPoint(), e.getComponent(), popup_JPopupMenu );
     	popup_JPopupMenu.show(e.getComponent(), pt.x, pt.y);
 	}
+
+	/**
+	 * Split the key into parts.
+	 * @param key the key to split, for example "top/second/third/" for a folder and
+	 * "top/second/third/file.ext" for a file.
+	 * @return the kay path split into its parts
+	 */
+   	private String [] splitKey ( String key ) {
+   		String [] parts = key.split("/");
+   		return parts;
+   	}
 
 }

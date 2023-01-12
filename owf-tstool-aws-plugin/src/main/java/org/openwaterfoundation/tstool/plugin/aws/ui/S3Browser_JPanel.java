@@ -1,7 +1,7 @@
 // S3Browser_JPanel - panel to browse and interact with S3 files
 
 /* NoticeStart
- 
+
 OWF AWS TSTool Plugin
 Copyright (C) 2022 Open Water Foundation
 
@@ -34,6 +34,9 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -46,6 +49,7 @@ import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
 
 import RTi.Util.GUI.JGUIUtil;
 import RTi.Util.GUI.SimpleJComboBox;
+import RTi.Util.Message.Message;
 
 /**
 This class is a JPanel for browsing and interacting with S3 files.
@@ -74,6 +78,21 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	 * The region that has been selected for S3 browsing.
 	 */
 	private String s3Region = null;
+	
+	/**
+	 * The tree, which manages the nodes.
+	 */
+    private S3JTree s3JTree = null;
+
+	/**
+	 * S3TreeView that manages the tree.
+	 */
+	private S3TreeView s3TreeView = null;
+	
+	/**
+	 * Indicate whether the first time drawing the tree.
+	 */
+	private boolean firstTime = true;
 
 	/**
 	Constructor.
@@ -134,33 +153,20 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	@param e ItemEvent to handle.
 	*/
 	public void itemStateChanged ( ItemEvent e ) {
+		String routine = getClass().getSimpleName() + ".itemStateChanged";
 		Object o = e.getSource();
-    	if ( o == this.region_JComboBox ) {
+    	if ( (o == this.region_JComboBox) && (e.getStateChange() == ItemEvent.SELECTED) ) {
     		// Region was selected:
     		// - update the bucket list
     		populateBucketList();
     	}
-    	else if ( o == this.bucket_JComboBox ) {
+    	else if ( (o == this.bucket_JComboBox) && (e.getStateChange() == ItemEvent.SELECTED) ) {
     		// Bucket was selected:
-    		// - update the S3 file list
-    		populateBucketTree();
+    		// - repopulate the tree
+    		Message.printStatus(2, routine, "Bucket has been selected: " + getSelectedBucket());
+    		Message.printStatus(2, routine, "Popolating tree for bucket: " + getSelectedBucket() );
+    		refresh();
     	}
-	}
-
-	public void mouseClicked (MouseEvent e ) {
-    	//setSelectedTextField(e.getComponent());
-	}
-
-	public void mouseEntered (MouseEvent e ) {
-	}
-	
-	public void mouseExited (MouseEvent e ) {
-	}
-
-	public void mousePressed (MouseEvent e ) {
-	}
-
-	public void mouseReleased (MouseEvent e ) {
 	}
 
 	/**
@@ -181,6 +187,22 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	public void keyTyped(KeyEvent e) {
 	}
 
+	public void mouseClicked (MouseEvent e ) {
+    	//setSelectedTextField(e.getComponent());
+	}
+
+	public void mouseEntered (MouseEvent e ) {
+	}
+	
+	public void mouseExited (MouseEvent e ) {
+	}
+
+	public void mousePressed (MouseEvent e ) {
+	}
+
+	public void mouseReleased (MouseEvent e ) {
+	}
+
 	/**
 	 * Populate the list of buckets available to browse.
 	 */
@@ -191,8 +213,9 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
         	this.bucket_JComboBox,
         	false);
         this.bucket_JComboBox.remove("");
-		// TODO smalers 2023-01-10 for now hard-code during development
-        this.bucket_JComboBox.select("software.openwaterfoundation.org");
+		// TODO smalers 2023-01-10 hard-code during development, if troubleshooting the code.
+        //this.bucket_JComboBox.select("software.openwaterfoundation.org");
+        //this.bucket_JComboBox.select("data.openwaterfoundation.org");
 	}
 
 	/**
@@ -204,10 +227,32 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
         	this.region_JComboBox );
 	}
 	
-	/**
-	 * Populate the bucket tree.
-	 */
-    private void populateBucketTree() {
+    /**
+     * Refresh the tree based on current settings.
+     * This is usually called when the application's "Refresh" button is pressed
+     */
+    public void refresh () {
+    	String routine = getClass().getSimpleName() + ".refresh";
+    	List<String> problems = new ArrayList<>();
+    	
+    	// Clear all the children from the root node.
+    	S3JTreeNode rootNode = (S3JTreeNode)this.s3JTree.getRoot();
+    	Message.printStatus(2, routine, "Removing all child nodes from the root node: " + rootNode.getText());
+    	try {
+    		this.s3JTree.removeAllNodes();
+    	}
+    	catch ( Exception e ) {
+    		// Should not happen.
+    	}
+    	
+    	try {
+    		this.s3TreeView.setBucket(getSelectedBucket());
+    		this.s3TreeView.refresh(problems);
+    	}
+    	catch ( IOException e ) {
+    		Message.printWarning(2, routine, "Error refreshing the tree." );
+    		Message.printWarning(2, routine, e );
+    	}
     }
 
 	/**
@@ -225,20 +270,20 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 		JPanel s3Panel = new JPanel();
 		JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, localPanel, s3Panel);
 		int y = -1;
-	    JGUIUtil.addComponent(panel, 
+	    JGUIUtil.addComponent(panel,
 	        splitPane,
 	        0, ++y, 1, 1, 1, 1, insetsTLBR,
 	        GridBagConstraints.BOTH, GridBagConstraints.WEST);
 
 		localPanel.setLayout(new GridBagLayout());
 		int yLocal = -1;
-	    JGUIUtil.addComponent(localPanel, 
+	    JGUIUtil.addComponent(localPanel,
 	        new JLabel("Local Files"),
 	        0, ++yLocal, 2, 1, 1, 0, insetsTLBR,
 	        GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 		JPanel localFilePanel = new JPanel();
 		localFilePanel.setLayout(new GridBagLayout());
-	    JGUIUtil.addComponent(localPanel, 
+	    JGUIUtil.addComponent(localPanel,
     		new JScrollPane(localFilePanel,JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS),
     		0, ++y, 2, 1, 1.0, 1.0, insetsTLBR,
     		GridBagConstraints.BOTH, GridBagConstraints.WEST);
@@ -246,13 +291,13 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	    // Label at top indicating that S3 files are the focus.
 		s3Panel.setLayout(new GridBagLayout());
 		int yS3 = -1;
-	    JGUIUtil.addComponent(s3Panel, 
+	    JGUIUtil.addComponent(s3Panel,
 	        new JLabel("S3 Objects (\"keys\" that represent files)"),
 	        0, ++yS3, 2, 1, 1, 0, insetsTLBR,
 	        GridBagConstraints.HORIZONTAL, GridBagConstraints.CENTER);
-	   
+
 	    // Profile.
-	    JGUIUtil.addComponent(s3Panel, 
+	    JGUIUtil.addComponent(s3Panel,
 	        new JLabel("AWS profile:"),
 	        0, ++yS3, 1, 1, 0, 0, insetsTLBR,
 	        GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -263,13 +308,13 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	    JTextField profile_JTextField = new JTextField(profile, 20);
 	    profile_JTextField.setToolTipText("AWS profile from configuration file: " + AwsToolkit.getInstance().getAwsUserConfigFile());
 	    profile_JTextField.setEditable(false);
-	    JGUIUtil.addComponent(s3Panel, 
+	    JGUIUtil.addComponent(s3Panel,
 	        profile_JTextField,
 	        1, yS3, 1, 1, 1, 0, insetsTLBR,
 	        GridBagConstraints.NONE, GridBagConstraints.WEST);
-	    
+
 	    // Regions.
-	    JGUIUtil.addComponent(s3Panel, 
+	    JGUIUtil.addComponent(s3Panel,
 	        new JLabel("AWS region:"),
 	        0, ++yS3, 1, 1, 0, 0, insetsTLBR,
 	        GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -277,20 +322,21 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	    this.region_JComboBox.setToolTipText("AWS regions that are available for S3 storage buckets.");
 	    populateRegionList();
 	    this.region_JComboBox.addItemListener(this);
-	    JGUIUtil.addComponent(s3Panel, 
+	    JGUIUtil.addComponent(s3Panel,
 	        this.region_JComboBox,
 	        1, yS3, 1, 1, 1, 0, insetsTLBR,
 	        GridBagConstraints.NONE, GridBagConstraints.WEST);
 	
 		// Buckets.
-	    JGUIUtil.addComponent(s3Panel, 
+	    JGUIUtil.addComponent(s3Panel,
 	        new JLabel("S3 bucket:"),
 	        0, ++yS3, 1, 1, 0, 0, insetsTLBR,
 	        GridBagConstraints.NONE, GridBagConstraints.WEST);
 	    this.bucket_JComboBox = new SimpleJComboBox (false);
 	    this.bucket_JComboBox.setToolTipText("S3 buckets that are available for the profile and region.");
 	    populateBucketList();
-	    JGUIUtil.addComponent(s3Panel, 
+	    this.bucket_JComboBox.addItemListener(this);
+	    JGUIUtil.addComponent(s3Panel,
 	        this.bucket_JComboBox,
 	        1, yS3, 1, 1, 1, 0, insetsTLBR,
 	        GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -315,23 +361,23 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	    	}
 	    }
 
-	    S3TreeView treeView = new S3TreeView(this.awsSession, getSelectedRegion(), getSelectedBucket());
-        S3TreeView_JTree tree = new S3TreeView_JTree(treeView.getRootNode());
+	    this.s3TreeView = new S3TreeView(this.awsSession, getSelectedRegion(), getSelectedBucket());
+        this.s3JTree = new S3JTree(s3TreeView.getRootNode());
 
 	    // S3 file tree.
 		JPanel s3FilePanel = new JPanel();
 		s3FilePanel.setLayout(new GridBagLayout());
-		JScrollPane s3FilePane = new JScrollPane(tree);
+		JScrollPane s3FilePane = new JScrollPane(this.s3JTree);
 		
 		// Add the tree to the file panel.
-	    JGUIUtil.addComponent(s3Panel, 
+	    JGUIUtil.addComponent(s3Panel,
     		new JScrollPane(s3FilePane,JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS),
     		0, ++yS3, 2, 2, 1.0, 1.0, insetsTLBR,
     		GridBagConstraints.BOTH, GridBagConstraints.WEST);
 
 	    /*
 	    // Add the file panel to the S3 panel.
-	    JGUIUtil.addComponent(s3Panel, 
+	    JGUIUtil.addComponent(s3Panel,
     		new JScrollPane(s3FilePanel,JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS),
     		0, ++yS3, 2, 2, 1.0, 1.0, insetsTLBR,
     		GridBagConstraints.BOTH, GridBagConstraints.WEST);
