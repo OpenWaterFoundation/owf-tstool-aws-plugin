@@ -22,6 +22,7 @@ NoticeEnd */
 
 package org.openwaterfoundation.tstool.plugin.aws.ui;
 
+import java.awt.Component;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -29,19 +30,27 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.Icon;
+import javax.swing.JFrame;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
+import javax.swing.SwingUtilities;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
 import javax.swing.tree.TreePath;
 
 import org.openwaterfoundation.tstool.plugin.aws.commands.s3.AwsS3Object;
+import org.openwaterfoundation.tstool.plugin.aws.commands.s3.AwsS3ObjectType;
 
-import RTi.TS.TS;
 import RTi.Util.GUI.JGUIUtil;
+import RTi.Util.GUI.ReportJDialog;
 import RTi.Util.GUI.SimpleJMenuItem;
 import RTi.Util.GUI.SimpleJTree;
 import RTi.Util.GUI.SimpleJTree_Node;
+import RTi.Util.IO.PropList;
 import RTi.Util.Message.Message;
 import RTi.Util.String.StringUtil;
 
@@ -52,39 +61,54 @@ The parent SimpleJTree class methods should be used when manipulating the tree r
 node methods so that the tree refreshes.
 */
 @SuppressWarnings("serial")
-public class S3JTree extends SimpleJTree implements ActionListener, ItemListener, MouseListener {
+public class S3JTree extends SimpleJTree implements ActionListener, ItemListener, MouseListener, TreeSelectionListener {
     
 	/**
 	Strings used in menus.
 	*/
-	private String MENU_Graph_Line = "Graph - Line";
-	private String MENU_Graph_Product = "View Time Series Product";
+	private String MENU_Properties = "Properties";
 
 	/**
 	A single popup menu that is used to provide access to other features from the tree.
 	The single menu has its items added/removed as necessary based on the state of the tree.
 	*/
-	private JPopupMenu popup_JPopupMenu;
+	private JPopupMenu popup_JPopupMenu = null;
 
 	/**
 	The node that last opened a popup menu.
 	*/
-	private SimpleJTree_Node popup_Node;
+	private S3JTreeNode popup_Node = null;
+	
+	/**
+	 * Icon used for folders.
+	 */
+	private Icon folderIcon = null;
+	
+	/**
+	 * Indicate whether checkbox should be shown for nodes:
+	 * - TODO smalers 2023-01-13 for now do not show because it causes issues tracking selection and popup menu issues
+	 */
+	private boolean useCheckBox = false;
     
 	/**
 	Constructor.
 	This creates a tree containing the provided root node.
 	@param root the root node to use to initialize the tree.
 	*/
-	public S3JTree( SimpleJTree_Node root ) {
+	public S3JTree( S3JTreeNode root ) {
     	super(root);
-    	//__folderIcon = getClosedIcon();     
+    	// The following ensures that folders are closed folder.
+    	this.folderIcon = getClosedIcon();     
     	showRootHandles(true);
     	setRootVisible(true);
     	addMouseListener(this);
     	setLeafIcon(null);
     	setTreeTextEditable(false);
-    	popup_JPopupMenu = new JPopupMenu();
+    	// Create a popup menu that is shared between all tree nodes:
+    	// - listeners for each menu item are added in 'showPopupMenu'
+    	this.popup_JPopupMenu = new JPopupMenu();
+    	// Add a listener for Tree selection events in case need for troubleshooting or functionality.
+    	this.addTreeSelectionListener(this);
 	}
 
 	/**
@@ -94,55 +118,12 @@ public class S3JTree extends SimpleJTree implements ActionListener, ItemListener
 	public void actionPerformed(ActionEvent event) {
 	    String action = event.getActionCommand();
     	//Object o = event.getSource();
-    	String routine = getClass().getName() + ".actionPerformed";
+    	String routine = getClass().getSimpleName() + ".actionPerformed";
 	
-    	//Object data = __popup_Node.getData();
-    	List<SimpleJTree_Node> selectedNodes = getSelectedNodes();
-    
-    	/*
-    	if ( action.equals(__MENU_Graph_Line)) {
-        	List<TS> tslist = new Vector<TS>();
-        	for ( SimpleJTree_Node node : selectedNodes ) {
-            	Object data = node.getData();
-            	if ( data instanceof TS ) {
-            		tslist.add ( (TS)data );
-            	}
-        	}
-        	PropList graphprops = new PropList ( "GraphProperties");
-        	// For now always use new graph...
-        	graphprops.set ( "InitialView", "Graph" );
-        	// Summary properties for secondary displays (copy from summary output)...
-        	//graphprops.set ( "HelpKey", "TSTool.ExportMenu" );
-        	graphprops.set ( "TotalWidth", "600" );
-        	graphprops.set ( "TotalHeight", "400" );
-        	//graphprops.set ( "Title", "Summary" );
-        	graphprops.set ( "DisplayFont", "Courier" );
-        	graphprops.set ( "DisplaySize", "11" );
-        	graphprops.set ( "PrintFont", "Courier" );
-        	graphprops.set ( "PrintSize", "7" );
-        	graphprops.set ( "PageLength", "100" );
-        	try {
-            	new TSViewJFrame ( tslist, graphprops );
-        	}
-        	catch ( Exception e ) {
-            	Message.printWarning(1, routine, "Unable to graph data (" + e + ")." );
-            	Message.printWarning(3, routine, e);
-        	}
+    	if ( action.equals(this.MENU_Properties)) {
+    		// Popup menu "Properties" has been selected.
+    		showObjectProperties ();
     	}
-    	else if ( action.equals(__MENU_Graph_Product) ) {
-        	for ( Object o : selectedNodes ) {
-            	// TODO SAM Don't like all the casting but the low-level code deals with generic objects
-            	if ( o instanceof SimpleJTree_Node ) {
-                	SimpleJTree_Node node = (SimpleJTree_Node)o;
-                	Object data = node.getData();
-                	if ( data instanceof String ) {
-                		// Name of TSP file
-                		processProduct((String)data);
-                	}
-            	}
-        	}
-    	}
-    	*/
 	}
 
 	/**
@@ -196,6 +177,7 @@ public class S3JTree extends SimpleJTree implements ActionListener, ItemListener
    						if ( debug ) {
 							Message.printStatus(2, routine, "Adding sub-folder node with key=" + newS3Object.getKey());
 						}
+   						newFolderNode.setIcon(this.folderIcon);
    						parentNode.add(newFolderNode);
    						// The parent for additional adds is the new node.
    						parentNode = newFolderNode;
@@ -247,8 +229,9 @@ public class S3JTree extends SimpleJTree implements ActionListener, ItemListener
 					if ( debug ) {
 						Message.printStatus(2, routine, "Adding last folder node with key=" + newS3Object.getKey());
 					}
-					S3JTreeNode newNode = new S3JTreeNode(newS3Object,this);
-					parentNode.add(newNode);
+					S3JTreeNode newFolderNode = new S3JTreeNode(newS3Object,this);
+					newFolderNode.setIcon(this.folderIcon);
+					parentNode.add(newFolderNode);
    				}
    				else {
    					// Not the last part:
@@ -265,6 +248,7 @@ public class S3JTree extends SimpleJTree implements ActionListener, ItemListener
    						if ( debug ) {
 							Message.printStatus(2, routine, "Adding sub-folder node with key=" + newS3Object.getKey());
 						}
+   						newFolderNode.setIcon(this.folderIcon);
    						parentNode.add(newFolderNode);
    						// The parent for additional adds is the new node.
    						parentNode = newFolderNode;
@@ -282,8 +266,50 @@ public class S3JTree extends SimpleJTree implements ActionListener, ItemListener
 			if ( debug ) {
 				Message.printStatus(2, routine, "Should not happen. Adding top-folder with no / key=" + s3Object.getKey());
 			}
-			parentNode.add(new S3JTreeNode(s3Object, this));
+			S3JTreeNode newFolderNode = new S3JTreeNode(s3Object, this);
+			newFolderNode.setIcon(this.folderIcon);
+			parentNode.add(newFolderNode);
    		}
+   	}
+   	
+   	/**
+   	 * Check the UI state.  This ensures that buttons are enabled as appropriate, etc.
+   	 */
+	public void checkState() {
+		// TODO smalers 2023-01-13 need to call back to the frame, which contains the buttons.
+	}
+   	
+   	/**
+   	 * Return the shared popup JMenu.
+   	 * This can be used, for example, when constructing nodes that enable the popup menu.
+   	 * @return the shared popup JMenu.
+   	 */
+   	public JPopupMenu getPopupJMenu () {
+   		return this.popup_JPopupMenu;
+   	}
+   	
+   	/**
+   	 * Return the selected nodes.
+   	 * @return the selected nodes.
+   	 * This method casts the SimpleJTree_Node to S3JTreeNode.
+   	 */
+   	public List<S3JTreeNode> getSelectedS3JTreeNodes () {
+   		List<SimpleJTree_Node> superNodes = super.getSelectedNodes();
+   		List<S3JTreeNode> selectedNodes = new ArrayList<>();
+   		S3JTreeNode s3Node = null;
+   		for ( SimpleJTree_Node node : superNodes ) {
+   			s3Node = (S3JTreeNode)node;
+   			selectedNodes.add(s3Node);
+   		}
+   		return selectedNodes;
+   	}
+
+   	/**
+   	 * Return whether to use checkboxes.
+   	 * @return true if checkboxes should be use, false if not
+   	 */
+   	public boolean getUseCheckBox () {
+   		return this.useCheckBox;
    	}
 
 	/**
@@ -291,7 +317,7 @@ public class S3JTree extends SimpleJTree implements ActionListener, ItemListener
 	@param e ItemEvent to handle.
 	*/
 	public void itemStateChanged ( ItemEvent e ) {
-		// TOOD smalers 2023-01-10 need to handle events generated in a tree node, such as selection.
+		// TOOD smalers 2023-01-10 need to handle events generated in a tree node, such as checkbox selection.
 	}
 
 	/**
@@ -336,6 +362,68 @@ public class S3JTree extends SimpleJTree implements ActionListener, ItemListener
 	public void removeAll(S3JTreeNode node) {
 		node.removeAllChildren();
 	}
+	
+	/**
+	 * Show the selected object's properties in a dialog.
+	 */
+	private void showObjectProperties () {
+		String routine = getClass().getSimpleName() + ".showObjectProperties";
+
+    	//Object data = __popup_Node.getData();
+    	List<S3JTreeNode> selectedNodes = getSelectedS3JTreeNodes();
+    	Message.printStatus(2, routine, "Showing properties for " + selectedNodes.size() + " selected nodes.");
+    
+       	try {
+  			List<String> infoList = new ArrayList<>();
+   			int objectCount = 0;
+       		for ( S3JTreeNode node : selectedNodes ) {
+       			++objectCount;
+       			if ( objectCount > 1 ) {
+       				infoList.add ( "" );
+       				infoList.add ( "---------------------------------------------------------------------------" );
+       			}
+       			S3JTreeNode s3Node = (S3JTreeNode)node;
+       			AwsS3Object s3Object = s3Node.getS3Object();
+       			if ( s3Object.getObjectType() == AwsS3ObjectType.BUCKET ) {
+       				infoList.add ( "Object is an S3 bucket." );
+       			}
+       			else if ( s3Object.getObjectType() == AwsS3ObjectType.FILE ) {
+       				infoList.add ( "Object is an S3 file." );
+       			}
+       			else if ( s3Object.getObjectType() == AwsS3ObjectType.FOLDER ) {
+       				infoList.add ( "Object is an S3 pseudo-folder (organizes objects but does not exist on S3)." );
+       			}
+       			infoList.add ( "S3 bucket:              " + s3Object.getBucket() );
+       			if ( s3Object.getObjectType() != AwsS3ObjectType.BUCKET ) {
+       				// Buckets don't use the key.
+       				infoList.add ( "S3 object key:          " + s3Object.getKey() );
+       				if ( s3Object.getObjectType() == AwsS3ObjectType.FOLDER ) {
+       					infoList.add ( "S3 object without path: " + s3Node.getText() );
+       				}
+       			}
+       			if ( s3Object.getObjectType() == AwsS3ObjectType.FILE ) {
+       				// Only files have additional properties in S3.
+       				infoList.add ( "S3 File size (bytes):   " + s3Object.getSize() );
+      					infoList.add ( "S3 File owner:          " + s3Object.getOwner() );
+      					infoList.add ( "S3 File last modified:  " + s3Object.getLastModified() );
+       			}
+       		}
+           	PropList props = new PropList("CellContents");
+	        props.set("Title=S3 Object Properties");
+	        Component parent = SwingUtilities.getWindowAncestor(this);
+	        boolean modal = false;
+	        if ( parent instanceof JFrame ) {
+	        	new ReportJDialog((JFrame)parent, infoList, props, modal);
+	        }
+	        else if ( parent instanceof JFrame ) {
+	        	new ReportJDialog((JFrame)parent, infoList, props, modal);
+	        }
+       	}
+       	catch ( Exception e ) {
+           	Message.printWarning(1, routine, "Unable to show node properties (" + e + ")." );
+           	Message.printWarning(3, routine, e);
+       	}
+	}
 
 	/**
 	Checks to see if the mouse event would trigger display of the popup menu.
@@ -344,43 +432,36 @@ public class S3JTree extends SimpleJTree implements ActionListener, ItemListener
 	*/
 	private void showPopupMenu(MouseEvent e) {
 	    String routine = getClass().getName() + ".showPopupMenu";
+	    try {
     	if ( !e.isPopupTrigger() ) {
+	    	Message.printStatus(2, routine, "Not a popupTrigger.");
         	// Do not do anything.
         	return;
     	}
     	TreePath path = getPathForLocation(e.getX(), e.getY()); 
     	if (path == null) {
+	    	Message.printStatus(2, routine, "TreePath is null for " + e.getX() + ", " + e.getY() );
         	return;
     	}
     	// The node that last resulted in the popup menu
-    	this.popup_Node = (SimpleJTree_Node)path.getLastPathComponent();
+    	this.popup_Node = (S3JTreeNode)path.getLastPathComponent();
     	// First remove the menu items that are currently in the menu.
     	this.popup_JPopupMenu.removeAll();
-    	Object data = null;     // Data object associated with the node.
-    	// Now reset the popup menu based on the selected node.
-    	// Get the data for the node.
-    	// If the node is a data object, the type can be checked to know what to display.
-    	// The tree is displaying data objects so the popup will show specific JFrames for each data group.
-    	// If the group folder was selected, then display the JFrame showing the first item selected.
-    	// If a specific data item in the group was selected, then show the specific data item.
-    	JMenuItem item;
-    	data = this.popup_Node.getData();
-    	boolean typeOk = false;
-    	if ( data instanceof TS ) {
-        	// Time series object(s) are selected...
-        	item = new SimpleJMenuItem ( this.MENU_Graph_Line, this );
-        	this.popup_JPopupMenu.add ( item );
-        	typeOk = true;
-    	}
-    	if ( !typeOk ) {
-        	item = new SimpleJMenuItem ( "Unknown data", this );
-        	this.popup_JPopupMenu.add ( item );
-        	Message.printWarning ( 3, routine, "Tree data type is not recognized for popup menu." );
-        	return;
-    	}
-    	// Now display the popup so that the user can select the appropriate menu item...
-    	Point pt = JGUIUtil.computeOptimalPosition ( e.getPoint(), e.getComponent(), popup_JPopupMenu );
+    	// Now reset the popup menu based on the selected node:
+    	// - this class is added as an  ActionListener for menu selections
+    	// 
+    	JMenuItem item = null;
+        item = new SimpleJMenuItem ( this.MENU_Properties, this );
+        this.popup_JPopupMenu.add ( item );
+    	// Now display the popup so that the user can select the appropriate menu item.
+    	Point pt = JGUIUtil.computeOptimalPosition ( e.getPoint(), e.getComponent(), this.popup_JPopupMenu );
+	   	Message.printStatus(2, routine, "Showing popup menu at " + pt.x + ", " + pt.y );
     	popup_JPopupMenu.show(e.getComponent(), pt.x, pt.y);
+	    }
+	    catch ( Exception ex ) {
+	    	Message.printWarning(2, routine, "Error showing popup menu.");
+	    	Message.printWarning(2, routine, ex);
+	    }
 	}
 
 	/**
@@ -392,6 +473,26 @@ public class S3JTree extends SimpleJTree implements ActionListener, ItemListener
    	private String [] splitKey ( String key ) {
    		String [] parts = key.split("/");
    		return parts;
+   	}
+   	
+   	/**
+   	 * Event handler for TreeSelectionListener.
+   	 * @param e event to handle
+   	 */
+   	public void valueChanged ( TreeSelectionEvent e ) {
+   		String routine = getClass().getSimpleName() + ".valueChanged";
+   		Object o = e.getSource();
+   		if ( o instanceof S3JTreeNode ) {
+   			S3JTreeNode node = (S3JTreeNode)o;
+   			Object lastSelected = this.getLastSelectedPathComponent();
+   			Message.printStatus(2, routine, "Selected node (S3 node) = " + lastSelected + " selection count = "
+   				+ getSelectionCount() );
+   		}
+   		else {
+   			Object lastSelected = this.getLastSelectedPathComponent();
+   			Message.printStatus(2, routine, "Last selected node (NOT S3 node) = " + lastSelected + " selection count = "
+   				+ getSelectionCount() );
+   		}
    	}
 
 }

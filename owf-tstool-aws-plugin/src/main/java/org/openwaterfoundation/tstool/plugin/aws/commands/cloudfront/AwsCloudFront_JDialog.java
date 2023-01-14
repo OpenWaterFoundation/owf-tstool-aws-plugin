@@ -3,7 +3,7 @@
 /* NoticeStart
 
 OWF AWS TSTool Plugin
-Copyright (C) 2022 Open Water Foundation
+Copyright (C) 2022 - 2023 Open Water Foundation
 
 OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -56,6 +56,7 @@ import javax.swing.event.ChangeListener;
 import org.openwaterfoundation.tstool.plugin.aws.Aws;
 import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
 import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
+import org.openwaterfoundation.tstool.plugin.aws.ui.S3Browser_App;
 
 import RTi.Util.GUI.JFileChooserFactory;
 import RTi.Util.GUI.JGUIUtil;
@@ -83,6 +84,7 @@ private SimpleJButton __pathOutput_JButton = null;
 private SimpleJButton __cancel_JButton = null;
 private SimpleJButton __ok_JButton = null;
 private SimpleJButton __help_JButton = null;
+private SimpleJButton __browseS3_JButton = null;
 private JTabbedPane __main_JTabbedPane = null;
 private SimpleJComboBox __Profile_JComboBox = null;
 private JTextField __ProfileDefault_JTextField = null; // View only (not a command parameter).
@@ -177,6 +179,23 @@ public void actionPerformed( ActionEvent event ) {
                 refresh();
             }
         }
+    }
+    else if ( o == this.__browseS3_JButton ) {
+        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
+    	//boolean modal = true;
+    	//boolean modal = false;
+    	try {
+    		String title = null;
+    		Message.printStatus(2, routine, "Calling launchBrowser with session.profile=" + awsSession.getProfile()
+    			+ " region=" + getSelectedRegion(true));
+    		// Launch the stand-alone browser program:
+    		// - authentication is via the AwsSession
+    		// - use the default region if none is selected
+    		S3Browser_App.launchBrowser ( title, awsSession, getSelectedRegion(true) );
+    	}
+    	catch ( Exception e ) {
+    		// Should not happen.
+    	}
     }
 	else if ( o == __cancel_JButton ) {
 		response ( false );
@@ -308,17 +327,85 @@ private void commitEdits () {
 }
 
 /**
+Return the selected profile.
+The default is NOT returned if messing.
+@return the selected region, omitting the trailing description.
+*/
+private String getSelectedProfile() {
+	// Do not return the default if profile is missing.
+	return getSelectedProfile ( false );
+}
+
+/**
+Return the selected profile.
+@param returnDefault if true, return the default profile if the UI has blank
+@return the selected region.
+*/
+private String getSelectedProfile( boolean returnDefault ) {
+	if ( (this.__Profile_JComboBox == null) || this.__Profile_JComboBox.getSelected().isEmpty() ) {
+		// Profile choice is null or empty.
+		if ( returnDefault ) {
+			// Get the default profile from the toolkit.
+			return AwsToolkit.getInstance().getDefaultProfile();
+		}
+		else {
+			// Don't return the default.
+			if ( this.__Profile_JComboBox == null ) {
+				return null;
+			}
+			else {
+				return this.__Profile_JComboBox.getSelected();
+			}
+		}
+	}
+	else {
+		// Have a profile.
+		return this.__Profile_JComboBox.getSelected();
+	}
+}
+
+/**
 Return the selected region, omitting the trailing description.
+The default is NOT returned if messing.
+@return the selected region, omitting the trailing description.
 */
 private String getSelectedRegion() {
+	// Do not return the default if region is missing.
+	return getSelectedRegion ( false );
+}
+
+/**
+Return the selected region, omitting the trailing description.
+@param returnDefault if true, return the default region if the UI has blank
+@return the selected region, omitting the trailing description.
+*/
+private String getSelectedRegion( boolean returnDefault ) {
     if ( __Region_JComboBox == null ) {
-        return null;
+    	// Region combobox is null, typically at UI startup.
+    	if ( returnDefault ) {
+    		// Return the default region.
+    		return AwsToolkit.getInstance().getDefaultRegion(getSelectedProfile(true));
+    	}
+    	else {
+    		// Can only return null.
+    		return null;
+    	}
     }
+    // The combo box is not null so can get the value, but may be null or an empty string.
     String region = __Region_JComboBox.getSelected();
-    if ( region == null ) {
-    	return region;
+    if ( (region == null) || region.isEmpty() ) {
+    	// No region is selected.
+    	if ( returnDefault ) {
+    		// Return the default region.
+    		return AwsToolkit.getInstance().getDefaultRegion(getSelectedProfile(true));
+    	}
+    	else {
+    		// Return the selection even if null or blank.
+    		return region;
+    	}
     }
-	// Parse the ID, ignoring the description.
+    // Have selected region:
+	// - parse the ID, ignoring the description.
    	int pos = region.indexOf(" -");
    	String id = "";
    	if ( pos > 0 ) {
@@ -680,6 +767,8 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 	__cancel_JButton.setToolTipText("Cancel without saving changes to command");
 	button_JPanel.add ( __help_JButton = new SimpleJButton("Help", this) );
 	__help_JButton.setToolTipText("Show command documentation in web browser");
+	button_JPanel.add ( __browseS3_JButton = new SimpleJButton("Browse S3", this) );
+	__browseS3_JButton.setToolTipText("Browse S3 files.  A separate application is started.");
 
 	setTitle ( "Edit " + __command.getCommandName() + "() command" );
 	

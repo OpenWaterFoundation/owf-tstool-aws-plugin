@@ -362,7 +362,7 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	    }
 
 	    this.s3TreeView = new S3TreeView(this.awsSession, getSelectedRegion(), getSelectedBucket());
-        this.s3JTree = new S3JTree(s3TreeView.getRootNode());
+        this.s3JTree = new S3JTree((S3JTreeNode)s3TreeView.getRootNode());
 
 	    // S3 file tree.
 		JPanel s3FilePanel = new JPanel();
