@@ -3,7 +3,7 @@
 /* NoticeStart
 
 OWF AWS TSTool Plugin
-Copyright (C) 2022 Open Water Foundation
+Copyright (C) 2022 - 2023 Open Water Foundation
 
 OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -206,19 +206,6 @@ public void actionPerformed( ActionEvent event ) {
     		// - authentication is via the AwsSession
     		// - use the default region if none is selected
     		S3Browser_App.launchBrowser ( title, awsSession, getSelectedRegion(true) );
-    		/*
-    		boolean doSimple = false;
-    		if ( doSimple ) {
-    			// Simple dialog invocation:
-    			// - isn't working?
-    			Message.printStatus(2, routine, "Opening S3 browser dialog.");
-    			new S3Browser_JDialog ( __parent, modal, "Browse S3 Files", this.awsSession, getSelectedRegion()).response();
-    		}
-    		else {
-    			Message.printStatus(2, routine, "Opening S3 browser app.");
-    			new S3BrowseApp ( __parent, modal, "Browse S3 Files", this.awsSession, getSelectedRegion() );
-    		}
-    		*/
     	}
     	catch ( Exception e ) {
     		// Should not happen.

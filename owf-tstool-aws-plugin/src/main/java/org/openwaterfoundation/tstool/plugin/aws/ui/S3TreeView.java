@@ -28,11 +28,8 @@ import java.util.List;
 
 import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
 import org.openwaterfoundation.tstool.plugin.aws.commands.s3.AwsS3Object;
-import org.openwaterfoundation.tstool.plugin.aws.commands.s3.AwsS3ObjectType;
 
-import RTi.Util.GUI.SimpleJTree_Node;
 import RTi.Util.Message.Message;
-import RTi.Util.Time.DateTime;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
@@ -118,6 +115,7 @@ public class S3TreeView {
 
     	// Root node matches the bucket:
     	// - use a null tree because it is created below
+		// - the shared popup menu is created only after the tree is created so have to set it after creating the node
 		Message.printStatus(2, routine, "Creating root node for bucket: " + this.bucket);
         AwsS3Object rootS3Object = new AwsS3Object(this.bucket);
         this.rootNode = new S3JTreeNode(rootS3Object, null);
@@ -144,7 +142,7 @@ public class S3TreeView {
 	/**
 	Get the root node.
 	*/
-	public SimpleJTree_Node getRootNode () {
+	public S3JTreeNode getRootNode () {
     	return this.rootNode;
 	}
 

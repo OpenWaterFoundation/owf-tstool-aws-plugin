@@ -1,4 +1,4 @@
-// S3JTree_Node - convenience class to use when putting S3 data into a SimpleJTree
+// S3JTree_Node - node class corresponding to S3JTree tree
 
 /* NoticeStart
 
@@ -85,7 +85,7 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	/**
 	Reference to the S3 tree in which this component appears.
 	*/
-	private S3JTree tree;
+	private S3JTree s3Tree;
 
 	/**
  	* The AwsS3_Object associated with the node:
@@ -103,7 +103,7 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	/**
 	The popup menu associated with this node.
 	*/
-	private JPopupMenu popup = null;
+	private JPopupMenu popup_JMenu = null;
 
 	/**
 	Label that that is used when displaying the node.
@@ -126,15 +126,33 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	@param tree the tree in which this component appears
 	*/
 	public S3JTreeNode(AwsS3Object s3Object, S3JTree tree) {
-		super(new JPanel(), (s3Object.getObjectType() == AwsS3ObjectType.BUCKET ? s3Object.getBucket() : s3Object.getKey()) );
+		// Pass a new panel to indicate that a component will be displayed rather than the default tree node text label:
+		// - the component is reset in the initialize() method
+		// - currently DO NOT use a custom panel with checkbox because it was causing icon to not display
+		//   and selection events did not behave
+		//super(new JPanel(), (s3Object.getObjectType() == AwsS3ObjectType.BUCKET ? s3Object.getBucket() : s3Object.getKey()) );
+		super( (s3Object.getObjectType() == AwsS3ObjectType.BUCKET ? s3Object.getBucket() : s3Object.getKey()) );
 		// Make sure the visible text is only the last part of the key (stored in node base class and not AwsS3Object).
 		if ( s3Object.getObjectType() == AwsS3ObjectType.BUCKET ) {
 			super.setText(s3Object.getBucket());
+			super.setUserObject(s3Object.getBucket());
 		}
 		else {
+			// File or folder node type.
+			// Set the text to the key name without the leading path.
 			super.setText(getNameForKey(s3Object.getKey()));
+			super.setUserObject(getNameForKey(s3Object.getKey()));
 		}
-		initialize(s3Object, tree, null);
+		// Used the shared popup menu.
+		if ( tree == null ) {
+			// Typically the case when creating the root node and the shared popup menu has not been created:
+			// - have to call setPopupMenu() on the root node after the tree is created
+			initialize(s3Object, tree, null );
+		}
+		else {
+			// Typically the case when creating other than the root node.
+			initialize(s3Object, tree, tree.getPopupJMenu() );
+		}
 	}
 
 	/**
@@ -144,13 +162,20 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	@param popupMenu the popupMenu that this node should display.
 	*/
 	public S3JTreeNode(AwsS3Object s3Object, S3JTree tree, JPopupMenu popupMenu) {
-		super(new JPanel(), (s3Object.getObjectType() == AwsS3ObjectType.BUCKET ? s3Object.getBucket() : s3Object.getKey()) );
+		// Pass a new panel to indicate that a component will be displayed rather than the default tree node text label:
+		// - the component is reset in the initialize() method
+		// - currently DO NOT use a custom panel with checkbox because it was causing icon to not display
+		//   and selection events did not behave
+		//super(new JPanel(), (s3Object.getObjectType() == AwsS3ObjectType.BUCKET ? s3Object.getBucket() : s3Object.getKey()) );
+		super((s3Object.getObjectType() == AwsS3ObjectType.BUCKET ? s3Object.getBucket() : s3Object.getKey()) );
 		// Make sure the visible text is only the last part of the key (stored in node base class and not AwsS3Object).
 		if ( s3Object.getObjectType() == AwsS3ObjectType.BUCKET ) {
 			super.setText(s3Object.getBucket());
+			super.setUserObject(s3Object.getBucket());
 		}
 		else {
 			super.setText(getNameForKey(s3Object.getKey()));
+			super.setUserObject(getNameForKey(s3Object.getKey()));
 		}
 		initialize(s3Object, tree, popupMenu);
 	}
@@ -167,22 +192,22 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	Deselects all the labels in all the other nodes in the tree.
 	*/
 	private void deselectAllOthers() {
-		deselectAllOthers(this.tree.getRoot());
+		deselectAllOthers((S3JTreeNode)this.s3Tree.getRoot());
 	}
 
 	/**
 	Utility method used by deselectAllOthers()
 	@param node the node from which to recurse the tree.
 	*/
-	private void deselectAllOthers(SimpleJTree_Node node) {
+	private void deselectAllOthers(S3JTreeNode node) {
 		if (node instanceof S3JTreeNode) {
-			if (node != this) {
-				((S3JTreeNode)node).deselectField();
+			if ( node != this ) {
+				node.deselectField();
 			}		
 		}
 		if (node.getChildCount() >= 0) {
-			for (Enumeration<SimpleJTree_Node> e = node.children(); e.hasMoreElements();) {
-				SimpleJTree_Node n = (SimpleJTree_Node)e.nextElement();
+			for (Enumeration<S3JTreeNode> e = node.children(); e.hasMoreElements();) {
+				S3JTreeNode n = e.nextElement();
 				deselectAllOthers(n);
 			}
 		}
@@ -207,21 +232,6 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 			return null;
 		}
 		return this.label_JTextField.getText().trim();
-	}
-
-	/**
-	Cleans up member variables.
-	*/
-	public void finalize()
-	throws Throwable {
-		bg = null;
-		fg = null;
-		this.tree = null;
-		this.check = null;
-		this.popup = null;
-		this.label_JTextField = null;
-		this.itemListeners = null;
-		super.finalize();
 	}
 
 	/**
@@ -306,74 +316,86 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	/**
 	Initializes the S3JTree_Node, which creates visual components that are visible.
 	@param s3Object the S3 object associated with the node
-	@param tree the SimpleJTree that contains this component
+	@param tree the S3JTree that contains this component
 	@param listener the ItemListener to register for this component
-	@param popupMenu the popupMenu that this node should display.  If null, no popup will be displayed.
+	@param popup_JMenu the JPopupMenu that this node should display.
+	If null, the JTree's shared popup menu will be displayed.
 	*/
-	private void initialize(AwsS3Object s3Object, S3JTree tree, JPopupMenu popup) {
+	private void initialize(AwsS3Object s3Object, S3JTree tree, JPopupMenu popup_JMenu) {
 		//String text = s3Object.getKey();
 		//String name = s3Object.getKey();
 
-		// Get the text for the node and use for the JTextField.
-		String text = getText();
-
-		JPanel panel = new JPanel();
-		panel.setLayout(new GridBagLayout());
-		this.check = new JCheckBox();
-		this.check.setBackground(UIManager.getColor("Tree.textBackground"));
-		label_JTextField = new JTextField();
-		if ( s3Object.getObjectType() == AwsS3ObjectType.BUCKET ) {
-			// Bucket does not have a key.
-			label_JTextField.setToolTipText("S3 bucket: " + s3Object.getBucket());
-		}
-		else {
-			// Files and folders use the key.
-			label_JTextField.setToolTipText("S3 key: " + s3Object.getKey());
-		}
-		//__field = new JEditorPane();
-		this.tree = tree;
+		this.s3Tree = tree;
 		this.s3Object = s3Object;
 
-		// Because of the way these two components (the checkbox and the label) are drawn,
-		// sometimes the first letter of the JLabel is slightly (like, 2 pixels) overlapped by the CheckBox.
-		// Adding a single space at the front of the label text seems to avoid this.
+		boolean doCheckBox = false;
+		if ( doCheckBox ) {
+			// Get the text for the node and use for the JTextField.
+			String text = getText();
+
+			JPanel panel = new JPanel();
+			panel.setLayout(new GridBagLayout());
+			this.check = new JCheckBox();
+			this.check.setBackground(UIManager.getColor("Tree.textBackground"));
+			label_JTextField = new JTextField();
+			if ( s3Object.getObjectType() == AwsS3ObjectType.BUCKET ) {
+				// Bucket does not have a key.
+				label_JTextField.setToolTipText("S3 bucket: " + s3Object.getBucket());
+			}
+			else {
+				// Files and folders use the key.
+				label_JTextField.setToolTipText("S3 key: " + s3Object.getKey());
+			}
+			//__field = new JEditorPane();
+
+			// Because of the way these two components (the checkbox and the label) are drawn,
+			// sometimes the first letter of the JLabel is slightly (like, 2 pixels) overlapped by the CheckBox.
+			// Adding a single space at the front of the label text seems to avoid this.
 	
-		if ( text.startsWith("<") ) {
-			// Assume HTML so just set it.
-			label_JTextField.setText(text);
-			// TODO SAM 2010-12-15 Uncomment this if using a JEditPane with HTML.
-			//__field.setContentType("mime/html");
+			if ( text.startsWith("<") ) {
+				// Assume HTML so just set it.
+				label_JTextField.setText(text);
+				// TODO SAM 2010-12-15 Uncomment this if using a JEditPane with HTML.
+				//__field.setContentType("mime/html");
+			}
+			else {
+				// Add extra space.
+				label_JTextField.setText(" " + text);
+				label_JTextField.setFont((new SimpleJTree_CellRenderer()).getFont());
+			}
+
+			// Add listeners to the label so that popup menu can be shown:
+			// - listen in the node to handle selection and highlighting
+			// - listen in the tree to handle right-click popups
+			label_JTextField.addMouseListener(this);
+			label_JTextField.addMouseListener(this.s3Tree);
+			// JTextField and JEditorPane.
+			label_JTextField.setEditable(false);
+			// JButton and JLabel.
+			//__field.addFocusListener(this);
+			//__field.setFocusable(true);
+			// Don't want any decorative border.
+			label_JTextField.setBorder(null);
+			label_JTextField.setBackground(UIManager.getColor("Tree.textBackground"));
+			JGUIUtil.addComponent(panel, this.check, 0, 0, 1, 1, 0, 0,
+				GridBagConstraints.NONE, GridBagConstraints.WEST);
+			JGUIUtil.addComponent(panel, label_JTextField, 1, 0, 2, 1, 1, 1,
+				GridBagConstraints.BOTH, GridBagConstraints.WEST);
+
+			// Add an item listener to the tree for the checkbox.
+			this.check.addItemListener(this);
+			this.itemListeners = new ArrayList<>();
+			addItemListener(tree);
+
+			this.popup_JMenu = popup_JMenu;
+
+			// Store the default label drawing colors.
+			bg = label_JTextField.getBackground();
+			fg = label_JTextField.getForeground();
+
+			// Set the panel as the component used for the tree node.
+			setComponent(panel);
 		}
-		else {
-			// Add extra space.
-			label_JTextField.setText(" " + text);
-			label_JTextField.setFont((new SimpleJTree_CellRenderer()).getFont());
-		}
-
-		label_JTextField.addMouseListener(this);
-		// JTextField and JEditorPane.
-		label_JTextField.setEditable(false);
-		// JButton and JLabel.
-		//__field.addFocusListener(this);
-		//__field.setFocusable(true);
-		// Don't want any decorative border.
-		label_JTextField.setBorder(null);
-		label_JTextField.setBackground(UIManager.getColor("Tree.textBackground"));
-		JGUIUtil.addComponent(panel, this.check, 0, 0, 1, 1, 0, 0,
-			GridBagConstraints.NONE, GridBagConstraints.WEST);
-		JGUIUtil.addComponent(panel, label_JTextField, 1, 0, 2, 1, 1, 1,
-			GridBagConstraints.BOTH, GridBagConstraints.WEST);
-		setComponent(panel);
-
-		this.check.addItemListener(this);
-		this.itemListeners = new ArrayList<>();
-		addItemListener(tree);
-
-		this.popup = popup;
-
-		// Store the default label drawing colors.
-		bg = label_JTextField.getBackground();
-		fg = label_JTextField.getForeground();
 	}
 
 	/**
@@ -428,8 +450,8 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	@param e the MouseEvent that happened.
 	*/
 	private void maybeShowPopup(MouseEvent e) {
-		if (this.popup != null && this.popup.isPopupTrigger(e)) {
-			this.popup.show(e.getComponent(), e.getX(), e.getY());
+		if ( (this.popup_JMenu != null) && this.popup_JMenu.isPopupTrigger(e) ) {
+			this.popup_JMenu.show(e.getComponent(), e.getX(), e.getY());
 		}
 	}
 
@@ -474,11 +496,14 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	*/
 	public void mousePressed(MouseEvent event) {
 		if (event.getButton() == 1) {
-			if (!event.isControlDown()) {	
+			// Left-click selects the text field by highlighting.
+			if ( !event.isControlDown() ) {	
+				// Simple left-click so only select the current component.
 				deselectAllOthers();
 				selectField();
 			}
 			else {
+				// Ctrl-left-click.  Add the current selection to previous selections.
 				if (this.selected) {
 					deselectField();
 				}
@@ -486,11 +511,11 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 					selectField();
 				}	
 			}
-			this.tree.repaint();
+			this.s3Tree.repaint();
 		}
-		// TODO smalers 2023-01-10 remove when figure out for S3.
-		// A node was either selected or deselected - repaint the buttons in the GeoViewJPanel as appropriate.
-		//__tree.updateGeoViewJPanelButtons();	
+		// A node was either selected or deselected:
+		// - check the button state to enable appropriate actions
+		this.s3Tree.checkState();	
 	}
 
 	/**
@@ -560,11 +585,23 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	}
 
 	/**
+	 * Set the popup menu used with the node.
+	 * This is called after creating the root node in a network because the tree does not yet exist
+	 * and the tree's shared popup menu can't be passed to the node constructor.
+	 * @param popupMenu the popup menu to use for the node
+	 */
+	public void setPopupMenu ( JPopupMenu popup_JMenu ) {
+		this.popup_JMenu = popup_JMenu;
+	}
+
+	/**
 	 * Set the JTree used with the node.
+	 * This is called after creating the root node in a network because the tree does not yet exist
+	 * and can't be passed to the node constructor.
 	 * @param tree the tree associated with the node
 	 */
 	public void setS3JTree ( S3JTree tree ) {
-		this.tree = tree;
+		this.s3Tree = tree;
 	}
 
 	/**
