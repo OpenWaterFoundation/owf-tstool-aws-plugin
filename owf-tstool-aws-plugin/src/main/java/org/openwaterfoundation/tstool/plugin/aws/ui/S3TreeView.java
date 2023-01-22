@@ -106,8 +106,7 @@ public class S3TreeView {
 	}
 
 	/**
-	Create the S3 view by querying S3.
-	This sets up the tree the first time.
+	Create the S3 tree view the first time by querying S3 and populating the S3JTree instance.
 	@problems problems that occur setting up the tree
 	*/
 	public void createTreeView ( List<String> problems ) throws IOException {
@@ -122,13 +121,13 @@ public class S3TreeView {
         
         // Create a tree with the root node:
         // - because the root node did not have the tree set, set it below
-        this.s3JTree = new S3JTree(this.rootNode);
+        //this.s3JTree = new S3JTree(this.rootNode);
         this.rootNode.setS3JTree(s3JTree);
         
         // Create the tree under the bucket:
         // - if lazy load will only populate the top level folders
         // - currently the full tree is populated (doLazyLoad=false)
-        listObjects ( s3JTree, this.rootNode, "", this.doLazyLoad );
+        //listObjects ( s3JTree, this.rootNode, "", this.doLazyLoad );
 	}
 
 	/**
@@ -152,14 +151,25 @@ public class S3TreeView {
 	 * @param prefix the prefix used to query the results
 	 * @param doLazyLoad if true do a lazy load when folders are expanded, if false load the whole tree up front
 	 */
-	private void listObjects ( S3JTree s3JTree, S3JTreeNode parentNode, String prefix, boolean doLazyLoad ) {
+	private void x_listObjects ( S3JTree s3JTree, S3JTreeNode parentNode, String prefix, boolean doLazyLoad ) {
 		String routine = getClass().getSimpleName() + ".listObjects";
 		int maxKeys = -1;
 		String delim = "/";
-		boolean debug = false;
+
+		// Enclose the entire function in a try so that fast add is turned off if a major failure.
+		try {
+		// Set 'debug' to true to troubleshoot.
+		boolean debug = true;
 		if ( Message.isDebugOn ) {
 			debug = true;
 		}
+
+		if ( debug ) {
+			Message.printStatus(2, routine, "Listing S3 objects into the tree.  Fast add is used.");
+			Message.printStatus(2, routine, "  Setting tree to fastAdd=true.");
+		}
+		// Turn on fast add.
+		this.s3JTree.setFastAdd(true);
 
 		if ( doLazyLoad ) {
 			// Lazy load:
@@ -209,11 +219,14 @@ public class S3TreeView {
       	int commonPrefixCount = 0;
       	int maxObjects = 10000;
 
+		if ( debug ) {
+			Message.printStatus(2, routine, "  Getting the bucket listing from S3.");
+		}
        	while ( !done ) {
        		response = s3.listObjectsV2(request);
        		if ( debug ) {
        			Message.printStatus(2, routine,
-       				"S3 list response for bucket=" + bucket
+       				"  S3 list response for bucket=" + bucket
    					+ " prefix=" + prefix
    					+ " delimiter=\"" + delim + "\""
    					+ " has " + response.contents().size() + " S3Objects and "
@@ -223,12 +236,12 @@ public class S3TreeView {
    			if ( doLazyLoad ) {
    				// TODO smalers 2023-01-10 only load the top-level folders and files and wait for
    				// folders to be clicked on before loading them.
-   				Message.printWarning(3, routine, "Lazy load of the tree is not implemented.");
+   				Message.printWarning(3, routine, "  Lazy load of the tree is not implemented.");
    			}
    			else {
    				// Load the full tree up front.
    				if ( debug ) {
-   					Message.printStatus(2, routine, "Doing a full load of the tree.");
+   					Message.printStatus(2, routine, "  Doing a full load of the tree.");
    				}
    				if ( doCommonPrefix ) { // Keep this for now if need for testing.
    				for ( CommonPrefix commonPrefix : response.commonPrefixes() ) {
@@ -246,10 +259,15 @@ public class S3TreeView {
    							null,
    							null );
    					if ( debug ) {
-   						Message.printStatus(2, routine, "Adding CommonPrefix node as folder: " + s3Object.getKey());
+   						Message.printStatus(2, routine, "    Adding CommonPrefix node as folder: " + s3Object.getKey());
    					}
-   					s3JTree.addFolder( parentNode, s3Object);
-   					++commonPrefixCount;
+   					try {
+   						s3JTree.addFolder( parentNode, s3Object);
+   						++commonPrefixCount;
+   					}
+   					catch ( Exception e ) {
+   						Message.printWarning(2, routine, e);
+   					}
    				}
    				}
    				if ( doS3Object ) { // Keep this for now if need for testing.
@@ -270,19 +288,29 @@ public class S3TreeView {
    					if ( serviceS3Object.key().endsWith("/") ) {
    						// Add a folder.
    						if ( debug ) {
-   							Message.printStatus(2, routine, "Adding S3Object node as folder: " + s3Object.getKey());
+   							Message.printStatus(2, routine, "    Adding S3Object node as folder: " + s3Object.getKey());
    						}
-   						s3JTree.addFolder( parentNode, s3Object);
+   						try {
+   							s3JTree.addFolder( parentNode, s3Object);
+   							++objectCount;
+   						}
+   						catch ( Exception e ) {
+   							Message.printWarning(2, routine, e);
+   						}
    					}
    					else {
    						// Add a file.
    						if ( debug ) {
-   							Message.printStatus(2, routine, "Adding S3Object node as file: " + s3Object.getKey());
+   							Message.printStatus(2, routine, "    Adding S3Object node as file: " + s3Object.getKey());
    						}
-   						s3JTree.addFile( parentNode, s3Object);
+   						try {
+   							s3JTree.addFile( parentNode, s3Object);
+   							++objectCount;
+   						}
+   						catch ( Exception e ) {
+   							Message.printWarning(2, routine, e);
+   						}
    					}
-   					
-   					++objectCount;
    				}
    				}
    			}
@@ -305,7 +333,7 @@ public class S3TreeView {
    							null,
    							null );
    					if ( debug ) {
-   						Message.printStatus(2, routine, "Adding CommonPrefix node: " + s3Object.getKey());
+   						Message.printStatus(2, routine, "    Adding CommonPrefix node: " + s3Object.getKey());
    					}
    					parentNode.add( new S3JTreeNode(s3Object, s3JTree));
    					++commonPrefixCount;
@@ -327,7 +355,7 @@ public class S3TreeView {
    							serviceS3Object.owner().displayName(),
    							serviceS3Object.lastModified() );
    					if ( debug ) {
-   						Message.printStatus(2, routine, "Adding S3Object node: " + s3Object.getKey());
+   						Message.printStatus(2, routine, "    Adding S3Object node: " + s3Object.getKey());
    					}
    					parentNode.add( new S3JTreeNode(s3Object, s3JTree));
    					++objectCount;
@@ -342,7 +370,19 @@ public class S3TreeView {
       				.build();
        	}
        	if ( debug ) {
-       		Message.printStatus(2, routine, "Total S3Object=" + objectCount + " total CommonPrefix=" + commonPrefixCount);
+       		Message.printStatus(2, routine, "  Total S3Object=" + objectCount + " total CommonPrefix=" + commonPrefixCount);
+       		// The following shows visible rows.
+        	//Message.printStatus(2, routine, "  Tree has " + this.s3JTree.getRowCount() + " rows.");
+       		Message.printStatus(2, routine, "  Tree dump:");
+       		this.s3JTree.dumpTree();
+       	}
+       	// Turn off fast add so that interactive editing such as deleting nodes will be fast.
+		}
+       	finally {
+       		if ( Message.isDebugOn ) {
+       			Message.printStatus(2, routine, "  Setting tree to fastAdd=false.");
+       		}
+       		this.s3JTree.setFastAdd(false);
        	}
 	}
 
@@ -351,25 +391,46 @@ public class S3TreeView {
 	for example in response to selecting a new bucket.
 	@problems problems that occur setting up the tree
 	*/
-	public void refresh( List<String> problems ) throws IOException {
+	public void x_refresh( List<String> problems ) throws IOException {
 		String routine = getClass().getSimpleName() + ".refresh";
 
-		// Remove the children from the the root node.
+		// Set 'debug' to true for troubleshooting.
+		boolean debug = true;
         if ( Message.isDebugOn ) {
-        	Message.printStatus(2,routine,"Removing all children from " + this.rootNode.getText());
+        	debug = true;
         }
-		this.rootNode.removeAllChildren();
+
+        if ( debug ) {
+        	Message.printStatus(2,routine,"Refreshing the tree.");
+        }
+
+		// Remove the children from the the root node.
+        if ( debug ) {
+        	Message.printStatus(2,routine,"  Removing all child nodes for bucket " + this.bucket
+        		+ " root node " + this.rootNode.getText());
+        }
+		this.s3JTree.clear();
+        if ( debug ) {
+        	Message.printStatus(2, routine, "  Tree dump after removing nodes under the root node:");
+   		   	this.s3JTree.dumpTree();
+        }
 		
     	// Root node matches the bucket:
     	// - do not set the tree because it is created below
         //this.rootNode = new S3JTreeNode(new AwsS3Object(this.bucket, AwsS3ObjectType.BUCKET), null);
-        if ( Message.isDebugOn ) {
-        	Message.printStatus(2,routine,"Setting root node 'name', 'text', and bucket to: " + this.bucket);
+        if ( debug ) {
+        	Message.printStatus(2,routine,"  Setting root node 'name', 'text', and bucket to: " + this.bucket);
         }
 		this.rootNode.getS3Object().setBucket(this.bucket);
 		this.rootNode.setText(this.bucket);
 		this.rootNode.setName(this.bucket);
+        if ( debug ) {
+        	Message.printStatus(2,routine,"  Refreshing the root node to use current name and text...");
+        }
 		this.rootNode.refresh();
+        if ( debug ) {
+        	Message.printStatus(2,routine,"  ...back from refreshing the root node.");
+        }
         
         // Create a tree with the root node:
         // - because the root node did not have the tree set, set it below
@@ -379,17 +440,34 @@ public class S3TreeView {
         // Create the tree under the bucket:
         // - if lazy load will only populate the top level folders
         // - currently the full tree is populated (doLazyLoad=false)
-        listObjects ( this.s3JTree, this.rootNode, "", this.doLazyLoad );
+        if ( debug ) {
+        	Message.printStatus(2,routine,"  Calling listObjects...");
+        }
+        //listObjects ( this.s3JTree, this.rootNode, "", this.doLazyLoad );
+        x_listObjects ( this.s3JTree, (S3JTreeNode)this.s3JTree.getRoot(), "", this.doLazyLoad );
+        if ( debug ) {
+        	Message.printStatus(2,routine,"  ...back from listObjects.");
+        }
         // Redraw the tree.
-        if ( Message.isDebugOn ) {
-        	Message.printStatus(2,routine,"Refreshing the tree...");
+        if ( debug ) {
+        	Message.printStatus(2,routine,"  Refreshing the tree...");
+        }
+        try {
+        	this.s3JTree.refresh();
+        	//this.s3JTree.refresh(false);
+        	//this.s3JTree.invalidate();
+        }
+        catch ( Exception e ) {
+        	Message.printWarning(2, routine, e);
+        }
+        if ( debug ) {
+        	Message.printStatus(2,routine,"  ...back from refreshing the tree.");
         }
 		// Expand the root node to show its immediate children.
-        this.s3JTree.expandNode(this.rootNode);
-        this.s3JTree.refresh();
-        if ( Message.isDebugOn ) {
-        	Message.printStatus(2,routine,"...done refreshing the tree.");
+        if ( debug ) {
+        	Message.printStatus(2,routine,"  Expanding the root node.");
         }
+        this.s3JTree.expandNode(this.rootNode);
 	}
 
 	/**

@@ -87,12 +87,12 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	/**
 	 * S3TreeView that manages the tree.
 	 */
-	private S3TreeView s3TreeView = null;
+	//private S3TreeView s3TreeView = null;
 	
 	/**
 	 * Indicate whether the first time drawing the tree.
 	 */
-	private boolean firstTime = true;
+	//private boolean firstTime = true;
 
 	/**
 	Constructor.
@@ -100,11 +100,28 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	@param s3Resion S3 region to use (will be selected in the choice), or null to not select
 	*/
 	public S3Browser_JPanel ( AwsSession awsSession, String s3Region ) {
-
+		String routine = getClass().getSimpleName() + ".S3Browser_JPanel";
 		this.awsSession = awsSession;
 		this.s3Region = s3Region;
 		
  		setupUI();
+ 		
+ 		// Load the initial S3 data.
+ 		String prefix = null;
+ 		boolean doLazyLoad = false;
+ 		try {
+ 			// Session must be set first.
+ 			this.s3JTree.setAwsSession(this.awsSession);
+ 			this.s3JTree.setBucket(getSelectedBucket());
+ 			// Region triggers creating a new S3 client.
+ 			this.s3JTree.setRegion(getSelectedRegion());
+ 			// Load the tree from an S3 request.
+ 			this.s3JTree.loadFromS3(prefix, doLazyLoad);
+ 		}
+ 		catch ( Exception e ) {
+ 			Message.printWarning(1, routine, "Error loading S3 bucket files.");
+ 			Message.printWarning(3, routine, e);
+ 		}
 	}
 
 	/**
@@ -119,7 +136,7 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	Return the selected bucket.
 	@return the selected bucket.
 	*/
-	private String getSelectedBucket() {
+	public String getSelectedBucket() {
 		return this.bucket_JComboBox.getSelected();
 	}
 
@@ -147,6 +164,14 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
    		}
    		return id;
 	}
+	
+	/**
+	 * Return the S3JTree.
+	 * @return the S3JTree.
+	 */
+	public S3JTree getS3JTree () {
+		return this.s3JTree;
+	}
 
 	/**
 	Handle ItemEvent events.
@@ -155,6 +180,7 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	public void itemStateChanged ( ItemEvent e ) {
 		String routine = getClass().getSimpleName() + ".itemStateChanged";
 		Object o = e.getSource();
+
     	if ( (o == this.region_JComboBox) && (e.getStateChange() == ItemEvent.SELECTED) ) {
     		// Region was selected:
     		// - update the bucket list
@@ -229,27 +255,34 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	
     /**
      * Refresh the tree based on current settings.
-     * This is usually called when the application's "Refresh" button is pressed
+     * This is usually called when the application's "Refresh" button is pressed or another bucket is selected.
      */
     public void refresh () {
     	String routine = getClass().getSimpleName() + ".refresh";
     	List<String> problems = new ArrayList<>();
     	
     	// Clear all the children from the root node.
-    	S3JTreeNode rootNode = (S3JTreeNode)this.s3JTree.getRoot();
-    	Message.printStatus(2, routine, "Removing all child nodes from the root node: " + rootNode.getText());
+    	Message.printStatus(2, routine, "Refreshing the tree.");
+    	/* Use the code below.
     	try {
-    		this.s3JTree.removeAllNodes();
+    		//S3JTreeNode rootNode = (S3JTreeNode)this.s3JTree.getRoot();
+    		//Message.printStatus(2, routine, "Removing all child nodes from the root node: " + rootNode.getText());
+    		//this.s3JTree.removeAllNodes();
     	}
     	catch ( Exception e ) {
     		// Should not happen.
     	}
+    	*/
     	
     	try {
-    		this.s3TreeView.setBucket(getSelectedBucket());
-    		this.s3TreeView.refresh(problems);
+    		//this.s3TreeView.setBucket(getSelectedBucket());
+    		// The following removes all nodes and then add the nodes from the bucket.
+    		this.s3JTree.clear();
+    		String prefix = null;
+    		boolean doLazyLoad = false;
+    		this.s3JTree.loadFromS3(prefix,doLazyLoad);//problems);
     	}
-    	catch ( IOException e ) {
+    	catch ( Exception e ) {
     		Message.printWarning(2, routine, "Error refreshing the tree." );
     		Message.printWarning(2, routine, e );
     	}
@@ -361,27 +394,26 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	    	}
 	    }
 
-	    this.s3TreeView = new S3TreeView(this.awsSession, getSelectedRegion(), getSelectedBucket());
-        this.s3JTree = new S3JTree((S3JTreeNode)s3TreeView.getRootNode());
+	    //this.s3TreeView = new S3TreeView(this.awsSession, getSelectedRegion(), getSelectedBucket());
+        //this.s3JTree = new S3JTree((S3JTreeNode)s3TreeView.getRootNode());
+        this.s3JTree = new S3JTree();
 
 	    // S3 file tree.
-		JPanel s3FilePanel = new JPanel();
-		s3FilePanel.setLayout(new GridBagLayout());
-		JScrollPane s3FilePane = new JScrollPane(this.s3JTree);
+		JPanel s3TreePanel = new JPanel();
+		s3TreePanel.setLayout(new GridBagLayout());
+		JScrollPane s3TreeScrollPane = new JScrollPane(this.s3JTree);
 		
 		// Add the tree to the file panel.
-	    JGUIUtil.addComponent(s3Panel,
-    		new JScrollPane(s3FilePane,JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS),
-    		0, ++yS3, 2, 2, 1.0, 1.0, insetsTLBR,
+	    JGUIUtil.addComponent(s3TreePanel,
+    		new JScrollPane(s3TreeScrollPane,JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS),
+    		0, 0, 1, 1, 1.0, 1.0, insetsTLBR,
     		GridBagConstraints.BOTH, GridBagConstraints.WEST);
 
-	    /*
-	    // Add the file panel to the S3 panel.
+	    // Add the tree panel to the S3 panel.
 	    JGUIUtil.addComponent(s3Panel,
-    		new JScrollPane(s3FilePanel,JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS),
+    		new JScrollPane(s3TreePanel,JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS),
     		0, ++yS3, 2, 2, 1.0, 1.0, insetsTLBR,
     		GridBagConstraints.BOTH, GridBagConstraints.WEST);
-    		*/
 	}
 
 }

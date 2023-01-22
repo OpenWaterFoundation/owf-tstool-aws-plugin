@@ -23,7 +23,6 @@ NoticeEnd */
 package org.openwaterfoundation.tstool.plugin.aws.ui;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JFrame;
@@ -31,6 +30,7 @@ import javax.swing.SwingUtilities;
 
 import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
 
+import RTi.Util.GUI.JGUIUtil;
 import RTi.Util.IO.IOUtil;
 import RTi.Util.IO.ProcessManager;
 import RTi.Util.Message.Message;
@@ -43,21 +43,18 @@ import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
  */
 public class S3Browser_App implements Runnable {
 
-	private String title = "";
-
-	private String logFile = "";
+	private static String title = "Aws - S3 Browser";
 	
-	private AwsSession awsSession = null;
-	
-	private String region = "";
+	private static String PROGRAM_NAME = "S3 Browser";
+	private static String PROGRAM_VERSION = "1.0.0 (2023-01-16)";
 
 	/**
 	 * Create a browser application.
 	 */
 	public S3Browser_App ( JFrame parent, boolean modal, String title, AwsSession awsSession, String region ) {
-		this.title = title;
-		this.awsSession = awsSession;
-		this.region = region;
+		//this.title = title;
+		//this.awsSession = awsSession;
+		//this.region = region;
 
 		boolean doSwing = true;
 
@@ -77,7 +74,6 @@ public class S3Browser_App implements Runnable {
 		Message.printStatus(2, routine, "Launching S3 browser application." );
 		// Put together the command line as a list:
 		// - the JRE and classpath are the same as run for the calling program
-		List<String> programAndArgsList = new ArrayList<>();
 		String quote = "";
 		boolean useQuote = true;
 		if ( useQuote ) {
@@ -150,6 +146,11 @@ public class S3Browser_App implements Runnable {
 			commandString.append(awsSession.getProfile());
 			commandString.append(" --region ");
 			commandString.append(region);
+			// Turn on debug if debug is on in TSTool.
+			if ( Message.isDebugOn ) {
+				commandString.append(" --debug " + Message.getDebugLevel(Message.TERM_OUTPUT)
+					+ "," + Message.getDebugLevel(Message.LOG_OUTPUT));
+			}
 			pm = new ProcessManager (
 				commandString.toString(),
 				timeoutMs,
@@ -179,6 +180,8 @@ public class S3Browser_App implements Runnable {
 		else {
 			Message.printStatus ( 1, routine, "Opening log file: " + logFile );
 			try {
+				// Limit the log file to 50 MB.
+				Message.setLogFileMaxSize(1024*1024*50);
                	Message.openLogFile ( logFile );
                	// Do it again so it goes into the log file.
                	Message.printStatus ( 1, routine, "Log file name: " + logFile );
@@ -229,16 +232,47 @@ public class S3Browser_App implements Runnable {
     public static void main ( String args[] ) {
     	String routine = "S3Browser_App.main";
 
+    	IOUtil.setProgramData ( PROGRAM_NAME, PROGRAM_VERSION, args );
+	   	JGUIUtil.setAppNameForWindows("S3 Browser");
+
     	// Parse the command line to extract necessary data to browse S3.
 
     	String logFile = null;
     	String profile = "default";
     	String region = null;
+    	int terminalDebugLevel = 0;
+    	int logDebugLevel = 0;
     	
     	int iargMax = args.length - 1;
     	for ( int iarg = 0; iarg < args.length; iarg++ ) {
     		String arg = args[iarg];
-    		if ( arg.equalsIgnoreCase("--logfile") ) {
+    		if ( arg.equalsIgnoreCase("--debug") ) {
+    			// --debug terminal,file    (levels for the terminal and the log file)
+    			++iarg;
+    			if ( iarg <= iargMax ) {
+    				String [] parts = args[iarg].split(",");
+    				if ( parts.length >= 2 ) {
+    					try {
+    						terminalDebugLevel = Integer.parseInt(parts[0].trim());
+    						Message.setDebugLevel(Message.TERM_OUTPUT,terminalDebugLevel);
+    					}
+    					catch ( NumberFormatException e ) {
+    						Message.printWarning(1, routine, "Debug level should be --debug terminal,logfile");
+    					}
+    					try {
+    						logDebugLevel = Integer.parseInt(parts[1].trim());
+    						Message.setDebugLevel(Message.LOG_OUTPUT,logDebugLevel);
+    					}
+    					catch ( NumberFormatException e ) {
+    						Message.printWarning(1, routine, "Debug level should be --debug terminal,logfile");
+    					}
+    				}
+    				else {
+    					Message.printWarning(1, routine, "Debug level should be --debug terminal,logfile");
+    				}
+    			}
+    		}
+    		else if ( arg.equalsIgnoreCase("--logfile") ) {
     			// --logfile LogFile
     			++iarg;
     			if ( iarg <= iargMax ) {
@@ -268,6 +302,14 @@ public class S3Browser_App implements Runnable {
     		logFile = IOUtil.tempFileName() + "-S3Browser.log";
     	}
     	openLogFile ( logFile );
+    	// Set the levels to make sure they are active after the log file has been opened.
+    	Message.setDebugLevel(Message.TERM_OUTPUT,terminalDebugLevel);
+    	Message.setDebugLevel(Message.LOG_OUTPUT,logDebugLevel);
+   		Message.printStatus(1, routine, "Terminal debug level = " + Message.getDebugLevel(Message.TERM_OUTPUT));
+   		Message.printStatus(1, routine, "Log file debug level = " + Message.getDebugLevel(Message.LOG_OUTPUT));
+    	if ( (terminalDebugLevel > 0) || (logDebugLevel > 0) ) {
+    		Message.setDebug(true);
+    	}
 
     	// Create the JFrame for the browser.
 
@@ -279,8 +321,9 @@ public class S3Browser_App implements Runnable {
 	   		credentialsProvider0 = ProfileCredentialsProvider.create(profile);
 	   		ProfileCredentialsProvider credentialsProvider = credentialsProvider0;
 	   		awsSession.setProfileCredentialsProvider(credentialsProvider);
-
-    		new S3Browser_JFrame ( "Amazon Web Services - S3 Browser", awsSession, region );
+	   		
+	   		Message.printStatus(2, routine, "Starting the user interface.");
+    		new S3Browser_JFrame ( S3Browser_App.title, awsSession, region );
     	}
 		catch ( Exception e ) {
 			Message.printWarning ( 1, routine, "Error starting the S3 Browser." );
