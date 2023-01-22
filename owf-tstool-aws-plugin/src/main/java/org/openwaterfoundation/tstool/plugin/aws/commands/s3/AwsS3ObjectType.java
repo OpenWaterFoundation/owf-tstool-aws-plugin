@@ -69,7 +69,7 @@ public enum AwsS3ObjectType {
 	@return the list of command types.
 	*/
 	public static List<AwsS3ObjectType> getChoices() {
-    	List<AwsS3ObjectType> choices = new ArrayList<AwsS3ObjectType>();
+    	List<AwsS3ObjectType> choices = new ArrayList<>();
     	choices.add ( AwsS3ObjectType.BUCKET );
     	choices.add ( AwsS3ObjectType.FILE );
     	choices.add ( AwsS3ObjectType.FOLDER );

@@ -43,7 +43,6 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JTextField;
 import javax.swing.UIManager;
-import javax.swing.tree.TreeNode;
 
 import org.openwaterfoundation.tstool.plugin.aws.commands.s3.AwsS3Object;
 import org.openwaterfoundation.tstool.plugin.aws.commands.s3.AwsS3ObjectType;
@@ -65,7 +64,11 @@ Other data are stored in the 's3Object', such as S3 object key and other propert
 @SuppressWarnings("serial")
 public class S3JTreeNode
 extends SimpleJTree_Node
-implements FocusListener, MouseListener, ItemListener, ItemSelectable {
+implements
+//FocusListener,
+MouseListener
+//, ItemListener, ItemSelectable
+{
 
 	/**
 	Whether this node has been selected (i.e., the label has been clicked on) or not.
@@ -75,12 +78,12 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	/**
 	The Color in which the background of the non-selected node text should be drawn.
 	*/
-	private Color bg = null;
+	//private Color bg = null;
 
 	/**
 	The Color in which the foreground of the non-selected node text should be drawn.
 	*/
-	private Color fg = null;
+	//private Color fg = null;
 
 	/**
 	Reference to the S3 tree in which this component appears.
@@ -93,12 +96,20 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
  	* - folders only contain the key and files contain owner, size, last modified
  	* - the object type indicates whether a bucket, folder, or file
  	*/
-	private AwsS3Object s3Object = null;
+	// Set this in the SimpleJTree_Node.setData()
+	//private AwsS3Object s3Object = null;
+	
+	/**
+	 * Whether to use a panel and check box.
+	 * - TODO smalers 2023-01-15 whether or not to use a panel with checkbox.
+	 *   Need to move this to the tree.
+	 */
+	//private boolean doCheckBox = false;
 
 	/**
 	Reference to the unlabeled checkbox that appears in this component.
 	*/
-	private JCheckBox check = null;
+	//private JCheckBox check = null;
 
 	/**
 	The popup menu associated with this node.
@@ -113,7 +124,7 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	//private JEditorPane __field = null;
 	//private JButton __field = null;
 	//private JLabel __field = null;
-	private JTextField label_JTextField = null;
+	//private JTextField label_JTextField = null;
 
 	/**
 	The listeners that are registered to listen for this objects item state changed events.
@@ -191,14 +202,17 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	/**
 	Deselects all the labels in all the other nodes in the tree.
 	*/
+	/*
 	private void deselectAllOthers() {
 		deselectAllOthers((S3JTreeNode)this.s3Tree.getRoot());
 	}
+	*/
 
 	/**
 	Utility method used by deselectAllOthers()
 	@param node the node from which to recurse the tree.
 	*/
+	/*
 	private void deselectAllOthers(S3JTreeNode node) {
 		if (node instanceof S3JTreeNode) {
 			if ( node != this ) {
@@ -212,75 +226,50 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 			}
 		}
 	}
+	*/
 
 	/**
 	Deselects the text field in this node.
 	*/
+	/*
 	public void deselectField() {
 		this.label_JTextField.setBackground(bg);
 		this.label_JTextField.setForeground(fg);
 		this.label_JTextField.repaint();
 		this.selected = false;
 	}
+	*/
 
 	/**
 	Returns the label for this node.
 	@return the label for this node.
 	*/
+	/*
 	public String getLabel() {
 		if (this.label_JTextField == null) {
 			return null;
 		}
 		return this.label_JTextField.getText().trim();
 	}
-
-	/**
-	 * Find a matching node under a node. Do not recurse to children.
-	 * @param text visible folder name text to match (only the folder name, not the path)
-	 */
-   	public S3JTreeNode findFolderMatchingText ( String text ) {
-   		return findFolderMatchingText ( text, false );
-   	}
-	
-	/**
-	 * Find a matching node under a node based on the visible text. Do not recurse to children.
-	 * @param text visible folder name text to match (only the name, not the path)
-	 * @param doRecurs whether to recursively search sub-folders (not currently implemented)
-	 */
-   	public S3JTreeNode findFolderMatchingText ( String text, boolean doRecurse ) {
-   		S3JTreeNode node = null;
-   		if ( doRecurse ) {
-   			// TODO smalers 2023-01-11 not currently implemented.
-   			return null;
-   		}
-   		else {
-   			this.children();
-   			for ( @SuppressWarnings("unchecked")
-   				Enumeration<? extends TreeNode> e = this.children(); e.hasMoreElements(); ) {
-   				TreeNode n = e.nextElement();
-   				node = (S3JTreeNode)n;
-   				if ( node.getText().equals(text) ) {
-   					return node;
-   				}
-   			}
-   			// Node was not found so return null;
-   			return null;
-   		}
-   	}
+	*/
 
 	/**
 	Indicate when focus is gained on the component.
 	*/
+	/*
 	public void focusGained ( FocusEvent e ) {
 		Message.printStatus(2,"","Legend item focused gained for label component " + this.label_JTextField );
 	}
+	*/
 
 	/**
 	Indicate when focus is lost on the component.
 	*/
+	/*
 	public void focusLost ( FocusEvent e ) {
 		Message.printStatus(2,"","Legend item focused gained for label component " + this.label_JTextField );
 	}
+	*/
 
 	/**
 	 * Return the name for the key, which is the last part of a key path, without trailing /.
@@ -310,7 +299,13 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	 * @return the S3 object associated with the node.
 	 */
 	public AwsS3Object getS3Object () {
-		return this.s3Object;
+		// Object is stored in the SimpleJTree_Node data.
+		if ( getData() == null ) {
+			return null;
+		}
+		else {
+			return (AwsS3Object)this.getData();
+		}
 	}
 
 	/**
@@ -326,10 +321,12 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 		//String name = s3Object.getKey();
 
 		this.s3Tree = tree;
-		this.s3Object = s3Object;
+		//this.s3Object = s3Object;
+		// Set in the SimpleJTree_Node data.
+		setData(s3Object);
 
-		boolean doCheckBox = false;
-		if ( doCheckBox ) {
+		/*
+		if ( this.doCheckBox ) {
 			// Get the text for the node and use for the JTextField.
 			String text = getText();
 
@@ -396,23 +393,18 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 			// Set the panel as the component used for the tree node.
 			setComponent(panel);
 		}
+		*/
 	}
 
 	/**
 	Returns whether the check box is selected or not.
 	@return whether the check box is selected or not.
 	*/
+	/*
 	public boolean isCheckBoxSelected() {
 		return this.check.isSelected();
 	}
-
-	/**
-	Returns whether the layer associated with this node is visible or not.
-	@return whether the layer associated with this node is visible or not.
 	*/
-	public boolean isVisible() {
-		return isCheckBoxSelected();
-	}
 
 	/**
 	Returns whether the text field is selected or not.
@@ -437,12 +429,14 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	can see which specific node issued the event.
 	@param e the ItemEvent that happened.
 	*/
+	/*
 	public void itemStateChanged(ItemEvent e) {
 		ItemEvent newEvt = new ItemEvent(this, 0, null, e.getStateChange());
 		for ( ItemListener l : this.itemListeners ) {
 			l.itemStateChanged(newEvt);
 		}
 	}
+	*/
 
 	/**
 	Checks to see if the mouse event would trigger display of the popup menu.
@@ -495,6 +489,7 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	@param event the MouseEvent that happened.
 	*/
 	public void mousePressed(MouseEvent event) {
+		/*
 		if (event.getButton() == 1) {
 			// Left-click selects the text field by highlighting.
 			if ( !event.isControlDown() ) {	
@@ -516,6 +511,7 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 		// A node was either selected or deselected:
 		// - check the button state to enable appropriate actions
 		this.s3Tree.checkState();	
+		*/
 	}
 
 	/**
@@ -532,18 +528,23 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	 */
 	public void refresh () {
 		// This is similar to initialize().
+		/*
 		String text = getText();
-		this.label_JTextField.setText(text);
-		if ( s3Object.getObjectType() == AwsS3ObjectType.BUCKET ) {
-			// Bucket does not have a key so use the bucket only.
-			//label_JTextField.setToolTipText("S3 bucket: " + s3Object.getBucket() + " text=" + text);
-			label_JTextField.setToolTipText("S3 bucket: " + s3Object.getBucket() );
+		if ( this.doCheckBox) {
+			this.label_JTextField.setText(text);
+			AwsS3Object s3Object = (AwsS3Object)getData();
+			if ( s3Object.getObjectType() == AwsS3ObjectType.BUCKET ) {
+				// Bucket does not have a key so use the bucket only.
+				//label_JTextField.setToolTipText("S3 bucket: " + s3Object.getBucket() + " text=" + text);
+				label_JTextField.setToolTipText("S3 bucket: " + s3Object.getBucket() );
+			}
+			else {
+				// Files and folders use the key.
+				//label_JTextField.setToolTipText("S3 key: " + s3Object.getKey() + " text=" + text);
+				label_JTextField.setToolTipText("S3 key: " + s3Object.getKey() );
+			}
 		}
-		else {
-			// Files and folders use the key.
-			//label_JTextField.setToolTipText("S3 key: " + s3Object.getKey() + " text=" + text);
-			label_JTextField.setToolTipText("S3 key: " + s3Object.getKey() );
-		}
+		*/
 	}
 
 	/**
@@ -562,27 +563,33 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	/**
 	Select's this node's text field.
 	*/
+	/*
 	public void selectField() {
-		this.selected = true;
-		JTextField tf = new JTextField(); // Use this to get selection colors to mimic a JTextField.
-		//__field.setBackground(__field.getSelectionColor());
-		//__field.setForeground(__field.getSelectedTextColor());
-		this.label_JTextField.setBackground(tf.getSelectionColor());
-		this.label_JTextField.setForeground(tf.getSelectedTextColor());
-		this.label_JTextField.repaint();
-		//GeoLayerView layerView = (GeoLayerView)getData();
-		//if (layerView != null) {
-		//	layerView.isSelected(true);
-		//}
+		if ( this.doCheckBox ) {
+			this.selected = true;
+			JTextField tf = new JTextField(); // Use this to get selection colors to mimic a JTextField.
+			//__field.setBackground(__field.getSelectionColor());
+			//__field.setForeground(__field.getSelectedTextColor());
+			this.label_JTextField.setBackground(tf.getSelectionColor());
+			this.label_JTextField.setForeground(tf.getSelectedTextColor());
+			this.label_JTextField.repaint();
+			//GeoLayerView layerView = (GeoLayerView)getData();
+			//if (layerView != null) {
+			//	layerView.isSelected(true);
+			//}
+		}
 	}
+	*/
 
 	/**
 	Sets the selected state of the JCheckBox.
 	@param selected the state to set the JCheckBox to
 	*/
+	/*
 	public void setCheckBoxSelected(boolean selected) {
 		this.check.setSelected(selected);
 	}
+	*/
 
 	/**
 	 * Set the popup menu used with the node.
@@ -608,6 +615,7 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 	Sets whether the layer associated with this node is selected or not.
 	@param sel whether the layer is selected or not.
 	*/
+	/*
 	public void setSelected(boolean sel) {
 		if (sel) {
 			selectField();
@@ -617,11 +625,13 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 			deselectField();
 		}
 	}
+	*/
 
 	/**
 	Sets whether the layer associated with this node is visible or not.
 	@param vis whether the layer is visible or not.
 	*/
+	/*
 	public void setVisible(boolean vis) {
 		if (vis) {
 			this.check.setSelected(true);
@@ -630,5 +640,6 @@ implements FocusListener, MouseListener, ItemListener, ItemSelectable {
 			this.check.setSelected(false);
 		}
 	}
+	*/
 
 }

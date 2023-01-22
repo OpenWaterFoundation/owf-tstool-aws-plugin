@@ -3,7 +3,7 @@
 /* NoticeStart
 
 OWF AWS TSTool Plugin
-Copyright (C) 2022 Open Water Foundation
+Copyright (C) 2022 - 2023 Open Water Foundation
 
 OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -31,6 +31,8 @@ import java.util.List;
 
 import javax.swing.JLabel;
 import javax.swing.JTextField;
+
+import org.openwaterfoundation.tstool.plugin.aws.commands.s3.AwsS3Object;
 
 import RTi.Util.GUI.SimpleJComboBox;
 import RTi.Util.IO.IOUtil;
@@ -82,6 +84,17 @@ public class AwsToolkit {
 	 * Private constructor.
 	 */
 	private AwsToolkit () {
+	}
+	
+	/**
+	 * Delete a list of S3 objects using keys.
+	 * @param objectKeyList of S3 objects (keys) to delete
+	 * @param problems list of problems generated during the delete,
+	 * the size should be checked to determine if there were errors
+	 */
+	public List<S3CommandResult> deleteS3Objects ( List<AwsS3Object> objectKeyList ) {
+		List<S3CommandResult> commandResults = new ArrayList<>();
+		return commandResults;
 	}
 	
 	// -----------------------------------------------------------------------------

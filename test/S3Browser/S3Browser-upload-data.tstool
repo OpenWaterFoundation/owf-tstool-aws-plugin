@@ -1,0 +1,8 @@
+# StartLog(LogFile="results/S3Browser-upload-data.tstool.log")
+# Upload test data for the S3Browser:
+# - the uploaded files can be manually deleted, renamed, copy/paste, etc.
+# - use bucket aaa-test.openwaterfoundation.org, which should list first in choices
+# - the default profile is used
+#
+# Upload files.
+AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="aaa-test.openwaterfoundation.org",UploadFiles="../commands/AwsS3/data/testfile1.txt:folder1/testfile1.txt,../commands/AwsS3/data/testfile2.txt:folder1/testfile2.txt,../commands/AwsS3/data/testfile1.txt:folder2/testfile1.txt,../commands/AwsS3/data/testfile2.txt:folder2/testfile2.txt")

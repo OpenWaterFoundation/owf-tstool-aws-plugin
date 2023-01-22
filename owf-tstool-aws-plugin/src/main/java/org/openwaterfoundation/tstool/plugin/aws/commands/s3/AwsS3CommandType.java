@@ -84,7 +84,7 @@ public enum AwsS3CommandType {
 	@return the list of command types.
 	*/
 	public static List<AwsS3CommandType> getChoices() {
-    	List<AwsS3CommandType> choices = new ArrayList<AwsS3CommandType>();
+    	List<AwsS3CommandType> choices = new ArrayList<>();
     	choices.add ( AwsS3CommandType.COPY_OBJECT );
     	choices.add ( AwsS3CommandType.DELETE_OBJECT );
     	choices.add ( AwsS3CommandType.DOWNLOAD_OBJECTS );
