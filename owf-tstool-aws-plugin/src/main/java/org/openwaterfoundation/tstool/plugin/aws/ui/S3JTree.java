@@ -24,6 +24,10 @@ package org.openwaterfoundation.tstool.plugin.aws.ui;
 
 import java.awt.Component;
 import java.awt.Point;
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.ClipboardOwner;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
@@ -75,6 +79,9 @@ MouseListener
 	/**
 	Strings used in menus.
 	*/
+	private String MENU_CopyKey = "Copy Key";
+	private String MENU_Delee = "Delete";
+	private String MENU_Rename = "Rename";
 	private String MENU_Properties = "Properties";
 
 	/**
@@ -174,7 +181,11 @@ MouseListener
 
     	if ( action.equals(this.MENU_Properties)) {
     		// Popup menu "Properties" has been selected.
-    		showObjectProperties ();
+    		uiAction_Popup_Properties ();
+    	}
+    	else if ( action.equals(this.MENU_CopyKey)) {
+    		// Popup menu "Copy Key" has been selected.
+    		uiAction_Popup_CopyKey ();
     	}
 	}
 
@@ -842,9 +853,81 @@ MouseListener
 	}
 
 	/**
-	 * Show the selected object's properties in a dialog.
+	Checks to see if the mouse event would trigger display of the popup menu.
+	The popup menu does not display if it is null.
+	@param e the MouseEvent that happened.
+	*/
+	private void showPopupMenu(MouseEvent e) {
+	    String routine = getClass().getName() + ".showPopupMenu";
+	    try {
+    	if ( !e.isPopupTrigger() ) {
+	    	Message.printStatus(2, routine, "Not a popupTrigger.");
+        	// Do not do anything.
+        	return;
+    	}
+    	TreePath path = getPathForLocation(e.getX(), e.getY());
+    	if (path == null) {
+	    	Message.printStatus(2, routine, "TreePath is null for " + e.getX() + ", " + e.getY() );
+        	return;
+    	}
+    	// The node that last resulted in the popup menu
+    	this.popup_Node = (SimpleJTree_Node)path.getLastPathComponent();
+    	// First remove the menu items that are currently in the menu.
+    	this.popup_JPopupMenu.removeAll();
+    	// Now reset the popup menu based on the selected node:
+    	// - this class is added as an  ActionListener for menu selections
+    	//
+    	JMenuItem item = null;
+        item = new SimpleJMenuItem ( this.MENU_CopyKey, this );
+        this.popup_JPopupMenu.add ( item );
+        item = new SimpleJMenuItem ( this.MENU_Properties, this );
+        this.popup_JPopupMenu.add ( item );
+    	// Now display the popup so that the user can select the appropriate menu item.
+    	Point pt = JGUIUtil.computeOptimalPosition ( e.getPoint(), e.getComponent(), this.popup_JPopupMenu );
+	   	Message.printStatus(2, routine, "Showing popup menu at " + pt.x + ", " + pt.y );
+    	popup_JPopupMenu.show(e.getComponent(), pt.x, pt.y);
+	    }
+	    catch ( Exception ex ) {
+	    	Message.printWarning(2, routine, "Error showing popup menu.");
+	    	Message.printWarning(2, routine, ex);
+	    }
+	}
+
+	/**
+	 * Split the key into parts.
+	 * @param key the key to split, for example "top/second/third/" for a folder and
+	 * "top/second/third/file.ext" for a file.
+	 * @return the kay path split into its parts
 	 */
-	private void showObjectProperties () {
+   	private String [] splitKey ( String key ) {
+   		String [] parts = key.split("/");
+   		return parts;
+   	}
+
+	/**
+	 * Copy the first selected object key to operating system clipboard.
+	 */
+	private void uiAction_Popup_CopyKey () {
+    	List<S3JTreeNode> selectedNodes = getSelectedS3JTreeNodes(true);
+    	if ( selectedNodes.size() > 0 ) {
+    		S3JTreeNode node = selectedNodes.get(0);
+    		Object o = node.getData();
+    		if ( o != null ) { 
+    			AwsS3Object s3Object = (AwsS3Object)o;
+    			String key = s3Object.getKey();
+    			StringSelection stringSelection = new StringSelection(key);
+    			// Set the string in the clipboard.
+    			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+    			ClipboardOwner owner = null;
+    			clipboard.setContents(stringSelection, owner);
+    		}
+    	}
+	}
+
+	/**
+	 * Show selected objects' properties in a dialog.
+	 */
+	private void uiAction_Popup_Properties () {
 		String routine = getClass().getSimpleName() + ".showObjectProperties";
 
     	//Object data = __popup_Node.getData();
@@ -873,7 +956,6 @@ MouseListener
        			if ( node == null ) {
        				Message.printWarning(3,routine,"Selected node is null.");
        			}
-       			//S3JTreeNode s3Node = (S3JTreeNode)node;
        			S3JTreeNode s3Node = node;
        			AwsS3Object s3Object = s3Node.getS3Object();
        			if ( s3Object.getObjectType() == AwsS3ObjectType.BUCKET ) {
@@ -915,55 +997,6 @@ MouseListener
        	}
 	}
 
-	/**
-	Checks to see if the mouse event would trigger display of the popup menu.
-	The popup menu does not display if it is null.
-	@param e the MouseEvent that happened.
-	*/
-	private void showPopupMenu(MouseEvent e) {
-	    String routine = getClass().getName() + ".showPopupMenu";
-	    try {
-    	if ( !e.isPopupTrigger() ) {
-	    	Message.printStatus(2, routine, "Not a popupTrigger.");
-        	// Do not do anything.
-        	return;
-    	}
-    	TreePath path = getPathForLocation(e.getX(), e.getY());
-    	if (path == null) {
-	    	Message.printStatus(2, routine, "TreePath is null for " + e.getX() + ", " + e.getY() );
-        	return;
-    	}
-    	// The node that last resulted in the popup menu
-    	this.popup_Node = (SimpleJTree_Node)path.getLastPathComponent();
-    	// First remove the menu items that are currently in the menu.
-    	this.popup_JPopupMenu.removeAll();
-    	// Now reset the popup menu based on the selected node:
-    	// - this class is added as an  ActionListener for menu selections
-    	//
-    	JMenuItem item = null;
-        item = new SimpleJMenuItem ( this.MENU_Properties, this );
-        this.popup_JPopupMenu.add ( item );
-    	// Now display the popup so that the user can select the appropriate menu item.
-    	Point pt = JGUIUtil.computeOptimalPosition ( e.getPoint(), e.getComponent(), this.popup_JPopupMenu );
-	   	Message.printStatus(2, routine, "Showing popup menu at " + pt.x + ", " + pt.y );
-    	popup_JPopupMenu.show(e.getComponent(), pt.x, pt.y);
-	    }
-	    catch ( Exception ex ) {
-	    	Message.printWarning(2, routine, "Error showing popup menu.");
-	    	Message.printWarning(2, routine, ex);
-	    }
-	}
-
-	/**
-	 * Split the key into parts.
-	 * @param key the key to split, for example "top/second/third/" for a folder and
-	 * "top/second/third/file.ext" for a file.
-	 * @return the kay path split into its parts
-	 */
-   	private String [] splitKey ( String key ) {
-   		String [] parts = key.split("/");
-   		return parts;
-   	}
 
    	/**
    	 * Event handler for TreeSelectionListener.
