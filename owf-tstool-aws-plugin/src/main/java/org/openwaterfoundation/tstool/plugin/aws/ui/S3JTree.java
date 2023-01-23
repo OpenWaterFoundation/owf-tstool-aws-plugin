@@ -26,8 +26,6 @@ import java.awt.Component;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.ItemEvent;
-import java.awt.event.ItemListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.util.ArrayList;
@@ -38,8 +36,6 @@ import javax.swing.JFrame;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
-import javax.swing.event.TreeSelectionEvent;
-import javax.swing.event.TreeSelectionListener;
 import javax.swing.tree.TreePath;
 
 import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
@@ -131,11 +127,24 @@ MouseListener
 
 	/**
 	Constructor.
-	This creates a tree containing the provided root node.
-	@param root the root node to use to initialize the tree.
+	Create an S3JTree.
+	The tree will be empty so call the loadFromS3 function after the UI is initialized.
+	@param awsSession the AwsSession that provides login credentials
+	@param bucket the bucket that is currently selected in calling code
+	@param region the region that is currently selected in calling code
 	*/
-	public S3JTree() {
-    	//super(root);
+	public S3JTree ( AwsSession awsSession, String bucket, String region ) {
+		// Wait to initialize in the constructor so the root node can be created below.
+    	super(true);
+		this.awsSession = awsSession;
+		this.bucket = bucket;
+		// Create the root node and then initialize the tree.
+		AwsS3Object s3Object = new AwsS3Object(bucket);
+		S3JTreeNode rootNode = new S3JTreeNode(s3Object, this);
+		initializeTree ( rootNode );
+
+		// Setting the region causes the S3 client to be created.
+		setRegion ( region );
     	this.openFolderIcon = getOpenIcon();
     	showRootHandles(true);
     	setRootVisible(true);
@@ -153,33 +162,6 @@ MouseListener
     	// TODO smalers 2023-01-14 need to enable closed and open icons for folders.
     	this.closedFolderIcon = getClosedIcon();
 	}
-
-	/**
-	Constructor.
-	This creates a tree containing the provided root node.
-	@param root the root node to use to initialize the tree.
-	*/
-	/*
-	public S3JTree( S3JTreeNode root ) {
-    	super(root);
-    	this.openFolderIcon = getOpenIcon();
-    	showRootHandles(true);
-    	setRootVisible(true);
-    	addMouseListener(this);
-    	setTreeTextEditable(false);
-
-    	// Create a popup menu that is shared between all tree nodes:
-    	// - listeners for each menu item are added in 'showPopupMenu'
-    	this.popup_JPopupMenu = new JPopupMenu();
-    	// Add a listener for Tree selection events in case need for troubleshooting or functionality.
-    	this.addTreeSelectionListener(this);
-
-    	setLeafIcon(null);
-    	// The following ensures that folders are the closed folder.
-    	// TODO smalers 2023-01-14 need to enable closed and open icons for folders.
-    	this.closedFolderIcon = getClosedIcon();
-	}
-	*/
 
 	/**
 	Responds to action performed events sent by popup menus of the tree nodes.
@@ -428,7 +410,7 @@ MouseListener
 					removeNode(node, false);
 				}
 				catch (Exception e) {
-					Message.printWarning(2, routine, "Cannot remove children of root node: " + rootNode );
+					Message.printWarning(2, routine, "Error removing children of root node: " + rootNode );
 					Message.printWarning(2, routine, e);
 				}
 			}
@@ -471,35 +453,26 @@ MouseListener
    	 * This method casts the SimpleJTree_Node to S3JTreeNode.
    	 */
    	public List<S3JTreeNode> getSelectedS3JTreeNodes () {
+   		String routine = getClass().getSimpleName() + ".getSelectedS3JTreeNodes";
    		List<SimpleJTree_Node> superNodes = super.getSelectedNodes();
    		List<S3JTreeNode> selectedNodes = new ArrayList<>();
    		S3JTreeNode s3Node = null;
    		for ( SimpleJTree_Node node : superNodes ) {
-   			s3Node = (S3JTreeNode)node;
-   			selectedNodes.add(s3Node);
+   			if ( node instanceof S3JTreeNode ) {
+   				// Put this first since more specific.
+   				//Message.printStatus(2, routine, "Node is a S3JTreeNode, name=" + node.getName() + ", text=" + node.getText() );
+   				s3Node = (S3JTreeNode)node;
+   				selectedNodes.add(s3Node);
+   			}
+   			else if ( node instanceof SimpleJTree_Node ) {
+   				Message.printStatus(2, routine, "Node is a SimpleJTree_Node, name=" + node.getName() + ", text=" + node.getText() );
+   			}
+   			else {
+   				Message.printStatus(2, routine, "Unhandled node type for: " + node );
+   			}
    		}
    		return selectedNodes;
    	}
-
-   	/**
-   	 * Return whether to use checkboxes.
-   	 * @return true if checkboxes should be use, false if not
-   	 */
-   	/*
-   	public boolean getUseCheckBox () {
-   		return this.useCheckBox;
-   	}
-   	*/
-
-	/**
-	Handle ItemEvent events.
-	@param e ItemEvent to handle.
-	*/
-   	/*
-	public void itemStateChanged ( ItemEvent e ) {
-		// TOOD smalers 2023-01-10 need to handle events generated in a tree node, such as checkbox selection.
-	}
-	*/
 
 	/**
 	 * List objects and add to a folder.
@@ -780,15 +753,22 @@ MouseListener
     	showPopupMenu(event);
 	}
 
-	/**
-	 * Remove all the child nodes from a node.
-	 * @param node node for which to remove children (the node itself is NOT removed)
-	 */
-	/*
-	public void removeAll(S3JTreeNode node) {
-		node.removeAllChildren();
-	}
-	*/
+    /**
+     * Set the root node properties.
+     * This should be called when refreshing the tree.
+     * The tree bucket must have been set first.
+     */
+    public void refreshRootNodeProperties() {
+    	S3JTreeNode rootNode = (S3JTreeNode)getRoot();
+    	rootNode.setName(this.bucket);
+    	rootNode.setText(this.bucket);
+    	AwsS3Object s3Object = (AwsS3Object)rootNode.getData();
+    	s3Object.setBucket(this.bucket);
+    	// Also set the user object to a string:
+    	// - otherwise the original data continues to be used
+    	// - see:  https://stackoverflow.com/questions/16013097/change-the-jtree-node-text-runtime
+    	rootNode.setUserObject(this.bucket);
+    }
 	
 	/**
 	 * Set the AWS session for the tree.
@@ -806,6 +786,7 @@ MouseListener
 
 	/**
 	 * Set the region for the tree.
+	 * This results in a new S3 client being initialized.
 	 */
 	public void setRegion ( String region ) {
 		this.region = region;
@@ -830,6 +811,7 @@ MouseListener
     	//Object data = __popup_Node.getData();
 		// Get the selected nodes:
 		// - TODO smalers 2023-01-20 the order is that of the selection, not the tree order
+    	Message.printStatus(2, routine, "Showing properties for selected nodes.");
     	List<S3JTreeNode> selectedNodes = getSelectedS3JTreeNodes();
     	Message.printStatus(2, routine, "Showing properties for " + selectedNodes.size() + " selected nodes.");
 
@@ -842,7 +824,11 @@ MouseListener
        				infoList.add ( "" );
        				infoList.add ( "---------------------------------------------------------------------------" );
        			}
-       			S3JTreeNode s3Node = (S3JTreeNode)node;
+       			if ( node == null ) {
+       				Message.printWarning(3,routine,"Selected node is null.");
+       			}
+       			//S3JTreeNode s3Node = (S3JTreeNode)node;
+       			S3JTreeNode s3Node = node;
        			AwsS3Object s3Object = s3Node.getS3Object();
        			if ( s3Object.getObjectType() == AwsS3ObjectType.BUCKET ) {
        				infoList.add ( "Object is an S3 bucket." );
