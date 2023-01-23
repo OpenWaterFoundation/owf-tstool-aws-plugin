@@ -456,8 +456,6 @@ public class S3TreeView {
         }
         try {
         	this.s3JTree.refresh();
-        	//this.s3JTree.refresh(false);
-        	//this.s3JTree.invalidate();
         }
         catch ( Exception e ) {
         	Message.printWarning(2, routine, e);

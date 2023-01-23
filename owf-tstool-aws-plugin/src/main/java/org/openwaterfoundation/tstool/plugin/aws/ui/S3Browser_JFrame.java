@@ -215,11 +215,16 @@ public class S3Browser_JFrame extends JFrame implements ActionListener, TreeSele
 		// Prompt for confirmation and then delete nodes that are selected.
 		int response = ResponseJDialog.OK;
 		
-		// Get the list of selected nodes.
-		List<S3JTreeNode> selectedNodeList = this.s3Panel.getS3JTree().getSelectedS3JTreeNodes();
-		if ( selectedNodeList.size() == 0 ) {
+		// Get the list of selected nodes:
+		// - delete in reverse sorted order so that the innermost files are deleted first
+		List<S3JTreeNode> selectedNodeList0 = this.s3Panel.getS3JTree().getSelectedS3JTreeNodes(true);
+		if ( selectedNodeList0.size() == 0 ) {
 			// Should not happen if node selection handling is working correctly.
 			return;
+		}
+		List<S3JTreeNode> selectedNodeList = new ArrayList<>();
+		for ( int i = selectedNodeList.size() - 1; i >= 0; i-- ) {
+			selectedNodeList.add(selectedNodeList0.get(i));
 		}
 
 		AwsS3Object s3Object = null;
