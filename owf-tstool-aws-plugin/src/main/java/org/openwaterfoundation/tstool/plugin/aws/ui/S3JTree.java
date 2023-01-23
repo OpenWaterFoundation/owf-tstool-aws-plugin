@@ -449,26 +449,65 @@ MouseListener
    	/**
    	 * Return the selected nodes.
    	 * The order is that of the selection (not sorted by network order).
+   	 * @param sortKeys sort the selected nodes by the S3 keys (true) or return in the order from the parent tree (false)
    	 * @return the selected nodes.
    	 * This method casts the SimpleJTree_Node to S3JTreeNode.
    	 */
-   	public List<S3JTreeNode> getSelectedS3JTreeNodes () {
+   	public List<S3JTreeNode> getSelectedS3JTreeNodes ( boolean sortKeys ) {
    		String routine = getClass().getSimpleName() + ".getSelectedS3JTreeNodes";
    		List<SimpleJTree_Node> superNodes = super.getSelectedNodes();
    		List<S3JTreeNode> selectedNodes = new ArrayList<>();
    		S3JTreeNode s3Node = null;
-   		for ( SimpleJTree_Node node : superNodes ) {
-   			if ( node instanceof S3JTreeNode ) {
-   				// Put this first since more specific.
-   				//Message.printStatus(2, routine, "Node is a S3JTreeNode, name=" + node.getName() + ", text=" + node.getText() );
-   				s3Node = (S3JTreeNode)node;
-   				selectedNodes.add(s3Node);
+   		Object data = null;
+   		AwsS3Object s3Object = null;
+   		if ( sortKeys ) {
+   			// Create a list of strings to sort.
+   			List<String> keys = new ArrayList<>();
+   			for ( SimpleJTree_Node node : superNodes ) {
+   				if ( node instanceof S3JTreeNode ) {
+   					s3Node = (S3JTreeNode)node;
+   					data = s3Node.getData();
+   					if ( data != null ) {
+   						s3Object = (AwsS3Object)data;
+   						keys.add(s3Object.getKey());
+   					}
+   				}
+   				else {
+   					// Unknown type:
+   					// - should never happen
+   					// - must add to preserve the overall index position
+   					// - add at the end
+   					keys.add("zzzz");
+   				}
    			}
-   			else if ( node instanceof SimpleJTree_Node ) {
-   				Message.printStatus(2, routine, "Node is a SimpleJTree_Node, name=" + node.getName() + ", text=" + node.getText() );
+   			// Sort the keys.
+   			boolean ignoreCase = false;
+   			int [] sortOrder = new int[keys.size()];
+   			StringUtil.sortStringList(keys, StringUtil.SORT_ASCENDING, sortOrder, true, ignoreCase);
+   			// Add the selected nodes in the key-sorted order:
+   			// - only add S3JTreeNode
+   			for ( int sortPos : sortOrder ) {
+   				if ( superNodes.get(sortPos) instanceof S3JTreeNode ) {
+   					selectedNodes.add((S3JTreeNode)superNodes.get(sortPos));
+   				}
    			}
-   			else {
-   				Message.printStatus(2, routine, "Unhandled node type for: " + node );
+   		}
+   		else {
+   			// Return the selected nodes
+   			for ( SimpleJTree_Node node : superNodes ) {
+   				if ( node instanceof S3JTreeNode ) {
+   					// Put this first since more specific.
+   					//Message.printStatus(2, routine, "Node is a S3JTreeNode, name=" + node.getName() + ", text=" + node.getText() );
+   					s3Node = (S3JTreeNode)node;
+   					selectedNodes.add(s3Node);
+   				}
+   				else if ( node instanceof SimpleJTree_Node ) {
+   					// This should not happen given that the current design has been tested.
+   					Message.printStatus(2, routine, "Node is a SimpleJTree_Node, name=" + node.getName() + ", text=" + node.getText() );
+   				}
+   				else {
+   					Message.printStatus(2, routine, "Unhandled node type for: " + node );
+   				}
    			}
    		}
    		return selectedNodes;
@@ -812,17 +851,24 @@ MouseListener
 		// Get the selected nodes:
 		// - TODO smalers 2023-01-20 the order is that of the selection, not the tree order
     	Message.printStatus(2, routine, "Showing properties for selected nodes.");
-    	List<S3JTreeNode> selectedNodes = getSelectedS3JTreeNodes();
+    	List<S3JTreeNode> selectedNodes = getSelectedS3JTreeNodes(true);
     	Message.printStatus(2, routine, "Showing properties for " + selectedNodes.size() + " selected nodes.");
 
+       	String div = "---------------------------------------------------------------------------";
        	try {
   			List<String> infoList = new ArrayList<>();
+  			if ( selectedNodes.size() > 1 ) {
+  				infoList.add ( div );
+  				infoList.add ( "Objects are sorted by key, which should match the tree top to bottom." );
+  				infoList.add ( div );
+  				infoList.add ( "" );
+  			}
    			int objectCount = 0;
        		for ( S3JTreeNode node : selectedNodes ) {
        			++objectCount;
        			if ( objectCount > 1 ) {
        				infoList.add ( "" );
-       				infoList.add ( "---------------------------------------------------------------------------" );
+       				infoList.add ( div );
        			}
        			if ( node == null ) {
        				Message.printWarning(3,routine,"Selected node is null.");
