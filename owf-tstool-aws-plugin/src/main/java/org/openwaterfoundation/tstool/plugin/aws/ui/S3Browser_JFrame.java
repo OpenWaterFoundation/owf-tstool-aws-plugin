@@ -127,6 +127,8 @@ public class S3Browser_JFrame extends JFrame implements ActionListener, TreeSele
 		Object o = e.getSource();
 		String command = e.getActionCommand();
 
+		// Application menus.
+		
 		if ( command.equals("Exit") ) {
 			// Exit from the file menu.
 			closeWindow();
@@ -135,6 +137,9 @@ public class S3Browser_JFrame extends JFrame implements ActionListener, TreeSele
 			// Show the diagnostics configuration window.
 			showDiagnostics();
 		}
+		
+		// Diagnostics tool menus.
+
 		else if ( command.equals("View Log File") ) {
 			// View the log file.
 			showLogFile();
@@ -143,6 +148,9 @@ public class S3Browser_JFrame extends JFrame implements ActionListener, TreeSele
 			// Exit from the "Close" button.
 			closeWindow();
 		}
+		
+		// Application buttons.
+		
 		else if ( o == this.delete_JButton ) {
 			// Delete the objects, prompting for confirmation.
 			deleteS3Objects(true);
@@ -150,7 +158,7 @@ public class S3Browser_JFrame extends JFrame implements ActionListener, TreeSele
 		else if ( o == this.refresh_JButton ) {
 			// Refresh the tree in the panel, for example if S3 has been updated outside of the tool
 			// or the tree is otherwise out of synchronization.
-			this.s3Panel.refresh();
+			this.s3Panel.refreshTree();
 		}
 	}
 

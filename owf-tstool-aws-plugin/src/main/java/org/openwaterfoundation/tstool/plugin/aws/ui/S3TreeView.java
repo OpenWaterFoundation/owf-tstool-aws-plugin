@@ -418,6 +418,7 @@ public class S3TreeView {
     	// Root node matches the bucket:
     	// - do not set the tree because it is created below
         //this.rootNode = new S3JTreeNode(new AwsS3Object(this.bucket, AwsS3ObjectType.BUCKET), null);
+        /*
         if ( debug ) {
         	Message.printStatus(2,routine,"  Setting root node 'name', 'text', and bucket to: " + this.bucket);
         }
@@ -431,6 +432,7 @@ public class S3TreeView {
         if ( debug ) {
         	Message.printStatus(2,routine,"  ...back from refreshing the root node.");
         }
+        */
         
         // Create a tree with the root node:
         // - because the root node did not have the tree set, set it below
