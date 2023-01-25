@@ -3,7 +3,7 @@
 /* NoticeStart
 
 OWF AWS TSTool Plugin
-Copyright (C) 2022 Open Water Foundation
+Copyright (C) 2022-2023 Open Water Foundation
 
 OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -34,8 +34,6 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.util.ArrayList;
-import java.util.List;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -74,9 +72,10 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	private SimpleJComboBox region_JComboBox = null;
 	
 	/**
-	 * The region that has been selected for S3 browsing.
+	 * Whether item events are ignored, used to disable events during initialization
+	 * so that initial requested * values are displayed.
 	 */
-	private String s3Region = null;
+	private boolean ignoreItemEvents = false;
 	
 	/**
 	 * The tree, which manages the nodes.
@@ -87,13 +86,14 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	Constructor.
 	@param awsSession AwsSession instance to handle authentication
 	@param s3Resion S3 region to use (will be selected in the choice), or null to not select
+	@param bucket S3 bucket to use (will be selected in the choice), or null to not select
 	*/
-	public S3Browser_JPanel ( AwsSession awsSession, String s3Region ) {
+	public S3Browser_JPanel ( AwsSession awsSession, String s3Region, String bucket ) {
 		String routine = getClass().getSimpleName() + ".S3Browser_JPanel";
 		this.awsSession = awsSession;
-		this.s3Region = s3Region;
+		//this.s3Region = s3Region;
 		
- 		setupUI();
+ 		setupUI ( s3Region, bucket );
  		
  		// Load the initial S3 data.
  		try {
@@ -164,6 +164,11 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	public void itemStateChanged ( ItemEvent e ) {
 		String routine = getClass().getSimpleName() + ".itemStateChanged";
 		Object o = e.getSource();
+		
+		// Ignore item events during UI initialization.
+		if ( ignoreItemEvents ) {
+			return;
+		}
 
     	if ( (o == this.region_JComboBox) && (e.getStateChange() == ItemEvent.SELECTED) ) {
     		// Region was selected:
@@ -173,7 +178,8 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
     			// Will be null at startup before the tree is initialized.
     			this.s3JTree.setRegion(getSelectedRegion());
     		}
-    		populateBucketList();
+    		// Populate the buckets, which will default to selecting the first bucket
+    		populateBucketList(getSelectedRegion(), null);
     	}
     	else if ( (o == this.bucket_JComboBox) && (e.getStateChange() == ItemEvent.SELECTED) ) {
     		// Bucket was selected:
@@ -224,23 +230,34 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 
 	/**
 	 * Populate the list of buckets available to browse.
+	 * @param regionReq requested region to list buckets
+	 * @param bucketReq requested bucket to select
 	 */
-	private void populateBucketList () {
+	private void populateBucketList ( String regionReq, String bucketReq ) {
         AwsToolkit.getInstance().uiPopulateBucketChoices(
         	this.awsSession,
-        	this.s3Region,
+        	//this.s3Region,
+        	regionReq,
         	this.bucket_JComboBox,
         	false);
+        // Don't allow a default.
         this.bucket_JComboBox.remove("");
+        if ( (bucketReq != null) && !bucketReq.isEmpty() ) {
+        	this.bucket_JComboBox.select(bucketReq);
+        }
 	}
 
 	/**
 	 * Populate the list of regions available to browse.
+	 * @param regionReq requested region to select
 	 */
-	private void populateRegionList () {
+	private void populateRegionList ( String regionReq ) {
         AwsToolkit.getInstance().uiPopulateRegionChoices(
         	this.awsSession,
         	this.region_JComboBox );
+        if ( (regionReq != null)  && !regionReq.isEmpty() ) {
+        	this.region_JComboBox.select(regionReq);
+        }
 	}
 	
     /**
@@ -249,7 +266,7 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
      */
     public void refreshTree () {
     	String routine = getClass().getSimpleName() + ".refreshTree";
-    	List<String> problems = new ArrayList<>();
+    	//List<String> problems = new ArrayList<>();
     	
     	Message.printStatus(2, routine, "Refreshing the tree.");
     	
@@ -272,9 +289,14 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 
 	/**
 	Sets up the GUI.
+	@param regionReq requested region
+	@param bucketReq requested bucket
 	*/
-	private void setupUI() {
+	private void setupUI ( String regionReq, String bucketReq) {
 		setLayout(new GridBagLayout());
+
+	    // Disable item events for interactive actions.
+	    this.ignoreItemEvents = true;
 
 		Insets insetsTLBR = new Insets(2,2,2,2);
 		JPanel panel = this;
@@ -307,7 +329,7 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 		s3Panel.setLayout(new GridBagLayout());
 		int yS3 = -1;
 	    JGUIUtil.addComponent(s3Panel,
-	        new JLabel("S3 Objects (\"keys\" that represent files)"),
+	        new JLabel("S3 Objects (\"keys\" that correspond to files)"),
 	        0, ++yS3, 2, 1, 1, 0, insetsTLBR,
 	        GridBagConstraints.HORIZONTAL, GridBagConstraints.CENTER);
 
@@ -335,7 +357,7 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	        GridBagConstraints.NONE, GridBagConstraints.WEST);
 	    this.region_JComboBox = new SimpleJComboBox (false);
 	    this.region_JComboBox.setToolTipText("AWS regions that are available for S3 storage buckets.");
-	    populateRegionList();
+	    populateRegionList(regionReq);
 	    this.region_JComboBox.addItemListener(this);
 	    JGUIUtil.addComponent(s3Panel,
 	        this.region_JComboBox,
@@ -349,7 +371,7 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	        GridBagConstraints.NONE, GridBagConstraints.WEST);
 	    this.bucket_JComboBox = new SimpleJComboBox (false);
 	    this.bucket_JComboBox.setToolTipText("S3 buckets that are available for the profile and region.");
-	    populateBucketList();
+	    populateBucketList(regionReq, bucketReq);
 	    this.bucket_JComboBox.addItemListener(this);
 	    JGUIUtil.addComponent(s3Panel,
 	        this.bucket_JComboBox,
@@ -357,7 +379,7 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	        GridBagConstraints.NONE, GridBagConstraints.WEST);
 
 	    // Select the region that was passed into the constructor and let the choices cascade.
-	    if ( (this.s3Region != null) && !s3Region.isEmpty() ) {
+	    if ( (regionReq != null) && !regionReq.isEmpty() ) {
 	    	// Try to select:
 	    	// - regions have the ID and name separated by a dash so need to select based on the first token
 	    	try {
@@ -368,13 +390,16 @@ public class S3Browser_JPanel extends JPanel implements ActionListener, ItemList
 	    		boolean trimTokens = true;
 	    		String defaultItem = null;
 	    		JGUIUtil.selectTokenMatches(this.region_JComboBox, ignoreCase, " ", flags, token,
-	    			this.s3Region, defaultItem, trimTokens);
+	    			regionReq, defaultItem, trimTokens);
 	    	}
 	    	catch ( Exception e ) {
 	    		// Just select the first item.
 	    		this.region_JComboBox.select(0);
 	    	}
 	    }
+	    
+	    // Enable item events for interactive actions.
+	    this.ignoreItemEvents = false;
 
 	    // Create the tree for S3 files:
 	    // - the tree will not be populated
