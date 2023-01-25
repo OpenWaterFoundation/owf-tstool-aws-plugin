@@ -3,7 +3,7 @@
 /* NoticeStart
 
 OWF AWS TSTool Plugin
-Copyright (C) 2022 Open Water Foundation
+Copyright (C) 2022-2023 Open Water Foundation
 
 OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -73,9 +73,14 @@ public class S3Browser_JFrame extends JFrame implements ActionListener, TreeSele
 	private AwsSession awsSession = null;
 	
 	/**
-	 * The region to use for S3 browsing.
+	 * The initial region to use for S3 browsing.
 	 */
 	private String region = null;
+
+	/**
+	 * The initial bucket to use for S3 browsing.
+	 */
+	private String bucket = null;
 	
 	// Tool buttons.
 
@@ -107,12 +112,14 @@ public class S3Browser_JFrame extends JFrame implements ActionListener, TreeSele
 	/**
 	 * Open the S3Browser application window.
 	 * @param profile AWS profile to use.
-	 * @param region AWS region to use for S3.
+	 * @param region AWS region to use for S3, or null to select the default.
+	 * @param bucket AWS S3 bucket to list, or null to select the default.
 	 */
-	S3Browser_JFrame ( String title, AwsSession awsSession, String region ) {
+	S3Browser_JFrame ( String title, AwsSession awsSession, String region, String bucket ) {
 		// Save input.
 		this.awsSession = awsSession;
 		this.region = region;
+		this.bucket = bucket;
 		
 		// Set up the user interface.
 
@@ -377,7 +384,7 @@ public class S3Browser_JFrame extends JFrame implements ActionListener, TreeSele
 		deleteImageIcon = new ImageIcon(deleteImage);
 		this.delete_JButton = new SimpleJButton(deleteImageIcon,
 				"Delete",
-				"Delete selected S3 objects",
+				"Delete selected S3 objects (with confirmation)",
 				insetsNNNN, false, this);
 		toolBar.add(delete_JButton);
 
@@ -388,7 +395,7 @@ public class S3Browser_JFrame extends JFrame implements ActionListener, TreeSele
 		renameImageIcon = new ImageIcon(renameImage);
 		this.rename_JButton = new SimpleJButton(renameImageIcon,
 				"Rename",
-				"Rename selected S3 object",
+				"Rename selected S3 object (with confirmation)",
 				insetsNNNN, false, this);
 		toolBar.add(rename_JButton);
 
@@ -408,7 +415,10 @@ public class S3Browser_JFrame extends JFrame implements ActionListener, TreeSele
 		setupMenus();
 		setupToolBar();
 
-		this.s3Panel = new S3Browser_JPanel ( this.awsSession, this.region );
+		// Set up the S3 panel:
+		// - the AwsSession is used for authentication
+		// - the region and bucket, if not null, are used to initialize choices
+		this.s3Panel = new S3Browser_JPanel ( this.awsSession, this.region, this.bucket );
 		getContentPane().add ( "Center", s3Panel );
 
 		// Put the buttons on the bottom of the window.

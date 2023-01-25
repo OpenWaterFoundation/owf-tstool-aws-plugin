@@ -8,6 +8,8 @@ nav:
 - Introduction: introduction/introduction.md
 - Getting Started: getting-started/getting-started.md
 - Troubleshooting: troubleshooting/troubleshooting.md
+- Reference - Applications:
+  - S3 Browser: app-ref/S3Browser/S3Browser.md
 - Reference - Commands:
   - Overview: command-ref/overview.md
   - AwsCloudFront: command-ref/AwsCloudFront/AwsCloudFront.md

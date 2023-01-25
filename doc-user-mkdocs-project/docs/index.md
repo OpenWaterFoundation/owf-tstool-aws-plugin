@@ -2,6 +2,7 @@
 
 This documentation provides user documentation for the Open Water Foundation TSTool Amazon Web Services (AWS) plugin.
 This plugin allows automation of workflows that use AWS services such as S3 storage and CloudFront content delivery network (CDN).
+The plugin also provides a stand-alone S3 browser application that can be used to explore S3 files.
 
 *   [Acknowledgements](#acknowledgements)
 *   [How to Use this Documentation](#how-to-use-this-documentation)
@@ -9,8 +10,8 @@ This plugin allows automation of workflows that use AWS services such as S3 stor
 
 This documentation has been updated for:
 
-*   TSTool version 14.5.0
-*   TSTool AWS plugin version 1.1.1
+*   TSTool version 14.5.3
+*   TSTool AWS plugin version 1.2.0
 
 ----------------
 

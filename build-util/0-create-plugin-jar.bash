@@ -112,7 +112,7 @@ echoStderr() {
 getPluginVersion() {
   # Maven folder structure results in duplicate 'owf-tstool-aws-plugin'?
   # TODO smalers 2022-05-19 need to enable this.
-  srcFile="${repoFolder}/owf-tstool-aws-plugin/src/main/java/org/openwaterfoundation/tstool/plugin/aws/Aws.java"  
+  srcFile="${repoFolder}/owf-tstool-aws-plugin/src/main/java/org/openwaterfoundation/tstool/plugin/aws/PluginMeta.java"  
   # Get the version from the code
   # line looks like:
   #  public static final String VERSION = "1.0.0 (2022-05-27)";

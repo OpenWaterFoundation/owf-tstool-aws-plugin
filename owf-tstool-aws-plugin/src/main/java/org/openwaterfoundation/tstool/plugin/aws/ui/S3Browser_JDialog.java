@@ -3,7 +3,7 @@
 /* NoticeStart
  
 OWF AWS TSTool Plugin
-Copyright (C) 2022 Open Water Foundation
+Copyright (C) 2022-2023 Open Water Foundation
 
 OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

@@ -3,7 +3,7 @@
 /* NoticeStart
 
 OWF AWS TSTool Plugin
-Copyright (C) 2022 Open Water Foundation
+Copyright (C) 2022-2023 Open Water Foundation
 
 OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -68,8 +68,12 @@ public class S3Browser_App implements Runnable {
 	/**
 	 * Launch the S3 as a separate process.
 	 * This allows running from TSTool.
+	 * @param title the title to use for the S3 Browser application
+	 * @param awsSession the AwsSession to use for authentication
+	 * @param region the AWS region to use for services to initially display in the S3 browser
+	 * @param bucket the AWS S3 bucket to initially display in the S3 browser
 	 */
-	public static void launchBrowser ( String title, AwsSession awsSession, String region ) {
+	public static void launchBrowser ( String title, AwsSession awsSession, String region, String bucket ) {
 		String routine = S3Browser_App.class.getSimpleName() + ".launchBrowser";
 		Message.printStatus(2, routine, "Launching S3 browser application." );
 		// Put together the command line as a list:
@@ -144,8 +148,14 @@ public class S3Browser_App implements Runnable {
 			}
 			commandString.append(" --profile ");
 			commandString.append(awsSession.getProfile());
-			commandString.append(" --region ");
-			commandString.append(region);
+			if ( (region != null) && !region.isEmpty() ) {
+				commandString.append(" --region ");
+				commandString.append(region);
+			}
+			if ( (bucket != null) && !bucket.isEmpty() ) {
+				commandString.append(" --bucket ");
+				commandString.append(bucket);
+			}
 			// Turn on debug if debug is on in TSTool.
 			if ( Message.isDebugOn ) {
 				commandString.append(" --debug " + Message.getDebugLevel(Message.TERM_OUTPUT)
@@ -240,13 +250,21 @@ public class S3Browser_App implements Runnable {
     	String logFile = null;
     	String profile = "default";
     	String region = null;
+    	String bucket = null;
     	int terminalDebugLevel = 0;
     	int logDebugLevel = 0;
     	
     	int iargMax = args.length - 1;
     	for ( int iarg = 0; iarg < args.length; iarg++ ) {
     		String arg = args[iarg];
-    		if ( arg.equalsIgnoreCase("--debug") ) {
+    		if ( arg.equalsIgnoreCase("--bucket") ) {
+    			// --bucket Bucket
+    			++iarg;
+    			if ( iarg <= iargMax ) {
+    				bucket = args[iarg];
+    			}
+    		}
+    		else if ( arg.equalsIgnoreCase("--debug") ) {
     			// --debug terminal,file    (levels for the terminal and the log file)
     			++iarg;
     			if ( iarg <= iargMax ) {
@@ -307,6 +325,9 @@ public class S3Browser_App implements Runnable {
     	Message.setDebugLevel(Message.LOG_OUTPUT,logDebugLevel);
    		Message.printStatus(1, routine, "Terminal debug level = " + Message.getDebugLevel(Message.TERM_OUTPUT));
    		Message.printStatus(1, routine, "Log file debug level = " + Message.getDebugLevel(Message.LOG_OUTPUT));
+   		Message.printStatus(1, routine, "Profile = " + profile );
+   		Message.printStatus(1, routine, "Region = " + region );
+   		Message.printStatus(1, routine, "Bucket = " + bucket );
     	if ( (terminalDebugLevel > 0) || (logDebugLevel > 0) ) {
     		Message.setDebug(true);
     	}
@@ -323,7 +344,7 @@ public class S3Browser_App implements Runnable {
 	   		awsSession.setProfileCredentialsProvider(credentialsProvider);
 	   		
 	   		Message.printStatus(2, routine, "Starting the user interface.");
-    		new S3Browser_JFrame ( S3Browser_App.title, awsSession, region );
+    		new S3Browser_JFrame ( S3Browser_App.title, awsSession, region, bucket );
     	}
 		catch ( Exception e ) {
 			Message.printWarning ( 1, routine, "Error starting the S3 Browser." );

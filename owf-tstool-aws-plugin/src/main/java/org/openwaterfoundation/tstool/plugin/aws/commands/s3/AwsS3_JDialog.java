@@ -3,7 +3,7 @@
 /* NoticeStart
 
 OWF AWS TSTool Plugin
-Copyright (C) 2022 - 2023 Open Water Foundation
+Copyright (C) 2022-2023 Open Water Foundation
 
 OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ import javax.swing.SwingConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
-import org.openwaterfoundation.tstool.plugin.aws.Aws;
+import org.openwaterfoundation.tstool.plugin.aws.PluginMeta;
 import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
 import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
 import org.openwaterfoundation.tstool.plugin.aws.ui.S3Browser_App;
@@ -205,7 +205,7 @@ public void actionPerformed( ActionEvent event ) {
     		// Launch the stand-alone browser program:
     		// - authentication is via the AwsSession
     		// - use the default region if none is selected
-    		S3Browser_App.launchBrowser ( title, awsSession, getSelectedRegion(true) );
+    		S3Browser_App.launchBrowser ( title, awsSession, getSelectedRegion(true), this.__Bucket_JComboBox.getSelected() );
     	}
     	catch ( Exception e ) {
     		// Should not happen.
@@ -253,7 +253,7 @@ public void actionPerformed( ActionEvent event ) {
         }
     }
 	else if ( o == __help_JButton ) {
-		HelpViewer.getInstance().showHelp("command", "AwsS3", Aws.documentationRootUrl());
+		HelpViewer.getInstance().showHelp("command", "AwsS3", PluginMeta.documentationRootUrl());
 	}
 	else if ( o == __ok_JButton ) {
 		refresh ();
