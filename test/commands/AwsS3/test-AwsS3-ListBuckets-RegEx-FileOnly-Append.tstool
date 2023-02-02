@@ -1,0 +1,12 @@
+StartLog(LogFile="results/test-AwsS3-ListBuckets-RegEx-FileOnly-Append.tstool.log")
+# Test listing buckets:
+# - list the data.openwaterfoundation bucket using the regular expression
+# - also list the learn.openwaterfoundation bucket using the regular expression
+# - append the results only to the file
+AwsS3(S3Command="ListBuckets",Region="us-west-2",ListBucketsRegEx="*data.openwaterfoundation.org*",ListBucketsCountProperty="TestListBucketsRowCount",OutputTableID="TestBucketList")
+#
+# Uncomment the following to create the expected results output file.
+# CopyFile(InputFile="results/test-AwsS3-ListBuckets-RegEx-FileOnly-Append-out.csv",OutputFile="expected-results/test-AwsS3-ListBuckets-RegEx-FileOnly-Append-out.csv")
+#
+# Compare the output file with expected results.
+CompareFiles(InputFile1="expected-results/test-AwsS3-ListBuckets-RegEx-FileOnly-Append-out.csv",InputFile2="results/test-AwsS3-ListBuckets-RegEx-FileOnly-Append-out.csv",IfDifferent=Warn)
