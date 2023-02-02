@@ -207,17 +207,19 @@ MouseListener
    		String indent = "         ";
    		if ( key.endsWith("/") ) {
    			// This should not occur but put in a check to help ensure integrity of the tree.
-   			Message.printStatus(2, routine, indent + "Adding a file and key ends in /: " + key );
-   			Message.printStatus(2, routine, indent + "  Calling addFolder instead." );
+   			if ( debug ) {
+   				Message.printStatus(2, routine, indent + "Adding a file and key ends in /: " + key );
+   				Message.printStatus(2, routine, indent + "  Calling addFolder instead." );
+   			}
    			addFolder ( parentNode, s3Object );
    			return;
    		}
-   		boolean parentIsRoot = false;
    		if ( parentNode == null ) {
-   			Message.printStatus(2, routine, indent + "Initial parent node is null so will add under root." );
+   			if ( debug ) {
+   				Message.printStatus(2, routine, indent + "Initial parent node is null so will add under root." );
+   			}
    			// If the parentNode is null set to the root node.
    			if ( parentNode == null ) {
-   				parentIsRoot = true;
    				parentNode = getRoot();
    			}
    		}
@@ -240,28 +242,13 @@ MouseListener
 						s3Object.getSize(), s3Object.getOwner(), s3Object.getLastModified());
 					// The following only uses the last part for the visible name.
 					S3JTreeNode newFileNode = new S3JTreeNode(newS3Object,this);
-					//parentNode.add(newFileNode);
-					if ( parentIsRoot ) {
-						// Adding to the root folder.
-						addNode(newFileNode);
-						if ( debug ) {
-							Message.printStatus(2, routine, indent
-								+ "Added file node with key=" + newS3Object.getKey()
-								+ " parent=root"
-								+ " name=" + newFileNode.getName()
-								+ " text=" + newFileNode.getText());
-						}
-					}
-					else {
-						// Adding to a parent folder.
-						addNode(newFileNode,parentNode);
-						if ( debug ) {
-							Message.printStatus(2, routine, indent
-								+ "Added file node with key=" + newS3Object.getKey()
-								+ " parentKey=" + ((AwsS3Object)parentNode.getData()).getKey()
-								+ " name=" + newFileNode.getName()
-								+ " text=" + newFileNode.getText());
-						}
+					addNode(newFileNode,parentNode);
+					if ( debug ) {
+						Message.printStatus(2, routine, indent
+							+ "Added file node with key=" + newS3Object.getKey()
+							+ " parentKey=" + ((AwsS3Object)parentNode.getData()).getKey()
+							+ " name=" + newFileNode.getName()
+							+ " text=" + newFileNode.getText());
 					}
    				}
    				else {
@@ -279,32 +266,16 @@ MouseListener
    						// The following only uses the last part for the visible name.
    						S3JTreeNode newFolderNode = new S3JTreeNode(newS3Object,this);
    						newFolderNode.setIcon(this.closedFolderIcon);
-   						//parentNode.add(newFolderNode);
-   						if ( parentIsRoot ) {
-   							// Adding to the root folder.
-   							addNode(newFolderNode);
-   							if ( debug ) {
-								Message.printStatus(2, routine, indent
-									+ "Added folder node with key=" + newS3Object.getKey()
-									+ " parent=root"
-									+ " name=" + newFolderNode.getName()
-									+ " text=" + newFolderNode.getText());
-							}
-   						}
-   						else {
-   							// Adding to a parent folder.
-   							addNode(newFolderNode, parentNode);
-   							if ( debug ) {
-								Message.printStatus(2, routine, indent
-									+ "Added folder node with key=" + newS3Object.getKey()
-									+ " parentKey=" + ((AwsS3Object)parentNode.getData()).getKey()
-									+ " name=" + newFolderNode.getName()
-									+ " text=" + newFolderNode.getText());
-							}
-   						}
+   						addNode(newFolderNode, parentNode);
+   						if ( debug ) {
+							Message.printStatus(2, routine, indent
+								+ "Added folder node with key=" + newS3Object.getKey()
+								+ " parentKey=" + ((AwsS3Object)parentNode.getData()).getKey()
+								+ " name=" + newFolderNode.getName()
+								+ " text=" + newFolderNode.getText());
+						}
    						// The parent for additional adds is the new node.
    						parentNode = newFolderNode;
-   						parentIsRoot = false;
    					}
    					else {
    						// The folder node exists:
@@ -314,7 +285,6 @@ MouseListener
 							Message.printStatus(2, routine, indent + "Found sub-folder node with keyTotal=" + keyTotal + " keyPart=" + keyPart);
 						}
    						parentNode = (S3JTreeNode)folderNode;
-   						parentIsRoot = false;
    					}
    				}
    			}
@@ -324,27 +294,13 @@ MouseListener
    			// - can use a the passed-in 's3Object' as is since the key is accurate
 			//parentNode.add(new S3JTreeNode(s3Object, this));
    			S3JTreeNode newFileNode = new S3JTreeNode(s3Object, this);
-			if ( parentIsRoot ) {
-				// Adding to the root folder.
-				addNode(newFileNode);
-				if ( debug ) {
-					Message.printStatus(2, routine, indent
-						+ "Added top-level file node with key=" + s3Object.getKey()
-						+ " parent=root"
-						+ " name=" + newFileNode.getName()
-						+ " text=" + newFileNode.getText());
-				}
-			}
-			else {
-				// Adding to a parent folder.
-				addNode(newFileNode, parentNode);
-				if ( debug ) {
-					Message.printStatus(2, routine, indent
-						+ "Added top-level file node with key=" + s3Object.getKey()
-						+ " parentKey=" + ((AwsS3Object)parentNode.getData()).getKey()
-						+ " name=" + newFileNode.getName()
-						+ " text=" + newFileNode.getText());
-				}
+			addNode(newFileNode, parentNode);
+			if ( debug ) {
+				Message.printStatus(2, routine, indent
+					+ "Added top-level file node with key=" + s3Object.getKey()
+					+ " parentKey=" + ((AwsS3Object)parentNode.getData()).getKey()
+					+ " name=" + newFileNode.getName()
+					+ " text=" + newFileNode.getText());
 			}
    		}
    	}
@@ -365,17 +321,19 @@ MouseListener
    		String indent = "         ";
    		if ( !key.endsWith("/") ) {
    			// This should not occur but put in a check to help ensure integrity of the tree.
-   			Message.printStatus(2, routine, indent + "Adding a folder and key DOES NOT end in /: " + key );
-   			Message.printStatus(2, routine, indent + "  Calling addFile instead." );
+			if ( debug ) {
+				Message.printStatus(2, routine, indent + "Adding a folder and key DOES NOT end in /: " + key );
+				Message.printStatus(2, routine, indent + "  Calling addFile instead." );
+			}
    			addFile ( parentNode, s3Object );
    			return;
    		}
-   		boolean parentIsRoot = false;
    		if ( parentNode == null ) {
-   			Message.printStatus(2, routine, indent + "Initial parent node is null so will add under root." );
+			if ( debug ) {
+				Message.printStatus(2, routine, indent + "Initial parent node is null so will add under root." );
+			}
    			// If the parentNode is null set to the root node.
    			parentNode = getRoot();
-   			parentIsRoot = true;
    		}
    		if ( StringUtil.patternCount(key, "/") > 1 ) {
    			// The key in s3Object contains multiple levels so split.
@@ -391,28 +349,13 @@ MouseListener
 					AwsS3Object newS3Object = new AwsS3Object(s3Object.getBucket(), keyTotal);
 					S3JTreeNode newFolderNode = new S3JTreeNode(newS3Object,this);
 					newFolderNode.setIcon(this.closedFolderIcon);
-					//parentNode.add(newFolderNode);
-					if ( parentIsRoot ) {
-						// Adding to the root folder.
-						addNode(newFolderNode);
-						if ( debug ) {
-							Message.printStatus(2, routine, indent
-								+ "Added file node with key=" + newS3Object.getKey()
-								+ " parent=root"
-								+ " name=" + newFolderNode.getName()
-								+ " text=" + newFolderNode.getText());
-						}
-					}
-					else {
-						// Adding to a parent folder.
-						addNode(newFolderNode, parentNode);
-						if ( debug ) {
-							Message.printStatus(2, routine, indent
-								+ "Added file node with key=" + newS3Object.getKey()
-								+ " parentKey=" + ((AwsS3Object)parentNode.getData()).getKey()
-								+ " name=" + newFolderNode.getName()
-								+ " text=" + newFolderNode.getText());
-						}
+					addNode(newFolderNode, parentNode);
+					if ( debug ) {
+						Message.printStatus(2, routine, indent
+							+ "Added file node with key=" + newS3Object.getKey()
+							+ " parentKey=" + ((AwsS3Object)parentNode.getData()).getKey()
+							+ " name=" + newFolderNode.getName()
+							+ " text=" + newFolderNode.getText());
 					}
    				}
    				else {
@@ -430,37 +373,20 @@ MouseListener
    						AwsS3Object newS3Object = new AwsS3Object(s3Object.getBucket(), keyTotal);
    						S3JTreeNode newFolderNode = new S3JTreeNode(newS3Object,this);
    						newFolderNode.setIcon(this.closedFolderIcon);
-   						//parentNode.add(newFolderNode);
-   						if ( parentIsRoot ) {
-   							// Adding to the root folder.
-   							addNode(newFolderNode);
-   							if ( debug ) {
-								Message.printStatus(2, routine, indent
-									+ "Added folder node with key=" + newS3Object.getKey()
-									+ " parent=root"
-									+ " name=" + newFolderNode.getName()
-									+ " text=" + newFolderNode.getText());
-							}
-   						}
-   						else {
-   							// Adding to a parent folder.
-   							addNode(newFolderNode, parentNode);
-   							if ( debug ) {
-								Message.printStatus(2, routine, indent
-									+ "Added folder node with key=" + newS3Object.getKey()
-									+ " parentKey=" + ((AwsS3Object)parentNode.getData()).getKey()
-									+ " name=" + newFolderNode.getName()
-									+ " text=" + newFolderNode.getText());
-							}
-   						}
+   						addNode(newFolderNode, parentNode);
+   						if ( debug ) {
+							Message.printStatus(2, routine, indent
+								+ "Added folder node with key=" + newS3Object.getKey()
+								+ " parentKey=" + ((AwsS3Object)parentNode.getData()).getKey()
+								+ " name=" + newFolderNode.getName()
+								+ " text=" + newFolderNode.getText());
+						}
    						// The parent for additional adds is the new node.
    						parentNode = newFolderNode;
-   						parentIsRoot = false;
    					}
    					else {
    						// The folder node exists so no need to add.
    						parentNode = (S3JTreeNode)folderNode;
-   						parentIsRoot = false;
    					}
    				}
    			}
@@ -471,28 +397,13 @@ MouseListener
 
 			S3JTreeNode newFolderNode = new S3JTreeNode(s3Object, this);
 			newFolderNode.setIcon(this.closedFolderIcon);
-			//parentNode.add(newFolderNode);
-			if ( parentIsRoot ) {
-				// Adding to the root folder.
-				addNode(newFolderNode);
-				if ( debug ) {
-					Message.printStatus(2, routine, indent
-						+ "Added top-level folder with key=" + s3Object.getKey()
-						+ " parent=root"
-						+ " name=" + newFolderNode.getName()
-						+ " text=" + newFolderNode.getText());
-				}
-			}
-			else {
-				// Adding to a parent folder.
-				addNode(newFolderNode, parentNode);
-				if ( debug ) {
-					Message.printStatus(2, routine, indent
-						+ "Added top-level folder with key=" + s3Object.getKey()
-						+ " parentKey=" + ((AwsS3Object)parentNode.getData()).getKey()
-						+ " name=" + newFolderNode.getName()
-						+ " text=" + newFolderNode.getText());
-				}
+			addNode(newFolderNode, parentNode);
+			if ( debug ) {
+				Message.printStatus(2, routine, indent
+					+ "Added top-level folder with key=" + s3Object.getKey()
+					+ " parentKey=" + ((AwsS3Object)parentNode.getData()).getKey()
+					+ " name=" + newFolderNode.getName()
+					+ " text=" + newFolderNode.getText());
 			}
    		}
    	}

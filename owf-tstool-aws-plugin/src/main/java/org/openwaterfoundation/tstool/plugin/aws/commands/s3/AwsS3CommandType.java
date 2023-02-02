@@ -37,7 +37,7 @@ public enum AwsS3CommandType {
 	/**
 	Delete S3 bucket object.
 	*/
-	DELETE_OBJECT ( "DeleteObject", "Delete an S3 object" ),
+	DELETE_OBJECTS ( "DeleteObjects", "Delete S3 objects" ),
 
 	/**
 	Download objects (files and/or directories).
@@ -86,7 +86,7 @@ public enum AwsS3CommandType {
 	public static List<AwsS3CommandType> getChoices() {
     	List<AwsS3CommandType> choices = new ArrayList<>();
     	choices.add ( AwsS3CommandType.COPY_OBJECT );
-    	choices.add ( AwsS3CommandType.DELETE_OBJECT );
+    	choices.add ( AwsS3CommandType.DELETE_OBJECTS );
     	choices.add ( AwsS3CommandType.DOWNLOAD_OBJECTS );
     	choices.add ( AwsS3CommandType.LIST_BUCKETS );
     	choices.add ( AwsS3CommandType.LIST_BUCKET_OBJECTS );

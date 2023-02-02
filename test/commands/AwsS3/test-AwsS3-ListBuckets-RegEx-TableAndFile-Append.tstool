@@ -1,0 +1,19 @@
+StartLog(LogFile="results/test-AwsS3-ListBuckets-RegEx-TableAndFile-Append.tstool.log")
+# Test listing buckets:
+# - list the data.openwaterfoundation bucket using the regular expression
+# - the number of buckets should be 1
+# - the table should contain two columns
+# - output to a table and file
+# - append the results
+RemoveFile(InputFile="results/test-AwsS3-ListBuckets-RegEx-TableAndFile-Append-out.csv",IfNotFound=Ignore)
+AwsS3(S3Command="ListBuckets",Region="us-west-2",ListBucketsRegEx="*data.openwaterfoundation.org*",ListBucketsCountProperty="TestListBucketsRowCount",OutputTableID="TestBucketList",OutputFile="results/test-AwsS3-ListBuckets-RegEx-TableAndFile-Append-out.csv")
+AwsS3(S3Command="ListBuckets",Region="us-west-2",ListBucketsRegEx="*learn.openwaterfoundation.org*",ListBucketsCountProperty="TestListBucketsRowCount",OutputTableID="TestBucketList",OutputFile="results/test-AwsS3-ListBuckets-RegEx-TableAndFile-Append-out.csv",AppendOutput="True")
+If(Name="IfRowCount",Condition="${TestListBucketsRowCount} != 2")
+Message(Message="Error - should be 2 buckets in the list.",CommandStatus=FAILURE)
+EndIf(Name="IfRowCount")
+#
+# Test that the number of columns is 1.
+SetPropertyFromTable(TableID="TestBucketList",ColumnCountProperty="TestListBucketsColumnCount")
+If(Name="IfColumnCount",Condition="${TestListBucketsColumnCount} != 2")
+Message(Message="Error - should be 2 columns in the table.",CommandStatus=FAILURE)
+EndIf(Name="IfColumnCount")

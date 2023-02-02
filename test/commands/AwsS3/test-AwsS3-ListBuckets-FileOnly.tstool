@@ -1,0 +1,18 @@
+StartLog(LogFile="results/test-AwsS3-ListBuckets-FileOnly.tstool.log")
+# Test listing buckets:
+# - list the Open Water Foundation buckets
+# - the number of buckets should be nonzero and will grow over time
+# - the table should contain two columns
+# - output to a file only so the table is not available to the processor
+RemoveFile(InputFile="results/test-AwsS3-ListBuckets-FileOnly-out.csv",IfNotFound=Ignore)
+AwsS3(S3Command="ListBuckets",Region="us-west-2",ListBucketsCountProperty="TestListBucketsRowCount",OutputFile="results/test-AwsS3-ListBuckets-FileOnly-out.csv")
+CheckFile(InputFile="results/test-AwsS3-ListBuckets-FileOnly-out.csv",IfNotFound="Fail",Statistic="FileSizeBytes",CheckCriteria="==",CheckValue1=0,IfCriteriaMet=Fail)
+If(Name="IfRowCount",Condition="${TestListBucketsRowCount} < 10")
+Message(Message="Error - should be > 0 buckets in the list.",CommandStatus=FAILURE)
+EndIf(Name="IfRowCount")
+#
+# Uncomment the following to create the expected results output file.
+# CopyFile(InputFile="results/test-AwsS3-ListBuckets-FileOnly-out.csv",OutputFile="expected-results/test-AwsS3-ListBuckets-FileOnly-out.csv")
+#
+# Compare the output file with expected results.
+CompareFiles(InputFile1="expected-results/test-AwsS3-ListBuckets-FileOnly-out.csv",InputFile2="results/test-AwsS3-ListBuckets-FileOnly-out.csv",IfDifferent=Warn)

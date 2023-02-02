@@ -562,7 +562,7 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 	__RegionDefault_JTextField.setEditable(false);
 
-    JGUIUtil.addComponent(main_JPanel, new JLabel ( "DistributionId:"),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Distribution ID:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__DistributionId_JComboBox = new SimpleJComboBox ( false );
 	__DistributionId_JComboBox.setToolTipText("AWS CloudFront distribution ID.");
@@ -577,11 +577,11 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
     JGUIUtil.addComponent(main_JPanel, new JLabel ( "Comment:"),
         0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __Comment_JTextField = new JTextField ( "", 20 );
-    __Comment_JTextField.setToolTipText("Distribution comment to match, use * for wildcard, ${Property} can be used.");
+    __Comment_JTextField.setToolTipText("Distribution comment (description) to match, use * for wildcard, ${Property} can be used.");
     __Comment_JTextField.addKeyListener ( this );
     JGUIUtil.addComponent(main_JPanel, __Comment_JTextField,
         1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Optional - comment to match (specify the distribution comment, e.g., sub.domain)."),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Optional - comment to match (specify the distribution comment, e.g., *sub.domain*)."),
         3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     __main_JTabbedPane = new JTabbedPane ();
@@ -638,8 +638,7 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 
     JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("Wait for completion?:"),
         0, ++yInvalidate, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    // Allow edits.
-    __WaitForCompletion_JComboBox = new SimpleJComboBox ( true );
+    __WaitForCompletion_JComboBox = new SimpleJComboBox ( false );
     __WaitForCompletion_JComboBox.add ( "" );
     __WaitForCompletion_JComboBox.add ( __command._False );
     __WaitForCompletion_JComboBox.add ( __command._True );
@@ -832,7 +831,7 @@ public boolean ok () {
 }
 
 /**
- * Populate the Bucket choices based no other selections.
+ * Populate the CloudFront distribution ID choices based no other selections.
  */
 private void populateDistributionIdChoices() {
 	String routine = getClass().getSimpleName() + ".populateDistributionIdChoices";

@@ -528,6 +528,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	    if ( commandPhase == CommandPhaseType.RUN ) {
 	    	// Create a session with the credentials.
 	    	AwsSession awsSession = new AwsSession(profile);
+
 	    	// Column numbers are used later:
 	    	// - shared, then distributions, then invalidations
 	        int idCol = -1;
