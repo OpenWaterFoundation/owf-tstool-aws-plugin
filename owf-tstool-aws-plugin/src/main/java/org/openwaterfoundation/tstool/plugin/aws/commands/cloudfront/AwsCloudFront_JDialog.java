@@ -768,7 +768,7 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 	button_JPanel.add ( __help_JButton = new SimpleJButton("Help", this) );
 	__help_JButton.setToolTipText("Show command documentation in web browser");
 	button_JPanel.add ( __browseS3_JButton = new SimpleJButton("Browse S3", this) );
-	__browseS3_JButton.setToolTipText("Browse S3 files.  A separate application is started.");
+	__browseS3_JButton.setToolTipText("Browse S3 files.  A separate application is started (may be a startup delay).");
 
 	setTitle ( "Edit " + __command.getCommandName() + "() command" );
 	

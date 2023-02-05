@@ -92,13 +92,17 @@ public class S3Browser_App implements Runnable {
 		for ( String path : classpathList ) {
 			// Ignore files that are known to not be needed, in order to get under the 8191 character limit:
 			// - exclude specific packages that are not used in the AWS browser application
-			Message.printStatus(2,routine,"Checking path=" + path);
+			if ( Message.isDebugOn ) {
+				Message.printStatus(2,routine,"Checking path=" + path);
+			}
 			if ( (path.indexOf(File.separator + "batik-") >= 0) || // Used for SVG.
 				(path.indexOf(File.separator + "Blowfish") >= 0)  || // Used for encryption.
 				(path.indexOf(File.separator + "apache-poi") >= 0) || // Used for Excel integration.
 				(path.indexOf(File.separator + "JFreeChart") >= 0) // Used for graphing.
 				) {
-				Message.printStatus(2,routine,"  discarding");
+				if ( Message.isDebugOn ) {
+					Message.printStatus(2,routine,"  discarding");
+				}
 				continue;
 			}
 			if ( classpath.length() > 0 ) {

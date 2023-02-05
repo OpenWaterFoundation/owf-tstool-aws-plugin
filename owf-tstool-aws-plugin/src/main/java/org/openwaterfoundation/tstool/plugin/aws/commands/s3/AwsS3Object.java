@@ -197,4 +197,36 @@ public class AwsS3Object {
 	public void setBucket ( String bucket ) {
 		this.bucket = bucket;
 	}
+
+	/**
+	 * Set the key.
+	 * @param key the key for the object
+	 */
+	public void setKey ( String key ) {
+		this.key = key;
+	}
+
+	/**
+	 * Set the last modified time.
+	 * @param lastModified the last modified time for the object
+	 */
+	public void setLastModified ( Instant lastModified ) {
+		this.lastModified = lastModified;
+	}
+
+	/**
+	 * Set the owner.
+	 * @param key the key for the object
+	 */
+	public void setOwner ( String owner ) {
+		this.owner = owner;
+	}
+
+	/**
+	 * Set the object size.
+	 * @param size the size of the object in bytes
+	 */
+	public void setSize ( Long size ) {
+		this.size = size;
+	}
 }

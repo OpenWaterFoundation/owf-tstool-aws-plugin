@@ -25,6 +25,7 @@ package org.openwaterfoundation.tstool.plugin.aws;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -38,6 +39,7 @@ import RTi.Util.GUI.SimpleJComboBox;
 import RTi.Util.IO.IOUtil;
 import RTi.Util.Message.Message;
 import RTi.Util.Time.TimeUtil;
+
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.RegionMetadata;
@@ -53,8 +55,12 @@ import software.amazon.awssdk.services.cloudfront.model.ListInvalidationsRequest
 import software.amazon.awssdk.services.cloudfront.model.ListInvalidationsResponse;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Bucket;
+import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.ListBucketsRequest;
 import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.transfer.s3.FileDownload;
 import software.amazon.awssdk.transfer.s3.FileUpload;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
@@ -98,7 +104,7 @@ public class AwsToolkit {
 	}
 	
 	// -----------------------------------------------------------------------------
-
+	
 	/**
 	 * Download a file from S3.
 	 * @param tm S3TransferManager to use for download
@@ -385,6 +391,337 @@ public class AwsToolkit {
 			Message.printWarning(3, routine, "AWS configuration file does not exist: " + configFileName);
 		}
 		return profiles;
+	}
+
+	/**
+	 * List S3 bucket objects.
+	 * This is a utility class that is intended to support more complex code,
+	 * for example to list a bucket's objects as keys before deleting a folder,
+	 * or to confirm that objects do or don't exist after an action.
+	 * @param s3 S3Client instance to use for the request
+	 * @param bucket S3 bucket
+	 * @param prefix prefix to filter the keys
+	 * @param delimiter delimiter to use with prefix requests, only used when useDelimiter=true,
+	 * if null, the default is /
+	 * @param useDelimiter whether or not to specify the delimiter, used when listing a folder's contents
+	 * @param maxKeys maximum number of keys per request, used if > 0
+	 * @param maxObjects maximum number of objects returned, used if > 0
+	 * @param listFiles whether to list files in the results
+	 * @param listFolders whether to list folders in the results
+	 * @param regex Java regular expression to filter the output keys
+	 * @return list of AwsS3Object instances
+	 * @throws Exception
+	 */
+	public List<AwsS3Object> getS3BucketObjects (
+		S3Client s3,
+		String bucket,
+		String prefix, String delimiter, boolean useDelimiter, int maxKeys, int maxObjects,
+		boolean listFiles, boolean listFolders, String regex
+		) throws Exception {
+		String routine = getClass().getSimpleName() + ".doS3ListBucketObjects";
+		
+		List<AwsS3Object> s3Objects = new ArrayList<>();
+
+   	    ListObjectsV2Request.Builder builder = ListObjectsV2Request
+    		.builder()
+    		.fetchOwner(Boolean.TRUE) // Get the owner so it can be shown in output.
+    		.bucket(bucket); // Bucket is required.
+    	if ( maxKeys > 0 ) {
+    		// Set the maximum number of keys that will be returned per request.
+    		builder.maxKeys(maxKeys);
+    	}
+
+    	if ( useDelimiter && (prefix != null) && prefix.isEmpty() ) {
+    		// Using the delimiter to list only files in a folder.
+    		// - if prefix is not also specified, will list root objects
+    		// - if prefix is also specified, will list objects in the folder for the prefix
+    		builder.delimiter(delimiter);
+      	}
+
+    	boolean doPrefix = false;
+    	if ( (prefix != null) && !prefix.isEmpty() ) {
+    		// Specify the prefix to list a folder's contents:
+    		// - if delimiter is not also specified, will list root objects
+    		// - if delimiter is also specified, will list objects in the folder for the prefix
+    		builder.prefix(prefix);
+    		// Set boolean to simplify the code below.
+    		doPrefix = true;
+    	}
+    	
+    	// Create a DataTable to hold the results
+
+    	ListObjectsV2Request request = builder.build();
+    	ListObjectsV2Response response = null;
+    	//TableRecord rec = null;
+    	boolean allowDuplicates = false;
+    	boolean done = false;
+    	int objectCount = 0;
+    	int fileCount = 0;
+    	int folderCount = 0;
+
+    	// Indicate that AwsS3Object instances should be returned.
+    	boolean doS3Objects = true;
+
+    	while ( !done ) {
+    		response = s3.listObjectsV2(request);
+    		// Process files and folders separately, with the maximum count checked based on what is returned.
+    		if ( listFiles || listFolders ) {
+    			// S3Objects can contain files or folders (objects with key ending in /, typically with size=0).
+    			// Loop in any case to get the count.  May output to table and/or file.
+    			for ( S3Object s3Object : response.contents() ) {
+    				// Check the maximum object count, to protect against runaway processes.
+    				if ( (maxObjects > 0) && (objectCount >= maxObjects) ) {
+			  			// Quit saving objects when the limit has been reached.
+    					break;
+    				}
+    				// Output to table and/or file, as requested:
+    				// - key is the full path to the file
+    				// - have size, owner and modification time properties
+   					String key = s3Object.key();
+   					if ( doPrefix && prefix.endsWith("/") && key.equals(prefix) ) {
+   						// Do not include the requested prefix itself because want the contents of the folder,
+   						// not the folder itself.
+   						Message.printStatus(2, routine, "Ignoring Prefix that is a folder because want folder contents.");
+   						continue;
+   					}
+   					if ( regex != null ) {
+   						// Want to apply a regular expression to the key.
+   						if ( !key.matches(regex) ) {
+   							continue;
+   						}
+   					}
+   					if ( !listFolders && key.endsWith("/") ) {
+   						// Is a folder and don't want folders so continue.
+   						continue;
+   					}
+   					else if ( !listFiles && !key.endsWith("/") ) {
+   						// Is a file and don't files want so continue.
+   						continue;
+   					}
+   					/* TODO smalers 2023-02-03 evaluate whether to fill a table.
+    				if ( table != null ) {
+    					if ( !allowDuplicates ) {
+    						// Try to match the object key, which is the unique identifier.
+    						rec = table.getRecord ( objectKeyCol, s3Object.key() );
+    					}
+    					if ( rec == null ) {
+    						// Create a new record.
+    						rec = table.addRecord(table.emptyRecord());
+    					}
+    					// Set the data in the record.
+    					rec.setFieldValue(objectKeyCol,s3Object.key());
+    					// Set the name as the end of the key without folder delimiter.
+    					String name = s3Object.key();
+    					if ( name.endsWith("/") ) {
+    						name = name.substring(0,(name.length() - 1));
+    						int pos = name.lastIndexOf("/");
+    						if ( pos >= 0 ) {
+    							// Have subfolders:
+    							// - strip so only the name remains
+    							name = name.substring(pos + 1);
+    						}
+    					}
+   						rec.setFieldValue(objectNameCol,name);
+    					// Set the parent name as the folder above the current name string.
+   						int pos = name.lastIndexOf("/");
+   						String parentName = "";
+   						if ( pos >= 0 ) {
+   							// Have subfolders:
+   							// - strip so only the name remains
+   							parentName = name.substring(pos + 1);
+   						}
+   						rec.setFieldValue(objectParentNameCol,parentName);
+    					if ( key.endsWith("/") ) {
+    						rec.setFieldValue(objectTypeCol,"folder");
+    					}
+    					else {
+    						rec.setFieldValue(objectTypeCol,"file");
+    					}
+    					rec.setFieldValue(objectSizeCol,s3Object.size());
+    					if ( s3Object.owner() == null ) {
+    						rec.setFieldValue(objectOwnerCol,"");
+    					}
+    					else {
+    						rec.setFieldValue(objectOwnerCol,s3Object.owner().displayName());
+    					}
+    					rec.setFieldValue(objectLastModifiedCol,
+    						new DateTime(OffsetDateTime.ofInstant(s3Object.lastModified(), zoneId), dateTimeBehaviorFlag, timezone));
+    				}
+    				*/
+    				if ( doS3Objects ) {
+    					if ( !allowDuplicates ) {
+    						// Try to match an existing object in the list:
+    						// - the object key is the unique identifier
+    						// - not sure that this will be an issue
+    						AwsS3Object foundS3Object = null;
+    						for ( AwsS3Object s3Object2 : s3Objects ) {
+    							if ( s3Object2.getKey().equals(s3Object.key())) {
+    								foundS3Object = s3Object2;
+    								break;
+    							}
+    						}
+    						if ( foundS3Object != null ) {
+    							// Overwrite data in the existing object.
+    							foundS3Object.setBucket(bucket);
+    							foundS3Object.setKey(s3Object.key());
+    							foundS3Object.setSize(s3Object.size());
+    							foundS3Object.setOwner(s3Object.owner().displayName());
+    							foundS3Object.setLastModified(s3Object.lastModified());
+    						}
+    						else {
+    							// Create a new object and pass data to the constructor.
+    							AwsS3Object newS3Object = new AwsS3Object ( bucket, s3Object.key(), s3Object.size(),
+    								s3Object.owner().displayName(), s3Object.lastModified() );
+    							s3Objects.add ( newS3Object );
+    						}
+    					}
+    					else {
+    						// Always create a new instance.
+    						AwsS3Object newS3Object = new AwsS3Object ( bucket, s3Object.key(), s3Object.size(),
+    							s3Object.owner().displayName(), s3Object.lastModified() );
+    						s3Objects.add ( newS3Object );
+    					}
+    				}
+   					// Increment the count of objects processed (includes files and folders).
+   					++objectCount;
+   					if ( key.endsWith("/") ) {
+   						++folderCount;
+   					}
+   					else {
+   						++fileCount;
+   					}
+    			}
+    		}
+    		if ( listFolders ) {
+    			// Common prefixes are only used with folders:
+    			// - the key will be from the root to the / (inclusive) after the prefix
+    			for ( CommonPrefix commonPrefix : response.commonPrefixes() ) {
+			  		// Check the maximum object count, to protect against runaway processes.
+    				if ( (maxObjects > 0) && (objectCount >= maxObjects) ) {
+			  			// Quit saving objects when the limit has been reached.
+						break;
+			  		}
+   					if ( doPrefix && prefix.endsWith("/") && commonPrefix.prefix().equals(prefix) ) {
+   						// Do not include the requested prefix itself because want the contents of the folder,
+   						// not the folder itself.
+   						Message.printStatus(2, routine, "Ignoring Prefix that is a folder because want folder contents.");
+   						continue;
+   					}
+   					if ( regex != null ) {
+   						// Want to apply a regular expression to the key.
+   						if ( !commonPrefix.prefix().matches(regex) ) {
+   							continue;
+   						}
+   					}
+    				// Output to table and/or file, as requested:
+			  		// - key is the path to the folder including trailing / to indicate a folder
+			  		// - only have the key since folders are virtual and have no properties
+   					/* TODO smalers 2023-02-03 evaluate whether to fill table.
+    				if ( table != null ) {
+    					if ( !allowDuplicates ) {
+    						// Try to match the object key, which is the unique identifier.
+    						rec = table.getRecord ( objectKeyCol, commonPrefix.prefix() );
+    					}
+    					if ( rec == null ) {
+    						// Create a new record.
+    						rec = table.addRecord(table.emptyRecord());
+    					}
+    					// Set the data in the record.
+    					rec.setFieldValue(objectKeyCol, commonPrefix.prefix());
+    					// Set the name as the end of the key without folder delimiter.
+    					String name = commonPrefix.prefix();
+    					if ( name.endsWith("/") ) {
+    						name = name.substring(0,(name.length() - 1));
+    						int pos = name.lastIndexOf("/");
+    						if ( pos >= 0 ) {
+    							// Have subfolders:
+    							// - strip so only the name remains
+    							name = name.substring(pos + 1);
+    						}
+    					}
+   						rec.setFieldValue(objectNameCol,name);
+   						int pos = name.lastIndexOf("/");
+   						String parentName = "";
+   						if ( pos >= 0 ) {
+   							// Have subfolders:
+   							// - strip so only the name remains
+   							parentName = name.substring(pos + 1);
+   						}
+   						rec.setFieldValue(objectParentNameCol,parentName);
+    					rec.setFieldValue(objectTypeCol,"folder");
+    				}
+    				*/
+    				if ( doS3Objects ) {
+    					if ( !allowDuplicates ) {
+    						// Try to match an existing object in the list:
+    						// - the object key is the unique identifier
+    						// - not sure that this will be an issue
+    						AwsS3Object foundS3Object = null;
+    						for ( AwsS3Object s3Object2 : s3Objects ) {
+    							if ( s3Object2.getKey().equals(commonPrefix.prefix())) {
+    								foundS3Object = s3Object2;
+    								break;
+    							}
+    						}
+    						if ( foundS3Object != null ) {
+    							// Overwrite data in the existing object.
+    							Long size = new Long(0);
+    							String owner = "";
+    							Instant lastModified = null;
+    							foundS3Object.setBucket(bucket);
+    							foundS3Object.setKey(commonPrefix.prefix());
+    							foundS3Object.setSize(size);
+    							foundS3Object.setOwner(owner);
+    							foundS3Object.setLastModified(lastModified);
+    						}
+    						else {
+    							// Create a new object and pass data to the constructor.
+    							Long size = new Long(0);
+    							String owner = "";
+    							Instant lastModified = null;
+    							AwsS3Object newS3Object = new AwsS3Object ( bucket, commonPrefix.prefix(), size, owner, lastModified );
+    							s3Objects.add ( newS3Object );
+    						}
+    					}
+    					else {
+    						// Always create a new instance.
+   							Long size = new Long(0);
+   							String owner = "";
+   							Instant lastModified = null;
+    						AwsS3Object newS3Object = new AwsS3Object ( bucket, commonPrefix.prefix(), size, owner, lastModified );
+    						s3Objects.add ( newS3Object );
+    					}
+    				}
+   					// Increment the count of objects processed (includes files and folders).
+			  		++objectCount;
+   					++folderCount;
+		  		}
+    		}
+    		if ( response.nextContinuationToken() == null ) {
+    			done = true;
+    		}
+    		request = request.toBuilder()
+   				.continuationToken(response.nextContinuationToken())
+   				.build();
+    	}
+    	// Sort the table by key if both files and folders were queried:
+    	// - necessary because files come out of the objects and folders out of common prefixes
+    	if ( listFiles && listFolders ) {
+    		String [] sortColumns = { "Key" };
+    		int [] sortOrder = { 1 };
+  			// TODO smalers 2023-02-03 evaluate whether to fill table.
+    		//table.sortTable( sortColumns, sortOrder);
+    	}
+    	if ( Message.isDebugOn ) {
+    		Message.printStatus ( 2, routine, "Response has objects=" + response.contents().size()
+    			+ ", commonPrefixes=" + response.commonPrefixes().size() );
+    		Message.printStatus ( 2, routine, "List has fileCount=" + fileCount + ", folderCount="
+    			+ folderCount + ", objectCount=" + objectCount );
+    	}
+       		
+		// TODO smalers 2023-02-03 evaluate whether to fill table.
+       	//return table;
+		return s3Objects;
 	}
 
 	/**

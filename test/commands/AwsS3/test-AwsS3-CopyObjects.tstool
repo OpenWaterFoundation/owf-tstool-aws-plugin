@@ -1,0 +1,32 @@
+StartLog(LogFile="results/test-AwsS3-CopyObjects.tstool.log")
+# Test copying objects:
+# - use the test.openwaterfoundation.org bucket
+# - use the bucket folder tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-CopyObjects
+#
+# Configuration data.
+SetProperty(PropertyName="TestS3Folder",PropertyType=String,PropertyValue="tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-CopyObjects")
+#
+# Remove the bucket files first:
+# - list the folder to make sure the files were deleted before uploading and copying
+AwsS3(S3Command="DeleteObjects",Bucket="test.openwaterfoundation.org",DeleteFolders="${TestS3Folder}")
+AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",DeleteFolders="${TestS3Folder}",ListBucketObjectsScope=All,Prefix="${TestS3Folder}",ListBucketObjectsCountProperty="TestCopyListCount",OutputTableID="TestCopyList")
+If(Name="IfDeleteCheck",Condition="${TestCopyListCount} != 0")
+Message(Message="The copy test files were not deleted for setup.",CommandStatus=FAILURE)
+EndIf(Name="IfDeleteCheck")
+#
+# Upload the files for the test that will be the source of the copy.
+AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",CopyObjectsCountProperty="TestCopyObjectsCount",UploadFiles="data/testfolder1/testfolder1-testfile1.txt:${TestS3Folder}/*,data/testfolder1/testfolder1-testfile2.txt:${TestS3Folder}/*",OutputTableID="BucketList")
+#
+# Copy the objects:
+# - check the copy count
+# - also do a list below to check the count a second way
+AwsS3(S3Command="CopyObjects",Bucket="test.openwaterfoundation.org",CopyKeys="${TestS3Folder}/testfolder1-testfile1.txt:${TestS3Folder}/testfolder1-testfile1-copy.txt,${TestS3Folder}/testfolder1-testfile2.txt:${TestS3Folder}/testfolder1-testfile2-copy.txt",CopyObjectsCountProperty="TestCopyObjectsCount")
+If(Name="IfCount",Condition="${TestCopyObjectsCount} != 2")
+Message(Message="Error - should be 1 if the object is copied.",CommandStatus=FAILURE)
+EndIf(Name="IfCount")
+#
+# Check to see if the copied objects exists.
+AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",DeleteFolders="${TestS3Folder}",ListBucketObjectsScope=All,Prefix="${TestS3Folder}",ListBucketObjectsRegEx="*copy*",ListBucketObjectsCountProperty="TestCopyListCount",OutputTableID="TestCopyList")
+If(Name="IfTestCopyListCount",Condition="${TestCopyListCount} != 2")
+Message(Message="Error - should be 1 if the object is copied.",CommandStatus=FAILURE)
+EndIf(Name="IfTestCopyListCount")

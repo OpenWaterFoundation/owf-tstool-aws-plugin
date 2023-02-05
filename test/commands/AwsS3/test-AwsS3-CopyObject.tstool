@@ -1,8 +1,0 @@
-StartLog(LogFile="results/test-AwsS3-CopyObject.tstool.log")
-# Test listing buckets:
-# - list the Open Water Foundation buckets
-# - the number should be nonzero and will grow over time
-AwsS3(S3Command="CopyObject",Region="us-west-2",CopyObjectCountProperty="TestCopyObjectCount",OutputTableID="BucketList")
-If(Name="IfCount",Condition="${TestCopyObjectCount} == 0")
-Message(Message="Error - should be 1 if the object is copied.",CommandStatus=FAILURE)
-EndIf(Name="IfCount")
