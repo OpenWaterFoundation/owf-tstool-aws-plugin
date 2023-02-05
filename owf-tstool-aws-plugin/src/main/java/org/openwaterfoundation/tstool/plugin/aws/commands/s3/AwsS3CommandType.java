@@ -32,7 +32,7 @@ public enum AwsS3CommandType {
 	/**
 	Copy S3 bucket object.
 	*/
-	COPY_OBJECT ( "CopyObject", "Copy an S3 object" ),
+	COPY_OBJECTS ( "CopyObjects", "Copy an S3 objects" ),
 
 	/**
 	Delete S3 bucket object.
@@ -85,7 +85,7 @@ public enum AwsS3CommandType {
 	*/
 	public static List<AwsS3CommandType> getChoices() {
     	List<AwsS3CommandType> choices = new ArrayList<>();
-    	choices.add ( AwsS3CommandType.COPY_OBJECT );
+    	choices.add ( AwsS3CommandType.COPY_OBJECTS );
     	choices.add ( AwsS3CommandType.DELETE_OBJECTS );
     	choices.add ( AwsS3CommandType.DOWNLOAD_OBJECTS );
     	choices.add ( AwsS3CommandType.LIST_BUCKETS );

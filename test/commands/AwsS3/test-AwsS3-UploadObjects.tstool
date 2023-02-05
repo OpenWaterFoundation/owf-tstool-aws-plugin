@@ -1,7 +1,15 @@
-StartLog(LogFile="results/test-AwsS3-ListBucketObjects.tstool.log")
-# Test listing bucket objects:
-# - list the Open Water Foundation test.openwaterfoundation.org bucket
-# - the number should be nonzero and will grow over time
+StartLog(LogFile="results/test-AwsS3-UploadObjects.tstool.log")
+# Test uploading objects:
+# - use the data folder files
+# - use an S3 path that matches this command file and the data files
+SetProperty(PropertyName="TestS3RootFolder",PropertyType=String,PropertyValue="tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-UploadObjects")
+#
+# Remove the old folder and confirm that it was removed.
+#
+# Upload the new files and confirm that they were uploaded.
+AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",ListBucketObjectsCountProperty="TestListBucketAllObjectsCount",UploadFolders="data/testfolder1:${TestS3RootFolder}/testfolder1/,data/testfolder2:${TestS3RootFolder}/testfolder2/",UploadFiles="data/root-testfile1.txt:${TestS3RootFolder}/*,data/root-testfile2.txt:${TestS3RootFolder}/*",OutputTableID="BucketAllObjectList")
+# Exit until get the rest of the test figured out.
+Exit()
 #
 # ================ Set up tests using a dedicated folder ===============
 #
@@ -66,4 +74,4 @@ If(Name="IfSubFolderCount",Condition="${TestListBucketObjectsCount} == 0")
 Message(Message="Error - should be > 0 bucket objects in the list.",CommandStatus=FAILURE)
 EndIf(Name="ISubFolderfCount")
 #
-AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",ListScope=Folder,Prefix="test/",ListBucketObjectsRegEx="*ass*",ListBucketObjectsCountProperty="TestListBucketAllObjectsCount",OutputTableID="BucketAllObjectList")
+AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",ListBucketObjectsScope=Folder,Prefix="test/",ListBucketObjectsRegEx="*ass*",ListBucketObjectsCountProperty="TestListBucketAllObjectsCount",OutputTableID="BucketAllObjectList")

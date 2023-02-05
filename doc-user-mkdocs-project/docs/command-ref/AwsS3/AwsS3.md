@@ -202,7 +202,7 @@ Command Parameters - List Buckets
 
 |**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default** |
 |-----|-----------------|-----------------|
-|`ListBucketsRegEx`| Regular expression to filter buckets:<ul><li>use `*` as a wildcard</li><li>`java:...` - specify a [Java regular expression](https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#sum)</li></ul> | All buckets are listed. |
+|`ListBucketsRegEx`| Regular expression to filter buckets:<ul><li>use `*` as a wildcard</li><li>`java:...` - specify a [Java regular expression](https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#sum) - **not fully tested**</li></ul> | All buckets are listed. |
 |`ListBucketsCountProperty`| Processor property to set containing the number of buckets in the list. If appending results the count will be the total count. | |
 | | Note:  The general `Bucket` parameter is not required since buckets are being listed. | |
 
@@ -218,6 +218,13 @@ Automated tests require AWS permissions to run.
 ## Troubleshooting ##
 
 If there is an error, view the TSTool log file using the ***Tools / Diagnostics - View Log File...*** menu.
+
+### Uploaded File is Not Listed in S3 ###
+
+Sometimes local files that are uploaded are not visible.
+
+*   Check the log file and confirm that the remote path is correct.
+*   The remote path may be incomplete, for example a folder, and may have been overwritten.
 
 ## See Also ##
 
