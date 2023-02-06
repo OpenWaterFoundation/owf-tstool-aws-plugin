@@ -11,5 +11,5 @@ SetProperty(PropertyName="TestS3Folder",PropertyType=String,PropertyValue="tstoo
 #
 # Copy the objects:
 # - check the copy count
-# - should fail
+# - should generate a warning
 AwsS3(S3Command="CopyObjects",Bucket="test.openwaterfoundation.org",CopyFiles="${TestS3Folder}/testfolder/:${TestS3Folder}/testfolder1-testfile1-copy.txt,${TestS3Folder}/testfolder1-testfile2.txt:${TestS3Folder}/",CopyObjectsCountProperty="TestCopyObjectsCount")

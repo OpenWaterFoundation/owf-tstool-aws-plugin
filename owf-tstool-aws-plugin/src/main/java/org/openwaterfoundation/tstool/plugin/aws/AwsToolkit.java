@@ -421,6 +421,11 @@ public class AwsToolkit {
 		String routine = getClass().getSimpleName() + ".doS3ListBucketObjects";
 		
 		List<AwsS3Object> s3Objects = new ArrayList<>();
+		
+		if ( (delimiter == null) || delimiter.isEmpty() ) {
+			// Default delimiter, will only actually be used in the request if useDelimiter=true.
+			delimiter = "/";
+		}
 
    	    ListObjectsV2Request.Builder builder = ListObjectsV2Request
     		.builder()
@@ -431,7 +436,7 @@ public class AwsToolkit {
     		builder.maxKeys(maxKeys);
     	}
 
-    	if ( useDelimiter && (prefix != null) && prefix.isEmpty() ) {
+    	if ( useDelimiter && (delimiter != null) && !delimiter.isEmpty() ) {
     		// Using the delimiter to list only files in a folder.
     		// - if prefix is not also specified, will list root objects
     		// - if prefix is also specified, will list objects in the folder for the prefix
