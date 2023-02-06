@@ -106,7 +106,7 @@ private SimpleJComboBox __CopyBucket_JComboBox = null;
 private JTextField __CopyObjectsCountProperty_JTextField = null;
 
 // Delete tab.
-private JTextArea __DeleteKeys_JTextArea = null;
+private JTextArea __DeleteFiles_JTextArea = null;
 private JTextArea __DeleteFolders_JTextArea = null;
 private SimpleJComboBox __DeleteFoldersScope_JComboBox = null;
 private JTextField __DeleteFoldersMinDepth_JTextField = null;
@@ -264,7 +264,6 @@ public void actionPerformed( ActionEvent event ) {
         String [] notes = {
             "Specify the paths ending in / for folders to delete.  Use the S3 Browser in the command editor to view folders and their keys.",
             "All files in the folder and the folder itself will be deleted.  This requires doing a folder listing first.",
-            "The folder must not have any sub-folders (if so, delete those first with separate commands).",
             "Do not specify a leading / unless the key actually contains a starting / (default for S3 buckets is no leading /).",
             "${Property} notation can be used to expand at run time.",
             "Use the checkboxes with Insert and Remove.",
@@ -278,22 +277,22 @@ public void actionPerformed( ActionEvent event ) {
             refresh();
         }
     }
-    else if ( event.getActionCommand().equalsIgnoreCase("EditDeleteKeys") ) {
+    else if ( event.getActionCommand().equalsIgnoreCase("EditDeleteFiles") ) {
         // Edit the list in the dialog.  It is OK for the string to be blank.
-        String DeleteKeys = __DeleteKeys_JTextArea.getText().trim();
+        String DeleteFiles = __DeleteFiles_JTextArea.getText().trim();
         String [] notes = {
-            "Specify the keys for objects to delete.  Use the S3 Browser in the command editor to view objects and their keys.",
-            "Do not specify a folder key (ending in /) unless it is an object and contains no files (see also the DeleteFolders command parameter).",
+            "Specify the S3 object keys for file objects to delete.  Use the S3 Browser in the command editor to view objects and their keys.",
+            "Do not specify a folder key ending in / (see also the DeleteFolders command parameter).",
             "Do not specify a leading / unless the key actually contains a starting / (default for S3 buckets is no leading /).",
             "${Property} notation can be used to expand at run time.",
             "Use the checkboxes with Insert and Remove.",
             "All non-blank object keys will be included in the command parameter.",
         };
         String delim = ",";
-        String list = (new StringListJDialog ( __parent, true, DeleteKeys,
-            "Edit DeleteKeys Parameter", notes, "Object Key", delim, 10)).response();
+        String list = (new StringListJDialog ( __parent, true, DeleteFiles,
+            "Edit DeleteFiles Parameter", notes, "S3 File Object Key", delim, 10)).response();
         if ( list != null ) {
-            __DeleteKeys_JTextArea.setText ( list );
+            __DeleteFiles_JTextArea.setText ( list );
             refresh();
         }
     }
@@ -376,7 +375,7 @@ public void actionPerformed( ActionEvent event ) {
             "${Property} notation can be used for all values to expand at run time."
         };
         String dict = (new DictionaryJDialog ( __parent, true, UploadFolders,
-            "Edit UploadFolders Parameter", notes, "Local Folder", "S3 Folder Path (ending in /)", 10)).response();
+            "Edit UploadFolders Parameter", notes, "Local Folder (optionally ending in /)", "S3 Folder Path (ending in /)", 10)).response();
         if ( dict != null ) {
             __UploadFolders_JTextArea.setText ( dict );
             refresh();
@@ -430,7 +429,7 @@ private void checkInput () {
 	String CopyBucket = __CopyBucket_JComboBox.getSelected();
 	String CopyObjectsCountProperty = __CopyObjectsCountProperty_JTextField.getText().trim();
 	// Delete.
-	String DeleteKeys = __DeleteKeys_JTextArea.getText().trim().replace("\n"," ");
+	String DeleteFiles = __DeleteFiles_JTextArea.getText().trim().replace("\n"," ");
 	String DeleteFolders = __DeleteFolders_JTextArea.getText().trim().replace("\n"," ");
 	String DeleteFoldersScope = __DeleteFoldersScope_JComboBox.getSelected();
 	String DeleteFoldersMinDepth = __DeleteFoldersMinDepth_JTextField.getText().trim();
@@ -489,8 +488,8 @@ private void checkInput () {
 		props.set ( "CopyObjectsCountProperty", CopyObjectsCountProperty );
 	}
 	// Delete.
-	if ( (DeleteKeys != null) && !DeleteKeys.isEmpty() ) {
-		props.set ( "DeleteKeys", DeleteKeys );
+	if ( (DeleteFiles != null) && !DeleteFiles.isEmpty() ) {
+		props.set ( "DeleteFiles", DeleteFiles );
 	}
 	if ( (DeleteFolders != null) && !DeleteFolders.isEmpty() ) {
 		props.set ( "DeleteFolders", DeleteFolders );
@@ -609,7 +608,7 @@ private void commitEdits () {
 	String CopyBucket = __CopyBucket_JComboBox.getSelected();
 	String CopyObjectsCountProperty = __CopyObjectsCountProperty_JTextField.getText().trim();
 	// Delete.
-	String DeleteKeys = __DeleteKeys_JTextArea.getText().trim().replace("\n"," ");
+	String DeleteFiles = __DeleteFiles_JTextArea.getText().trim().replace("\n"," ");
 	String DeleteFolders = __DeleteFolders_JTextArea.getText().trim().replace("\n"," ");
 	String DeleteFoldersScope = __DeleteFoldersScope_JComboBox.getSelected();
 	String DeleteFoldersMinDepth = __DeleteFoldersMinDepth_JTextField.getText().trim();
@@ -655,7 +654,7 @@ private void commitEdits () {
 	__command.setCommandParameter ( "CopyBucket", CopyBucket );
 	__command.setCommandParameter ( "CopyObjectsCountProperty", CopyObjectsCountProperty );
 	// Delete.
-	__command.setCommandParameter ( "DeleteKeys", DeleteKeys );
+	__command.setCommandParameter ( "DeleteFiles", DeleteFiles );
 	__command.setCommandParameter ( "DeleteFolders", DeleteFolders );
 	__command.setCommandParameter ( "DeleteFoldersScope", DeleteFoldersScope );
 	__command.setCommandParameter ( "DeleteFoldersMinDepth", DeleteFoldersMinDepth );
@@ -1082,18 +1081,18 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(delete_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(delete_JPanel, new JLabel ("Delete keys:"),
+    JGUIUtil.addComponent(delete_JPanel, new JLabel ("Delete files:"),
         0, ++yDelete, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __DeleteKeys_JTextArea = new JTextArea (6,35);
-    __DeleteKeys_JTextArea.setLineWrap ( true );
-    __DeleteKeys_JTextArea.setWrapStyleWord ( true );
-    __DeleteKeys_JTextArea.setToolTipText("Keys to delete, separated by commas.");
-    __DeleteKeys_JTextArea.addKeyListener (this);
-    JGUIUtil.addComponent(delete_JPanel, new JScrollPane(__DeleteKeys_JTextArea),
+    __DeleteFiles_JTextArea = new JTextArea (6,35);
+    __DeleteFiles_JTextArea.setLineWrap ( true );
+    __DeleteFiles_JTextArea.setWrapStyleWord ( true );
+    __DeleteFiles_JTextArea.setToolTipText("S3 file object keys to delete, separated by commas.");
+    __DeleteFiles_JTextArea.addKeyListener (this);
+    JGUIUtil.addComponent(delete_JPanel, new JScrollPane(__DeleteFiles_JTextArea),
         1, yDelete, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
     JGUIUtil.addComponent(delete_JPanel, new JLabel ("S3 bucket key(s)."),
         3, yDelete, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
-    JGUIUtil.addComponent(delete_JPanel, new SimpleJButton ("Edit","EditDeleteKeys",this),
+    JGUIUtil.addComponent(delete_JPanel, new SimpleJButton ("Edit","EditDeleteFiles",this),
         3, ++yDelete, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
     JGUIUtil.addComponent(delete_JPanel, new JLabel ("Delete folders:"),
@@ -1804,7 +1803,7 @@ private void refresh () {
 	String CopyBucket = "";
 	String CopyObjectsCountProperty = "";
 	// Delete.
-	String DeleteKeys = "";
+	String DeleteFiles = "";
 	String DeleteFolders = "";
 	String DeleteFoldersScope = "";
 	String DeleteFoldersMinDepth = "";
@@ -1853,7 +1852,7 @@ private void refresh () {
 		CopyBucket = parameters.getValue ( "CopyBucket" );
 		CopyObjectsCountProperty = parameters.getValue ( "CopyObjectsCountProperty" );
 		// Delete.
-		DeleteKeys = parameters.getValue ( "DeleteKeys" );
+		DeleteFiles = parameters.getValue ( "DeleteFiles" );
 		DeleteFolders = parameters.getValue ( "DeleteFolders" );
 		DeleteFoldersScope = parameters.getValue ( "DeleteFoldersScope" );
 		DeleteFoldersMinDepth = parameters.getValue ( "DeleteFoldersMinDepth" );
@@ -2014,8 +2013,8 @@ private void refresh () {
         if ( CopyObjectsCountProperty != null ) {
             __CopyObjectsCountProperty_JTextField.setText ( CopyObjectsCountProperty );
         }
-        if ( DeleteKeys != null ) {
-            __DeleteKeys_JTextArea.setText ( DeleteKeys );
+        if ( DeleteFiles != null ) {
+            __DeleteFiles_JTextArea.setText ( DeleteFiles );
         }
         if ( DeleteFolders != null ) {
             __DeleteFolders_JTextArea.setText ( DeleteFolders );
@@ -2318,7 +2317,7 @@ private void refresh () {
 	}
 	CopyObjectsCountProperty = __CopyObjectsCountProperty_JTextField.getText().trim();
 	// Delete.
-	DeleteKeys = __DeleteKeys_JTextArea.getText().trim().replace("\n"," ");
+	DeleteFiles = __DeleteFiles_JTextArea.getText().trim().replace("\n"," ");
 	DeleteFolders = __DeleteFolders_JTextArea.getText().trim().replace("\n"," ");
 	DeleteFoldersScope = __DeleteFoldersScope_JComboBox.getSelected();
 	DeleteFoldersMinDepth = __DeleteFoldersMinDepth_JTextField.getText().trim();
@@ -2367,7 +2366,7 @@ private void refresh () {
 	props.add ( "CopyBucket=" + CopyBucket );
 	props.add ( "CopyObjectsCountProperty=" + CopyObjectsCountProperty );
 	// Delete.
-	props.add ( "DeleteKeys=" + DeleteKeys );
+	props.add ( "DeleteFiles=" + DeleteFiles );
 	props.add ( "DeleteFolders=" + DeleteFolders );
 	props.add ( "DeleteFoldersScope=" + DeleteFoldersScope );
 	props.add ( "DeleteFoldersMinDepth=" + DeleteFoldersMinDepth );

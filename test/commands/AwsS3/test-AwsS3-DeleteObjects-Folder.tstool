@@ -1,0 +1,37 @@
+StartLog(LogFile="results/test-AwsS3-DeleteObjects-Folder.tstool.log")
+# Test deleting file objects for only a folder (not all files):
+# - use the test.openwaterfoundation.org bucket
+# - use the bucket folder tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-DeleteObjects-Folder
+#
+# Configuration data.
+SetProperty(PropertyName="TestS3Folder",PropertyType=String,PropertyValue="tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-DeleteObjects-Folder")
+#
+# Delete the bucket files first:
+# - list the folder to make sure the files were deleted before uploading and copying
+SetDebugLevel(LogFileLevel=1)
+AwsS3(S3Command="DeleteObjects",Bucket="test.openwaterfoundation.org",DeleteFolders="${TestS3Folder}/")
+SetDebugLevel(ScreenLevel=0,LogFileLevel=0)
+AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",ListBucketObjectsScope=All,Prefix="${TestS3Folder}/",ListBucketObjectsCountProperty="TestSetupListCount",OutputTableID="TestSetupList")
+If(Name="IfDeleteCheck",Condition="${TestSetupListCount} != 0")
+Message(Message="The copy test files were not deleted for setup.  Expect 0 but ${TestSetupListCount} remain.",CommandStatus=FAILURE)
+EndIf(Name="IfDeleteCheck")
+#
+# Upload the files for the test that will be the source of the copy:
+# - upload main folder files and subfolder files because main folder files will be removed
+# - confirm that the files were uploaded, in order to ensure that the delete will work
+AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",UploadFolders="data/testfolder2:${TestS3Folder}/testfolder2/",UploadFiles="data/root-testfile1.txt:${TestS3Folder}/*,data/root-testfile2.txt:${TestS3Folder}/*,data/testfolder1/testfolder1-testfile1.txt:${TestS3Folder}/testfolder1/*,data/testfolder1/testfolder1-testfile2.txt:${TestS3Folder}/testfolder1/*",OutputTableID="BucketList")
+AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",ListBucketObjectsScope=All,Prefix="${TestS3Folder}",ListBucketObjectsCountProperty="TestUploadListCount",OutputTableID="TestUploadList")
+If(Name="IfTestUploadListCount",Condition="${TestUploadListCount} != 6")
+Message(Message="Error - should be 6 if the objects are correctly uploaded (have ${TestUploadListCount}).",CommandStatus=FAILURE)
+EndIf(Name="IfTestUploadListCount")
+#
+# Delete the bucket files again to test the delete command:
+# - delete only the files in teh specified folder, but not all subfolders
+# - list the folder to make sure the files were deleted before uploading and copying
+SetDebugLevel(LogFileLevel=1)
+AwsS3(S3Command="DeleteObjects",Bucket="test.openwaterfoundation.org",DeleteFolders="${TestS3Folder}/",DeleteFoldersScope="FolderFiles")
+SetDebugLevel(ScreenLevel=0,LogFileLevel=0)
+AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",ListBucketObjectsScope=All,Prefix="${TestS3Folder}/",ListBucketObjectsCountProperty="TestDeleteListCount",OutputTableID="TestDeleteList")
+If(Name="IfDeleteCheck2",Condition="${TestDeleteListCount} != 4")
+Message(Message="The expected number of files were not deleted.  Expecting 4 remaining but ${TestDeleteListCount} remain.",CommandStatus=FAILURE)
+EndIf(Name="IfDeleteCheck2")

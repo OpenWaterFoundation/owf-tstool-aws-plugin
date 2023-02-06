@@ -96,6 +96,11 @@ using keys to identify objects.  Currently, copying folders is not supported.
 
 ### Delete Objects ###
 
+Use the `AwsCommand=DeleteObjects` parameter to delete one or more S3 file or folder objects
+using keys to identify objects.
+The S3 API does not provide a service to delete folders.
+Therefore folder contents are listed first and then the corresponding files are deleted.
+
 **<p style="text-align: center;">
 ![AwsS3-delete](AwsS3-delete.png)
 </p>**
@@ -213,12 +218,27 @@ Command Parameters - Copy Objects
 
 ### Delete Objects Command Parameters ###
 
-|***Delete***|`DeleteKey`| Object key to delete, can use `${Property}` syntax. | None - must be specified when `S3Command=DeleteObject`. |
+**<p style="text-align: center;">
+Command Parameters - Delete Objects 
+</p>**
+
+|**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default** |
+|-----|-----------------|-----------------|
+| `DeleteFiles`| S3 object keys for files to delete, separated by commas, can use `${Property}` syntax. | Must specify files and/or folders to delete. |
+| `DeleteFolders`| S3 object keys ending in `/` for folders to delete, separated by commas, can use `${Property}` syntax.  The files to delete are listed first and are then deleted. | Must specify files and/or folders to delete. |
+| `DeleteFoldersMinDepth` | The minimum number of folders required in the key in order to delete, used to prevent accidental delete of high-level folder. For example, `folder1/folder2/file.ext` and `/folder1/folder2/file.ext` both have a folder depth of `2`. | `3` |
+| `DeleteFoldersScope` | The scope of the delete for `DeleteFolders`:<ul><li>`AllFilesAndFolders` all files and folders, including the folder itself.</li><li>`FolderFiles` - only delete the files in the folder.</li></ul> | `FolderFiles` |
 
 ### Download Objects Command Parameters ###
 
-|***Download***|`DownloadDirectories`| List of directories (folders) to download using syntax: `key1:folder1,key2:folder2`, where the `key` identifies an S3 object and `folder` is a local folder name, can use `${Property}` syntax. | |
-||`DownloadFiles`| List of files to download using syntax: `key1:file1,key2:file2`, where the `key` identifies an S3 object and `file` is a local file name, can use `${Property}` syntax. | |
+**<p style="text-align: center;">
+Command Parameters - Download Objects 
+</p>**
+
+|**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default** |
+|-----|-----------------|-----------------|
+|`DownloadDirectories`| List of directories (folders) to download using syntax: `key1:folder1,key2:folder2`, where the `key` identifies an S3 object and `folder` is a local folder name, can use `${Property}` syntax. | |
+|`DownloadFiles`| List of files to download using syntax: `key1:file1,key2:file2`, where the `key` identifies an S3 object and `file` is a local file name, can use `${Property}` syntax. | |
 
 ### List Buckets Command Parameters ###
 
@@ -234,14 +254,26 @@ Command Parameters - List Buckets
 
 ### List Bucket Objects Command Parameters ###
 
-|***List Bucket Objects***|`Prefix`| Prefix to filter objects in the output from the `S3Command=ListObjects` command.  Specify as a top-level directory such as `folder/folder2`. | All objects are listed. |
-||`MaxKeys`| Maximum number of keys to list per request.  AWS limits the number of objects returned per request to 1000 and `MaxKeys` must be <= 1000. | `1000` (AWS limit). |
-||`MaxObjects`| Maximum number of objects returned in an object list.  Care should be taken to limit the load on the system and there are S3 charges for downloads.  Large downloads should probably use the prefix to limit downloads. | `2000` |
+**<p style="text-align: center;">
+Command Parameters - List Bucket Objects 
+</p>**
+
+|**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default** |
+|-----|-----------------|-----------------|
+|`Prefix`| Prefix to filter objects in the output from the `S3Command=ListObjects` command.  Specify as a top-level directory such as `folder/folder2`. | All objects are listed. |
+|`MaxKeys`| Maximum number of keys to list per request.  AWS limits the number of objects returned per request to 1000 and `MaxKeys` must be <= 1000. | `1000` (AWS limit). |
+|`MaxObjects`| Maximum number of objects returned in an object list.  Care should be taken to limit the load on the system and there are S3 charges for downloads.  Large downloads should probably use the prefix to limit downloads. | `2000` |
 
 ### Upload Objects Command Parameters ###
 
-|***Upload***|`UploadDirectories`| List of directories (folders) to upload using syntax: `folder1:key1,folder2:key2`, `folder` is a local folder name and `key` identifies an S3 object, can use `${Property}` syntax. | |
-||`UploadFiles`| List of files to upload using syntax: `file1:key1,file2:key2`, where `file` is a local file name and the `key` identifies an S3 object, can use `${Property}` syntax.<br><br>The local file can contain `*` wildcard to match a pattern, in which case the last part of the key (the file in the path) must be `*` to indicate that the S3 file will have the same name as the local file. | |
+**<p style="text-align: center;">
+Command Parameters - Upload Objects 
+</p>**
+
+|**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default** |
+|-----|-----------------|-----------------|
+|`UploadDirectories`| List of directories (folders) to upload using syntax: `folder1:key1,folder2:key2`, `folder` is a local folder name and `key` identifies an S3 object, can use `${Property}` syntax. | |
+|`UploadFiles`| List of files to upload using syntax: `file1:key1,file2:key2`, where `file` is a local file name and the `key` identifies an S3 object, can use `${Property}` syntax.<br><br>The local file can contain `*` wildcard to match a pattern, in which case the last part of the key (the file in the path) must be `*` to indicate that the S3 file will have the same name as the local file. | |
 
 ### Output Command Parameters ###
 

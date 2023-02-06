@@ -179,10 +179,12 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		String Region = parameters.getValue ( "Region" );
     	String Bucket = parameters.getValue ( "Bucket" );
     	String CopyFiles = parameters.getValue ( "CopyFiles" );
-    	String DeleteKeys = parameters.getValue ( "DeleteKeys" );
+    	String DeleteFiles = parameters.getValue ( "DeleteFiles" );
     	String DeleteFolders = parameters.getValue ( "DeleteFolders" );
     	String DeleteFoldersScope = parameters.getValue ( "DeleteFoldersScope" );
     	String DeleteFoldersMinDepth = parameters.getValue ( "DeleteFoldersMinDepth" );
+    	String DownloadFiles = parameters.getValue ( "DownloadFiles" );
+    	String DownloadFolders = parameters.getValue ( "DownloadFolders" );
     	String ListBucketObjectsScope = parameters.getValue ( "ListBucketObjectsScope" );
     	//String Prefix = parameters.getValue ( "Prefix" );
     	String Delimiter = parameters.getValue ( "Delimiter" );
@@ -190,6 +192,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	String ListFolders = parameters.getValue ( "ListFolders" );
     	String MaxKeys = parameters.getValue ( "MaxKeys" );
     	String MaxObjects = parameters.getValue ( "MaxObjects" );
+    	String UploadFiles = parameters.getValue ( "UploadFiles" );
+    	String UploadFolders = parameters.getValue ( "UploadFolders" );
     	// Output
     	String OutputTableID = parameters.getValue ( "OutputTableID" );
     	String OutputFile = parameters.getValue ( "OutputFile" );
@@ -381,14 +385,277 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 					new CommandLogRecord(CommandStatusType.FAILURE,
 						message, "Specify the copy files list."));
 			}
+			// Make sure extra commands are not provided to avoid confusion with file and folder lists.
+			if ( (DeleteFiles != null) && !DeleteFiles.isEmpty() ) {
+				message = "The DeleteFiles parameter is not used when copying objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DeleteFiles parameter."));
+			}
+			if ( (DeleteFolders != null) && !DeleteFolders.isEmpty() ) {
+				message = "The DeleteFolders parameter is not used when copying objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DeleteFolders parameter."));
+			}
+			if ( (DownloadFiles != null) && !DownloadFiles.isEmpty() ) {
+				message = "The DownloadFiles parameter is not used when copying objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DownloadFiles parameter."));
+			}
+			if ( (DownloadFolders != null) && !DownloadFolders.isEmpty() ) {
+				message = "The DownloadFolders parameter is not used when copying objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DownloadFolders parameter."));
+			}
+			if ( (ListFiles != null) && !ListFiles.isEmpty() ) {
+				message = "The ListFiles parameter is not used when copying objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the ListFiles parameter."));
+			}
+			if ( (ListFolders != null) && !ListFolders.isEmpty() ) {
+				message = "The ListFolders parameter is not used when copying objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the ListFolders parameter."));
+			}
+			if ( (UploadFiles != null) && !UploadFiles.isEmpty() ) {
+				message = "The UploadFiles parameter is not used when copying objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the UploadFiles parameter."));
+			}
+			if ( (UploadFolders != null) && !UploadFolders.isEmpty() ) {
+				message = "The UploadFolders parameter is not used when copying objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the UploadFolders parameter."));
+			}
 		}
 		else if ( s3Command == AwsS3CommandType.DELETE_OBJECTS ) {
-			if ( ((DeleteKeys == null) || DeleteKeys.isEmpty()) && ((DeleteFolders == null) || DeleteFolders.isEmpty()) ) {
+			if ( ((DeleteFiles == null) || DeleteFiles.isEmpty()) && ((DeleteFolders == null) || DeleteFolders.isEmpty()) ) {
 				message = "The files or folders must be specified for the delete.";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
 					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Specify 1+ file or folder keys to delete."));
+						message, "Specify 1+ file and/or folder keys to delete."));
+			}
+			// Make sure extra commands are not provided to avoid confusion with file and folder lists.
+			if ( (CopyFiles != null) && !CopyFiles.isEmpty() ) {
+				message = "The CopyFiles parameter is not used when deleting objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the CopyFiles parameter."));
+			}
+			if ( (DownloadFiles != null) && !DownloadFiles.isEmpty() ) {
+				message = "The DownloadFiles parameter is not used when deleting objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DownloadFiles parameter."));
+			}
+			if ( (DownloadFolders != null) && !DownloadFolders.isEmpty() ) {
+				message = "The DownloadFolders parameter is not used when deleting objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DownloadFolders parameter."));
+			}
+			if ( (ListFiles != null) && !ListFiles.isEmpty() ) {
+				message = "The ListFiles parameter is not used when deleting objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the ListFiles parameter."));
+			}
+			if ( (ListFolders != null) && !ListFolders.isEmpty() ) {
+				message = "The ListFolders parameter is not used when deleting objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the ListFolders parameter."));
+			}
+			if ( (UploadFiles != null) && !UploadFiles.isEmpty() ) {
+				message = "The UploadFiles parameter is not used when deleting objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the UploadFiles parameter."));
+			}
+			if ( (UploadFolders != null) && !UploadFolders.isEmpty() ) {
+				message = "The UploadFolders parameter is not used when deleting objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the UploadFolders parameter."));
+			}
+		}
+		else if ( s3Command == AwsS3CommandType.DOWNLOAD_OBJECTS ) {
+			// Make sure extra commands are not provided to avoid confusion with file and folder lists.
+			if ( (CopyFiles != null) && !CopyFiles.isEmpty() ) {
+				message = "The CopyFiles parameter is not used when downloading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Remove the CopyFiles parameter."));
+			}
+			if ( (DeleteFiles != null) && !DeleteFiles.isEmpty() ) {
+				message = "The DeleteFiles parameter is not used when downloading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DeleteFiles parameter."));
+			}
+			if ( (DeleteFolders != null) && !DeleteFolders.isEmpty() ) {
+				message = "The DeleteFolders parameter is not used when downloading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DeleteFolders parameter."));
+			}
+			if ( (ListFiles != null) && !ListFiles.isEmpty() ) {
+				message = "The ListFiles parameter is not used when downloading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the ListFiles parameter."));
+			}
+			if ( (ListFolders != null) && !ListFolders.isEmpty() ) {
+				message = "The ListFolders parameter is not used when downloading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the ListFolders parameter."));
+			}
+			if ( (UploadFiles != null) && !UploadFiles.isEmpty() ) {
+				message = "The UploadFiles parameter is not used when downloading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the UploadFiles parameter."));
+			}
+			if ( (UploadFolders != null) && !UploadFolders.isEmpty() ) {
+				message = "The UploadFolders parameter is not used when downloading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the UploadFolders parameter."));
+			}
+		}
+		else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+			// Make sure extra commands are not provided to avoid confusion with file and folder lists.
+			if ( (CopyFiles != null) && !CopyFiles.isEmpty() ) {
+				message = "The CopyFiles parameter is not used when listing objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Remove the CopyFiles parameter."));
+			}
+			if ( (DeleteFiles != null) && !DeleteFiles.isEmpty() ) {
+				message = "The DeleteFiles parameter is not used when listing objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DeleteFiles parameter."));
+			}
+			if ( (DeleteFolders != null) && !DeleteFolders.isEmpty() ) {
+				message = "The DeleteFolders parameter is not used when listing objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DeleteFolders parameter."));
+			}
+			if ( (DownloadFiles != null) && !DownloadFiles.isEmpty() ) {
+				message = "The DownloadFiles parameter is not used when listing objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DownloadFiles parameter."));
+			}
+			if ( (DownloadFolders != null) && !DownloadFolders.isEmpty() ) {
+				message = "The DownloadFolders parameter is not used when listing objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DownloadFolders parameter."));
+			}
+			if ( (UploadFiles != null) && !UploadFiles.isEmpty() ) {
+				message = "The UploadFiles parameter is not used when listing objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the UploadFiles parameter."));
+			}
+			if ( (UploadFolders != null) && !UploadFolders.isEmpty() ) {
+				message = "The UploadFolders parameter is not used when listing objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the UploadFolders parameter."));
+			}
+		}
+		else if ( s3Command == AwsS3CommandType.UPLOAD_OBJECTS ) {
+			// Make sure extra commands are not provided to avoid confusion with file and folder lists.
+			if ( (CopyFiles != null) && !CopyFiles.isEmpty() ) {
+				message = "The CopyFiles parameter is not used when uploading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the CopyFiles parameter."));
+			}
+			if ( (DeleteFiles != null) && !DeleteFiles.isEmpty() ) {
+				message = "The DeleteFiles parameter is not used when uploading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DeleteFiles parameter."));
+			}
+			if ( (DeleteFolders != null) && !DeleteFolders.isEmpty() ) {
+				message = "The DeleteFolders parameter is not used when uploading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DeleteFolders parameter."));
+			}
+			if ( (DownloadFiles != null) && !DownloadFiles.isEmpty() ) {
+				message = "The DownloadFiles parameter is not used when uploading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DownloadFiles parameter."));
+			}
+			if ( (DownloadFolders != null) && !DownloadFolders.isEmpty() ) {
+				message = "The DownloadFolders parameter is not used when uploading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the DownloadFolders parameter."));
+			}
+			if ( (ListFiles != null) && !ListFiles.isEmpty() ) {
+				message = "The ListFiles parameter is not used when uploading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the ListFiles parameter."));
+			}
+			if ( (ListFolders != null) && !ListFolders.isEmpty() ) {
+				message = "The ListFolders parameter is not used when uploading objects.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.WARNING,
+						message, "Remove the ListFolders parameter."));
 			}
 		}
 
@@ -461,7 +728,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		validList.add ( "CopyBucket" );
 		validList.add ( "CopyObjectsCountProperty" );
 		// Delete.
-		validList.add ( "DeleteKeys" );
+		validList.add ( "DeleteFiles" );
 		validList.add ( "DeleteFolders" );
 		validList.add ( "DeleteFoldersScope" );
 		validList.add ( "DeleteFoldersMinDepth" );
@@ -754,11 +1021,17 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 					objectIdBuilder
 						.key(deleteFilesKey)
 						.build());
+				if ( debug ) {
+					if ( debug ) {
+						Message.printStatus(2, routine, "Attempting to delete file key: \"" + deleteFilesKey + "\"" );
+					}
+				}
 			}
 			else {
 				if ( debug ) {
-					Message.printStatus(2, routine, "Skipping key \"" + deleteFilesKey +
-						"\" because key # of folders is less than minimum of " + deleteFoldersMinDepth );
+					Message.printStatus(2, routine, "Skipping file key \"" + deleteFilesKey +
+						"\" because key has folder depth (" + StringUtil.patternCount(deleteFilesKey, "/")
+						+ ") < than the minimum of " + deleteFoldersMinDepth );
 				}
 			}
 		}
@@ -780,8 +1053,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		for ( String deleteFoldersKey : deleteFoldersKeys ) {
 			if ( deleteFolderFiles ) {
 				// List the folder using the prefix of the folder AND the delimiter.
-				boolean useDelimiter = true;
-				String delimiter = "/";
+				if ( debug ) {
+					Message.printStatus(2, routine, "File keys from folder will be limited to the folder." );
+				}
+				boolean useDelimiter = true; // To limit to the folder only.
+				String delimiter = "/";  // Need to indicate the delimiter.
 				String prefix = deleteFoldersKey;
 				boolean listFiles = true;
 				boolean listFolders = true;
@@ -796,17 +1072,26 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 							objectIdBuilder
 								.key(s3Object.getKey())
 								.build());
+						if ( debug ) {
+							Message.printStatus(2, routine, "Attempting to delete file (from folder) key: \"" + s3Object.getKey() + "\"" );
+						}
 					}
 					else {
 						if ( debug ) {
-							Message.printStatus(2, routine, "Skipping key \"" + s3Object.getKey() +
-								"\" because key # of folders is less than minimum of " + deleteFoldersMinDepth );
+							if ( debug ) {
+								Message.printStatus(2, routine, "Skipping file (from folder) key \"" + s3Object.getKey() +
+									"\" because key has folder depth (" + StringUtil.patternCount(s3Object.getKey(), "/")
+									+ ") < than the minimum of " + deleteFoldersMinDepth );
+							}
 						}
 					}
 				}
 			}
 			else if ( deleteAllFilesAndFolders ) {
 				// List the folder using the prefix including the folder and NOT the delimiter.
+				if ( debug ) {
+					Message.printStatus(2, routine, "File keys from folder inludes all files and subfolder contents." );
+				}
 				boolean useDelimiter = false;
 				String delimiter = null;
 				String prefix = deleteFoldersKey;
@@ -823,10 +1108,13 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 							objectIdBuilder
 								.key(s3Object.getKey())
 								.build());
+						if ( debug ) {
+							Message.printStatus(2, routine, "Attempting to delete file (from folder) key: \"" + s3Object.getKey() + "\"" );
+						}
 					}
 					else {
 						if ( debug ) {
-							Message.printStatus(2, routine, "Skipping key \"" + s3Object.getKey() +
+							Message.printStatus(2, routine, "Skipping file (from folder) key \"" + s3Object.getKey() +
 								"\" because key # of folders is less than minimum of " + deleteFoldersMinDepth );
 						}
 					}
@@ -834,48 +1122,62 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			}
 		}
 
-		// Delete the objects.
-    	DeleteObjectsRequest request = DeleteObjectsRequest
-    		.builder()
-    		.bucket(bucket)
-    		.delete(
-    			Delete.builder()
-    				.objects(objectIds)
-    				.build())
-    		.build();
+		if ( objectIds.size() > 0 ) {
+			// Delete the objects.
+    		DeleteObjectsRequest request = DeleteObjectsRequest
+    			.builder()
+    			.bucket(bucket)
+    			.delete(
+    				Delete.builder()
+    					.objects(objectIds)
+    					.build())
+    			.build();
+	
+  	   		DeleteObjectsResponse response = s3.deleteObjects(request);
 
-  	    	DeleteObjectsResponse response = s3.deleteObjects(request);
+  	   		if ( response.deleted().size() != objectIds.size() ) {
+  	   			// Create a list of booleans to check which files were deleted.
+  	   			boolean [] isDeleted = new boolean[objectIds.size()];
+  	   			for ( int i = 0; i < isDeleted.length; i++ ) {
+  	   				isDeleted[i] = false;
+  	   			}
+  	   			// Go through the list of what was actually deleted.
+  	   			for ( DeletedObject deleted : response.deleted() ) {
+  	   				// Search for the deleted object in the original list.
+  	   				for ( int i = 0; i < objectIds.size(); i++ ) {
+  	   					ObjectIdentifier objectId = objectIds.get(i);
+  	   					if ( objectId.key().equals(deleted.key()) ) {
+  	   						isDeleted[i] = true;
+  	   						break;
+  	   					}
+  	   				}
+  	   			}
 
-  	    	if ( response.deleted().size() != objectIds.size() ) {
-  	    		// Create a list of booleans to check which files were deleted.
-  	    		boolean [] isDeleted = new boolean[objectIds.size()];
-  	    		for ( int i = 0; i < isDeleted.length; i++ ) {
-  	    			isDeleted[i] = false;
-  	    		}
-  	    		// Go through the list of what was actually deleted.
-  	    		for ( DeletedObject deleted : response.deleted() ) {
-  	    			// Search for the deleted object in the original list.
-  	    			for ( int i = 0; i < objectIds.size(); i++ ) {
-  	    				ObjectIdentifier objectId = objectIds.get(i);
-  	    				if ( objectId.key().equals(deleted.key()) ) {
-  	    					isDeleted[i] = true;
-  	    					break;
-  	    				}
-  	    			}
-  	    		}
-
-  	    		// Now have the list of undeleted keys.
-  	    		for ( int i = 0; i < isDeleted.length; i++ ) {
-  	    			if ( !isDeleted[i] ) {
+  	   			// Now have the list of undeleted keys.
+  	   			for ( int i = 0; i < isDeleted.length; i++ ) {
+  	   				if ( !isDeleted[i] ) {
     					message = "Unable to delete key \"" + objectIds.get(i).key() + "\".";
     					Message.printWarning ( warningLevel,
     						MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
     					status.addToLog(CommandPhaseType.RUN,
     						new CommandLogRecord(CommandStatusType.FAILURE,
     							message, "Check permissions."));
-  	    			}
-  	    		}
-  	    	}
+  	   				}
+  	   			}
+  	   		}
+		}
+		else {
+			// Only show a warning if files were requested:
+			// - folders might have been empty
+			if ( deleteFilesKeys.size() > 0 ) {
+				message = "No file keys were valid to delete.";
+				Message.printWarning ( warningLevel,
+					MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
+				status.addToLog(CommandPhaseType.RUN,
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Check the file list."));
+			}
+		}
 
 		// Return the updated warning count.
 		return warningCount;
@@ -1523,6 +1825,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     			String uploadKey = null;
     			try {
     				localFolder = localFolder.trim();
+    				if ( localFolder.endsWith("/") ) {
+    					localFolder = localFolder.substring(0, localFolder.length() - 1);
+    				}
     				uploadKey = uploadFoldersKeyList.get(iDir).trim();
     				if ( (localFolder == null) || localFolder.trim().isEmpty() ) {
     					// Don't allow default because could cause problems clobbering S3 files.
@@ -1534,8 +1839,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     							message, "Fix the local folder name."));
     					error = true;
     				}
-    				File localFolderFile = new File(localFolder);
-    				if ( !localFolderFile.exists() ) {
+    				File localFolderAsFile = new File(localFolder);
+    				if ( !localFolderAsFile.exists() ) {
     					// Local folder does not exist so cannot upload.
     					message = "Local folder does not exist: " + localFolder
     						+ " (UploadFolders parameter = \"" + uploadFoldersOrig.get(iDir) + "\").";
@@ -1680,6 +1985,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	 * @param minDepth minimum required folder depth
 	 */
 	public boolean keyFolderDepthIsAtLeast ( String key, int minDepth ) {
+		//String routine = getClass().getSimpleName() + ".keyFolderDepthIsAtLeast";
 		if ( key == null ) {
 			return false;
 		}
@@ -1691,6 +1997,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		if ( !key.startsWith(delim) ) {
 			++delimCount;
 		}
+		//Message.printStatus(2, routine, "Key \"" + key + "\" has delimCount=" + delimCount);
 		if ( delimCount >= minDepth ) {
 			return true;
 		}
@@ -1799,7 +2106,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		// Copy.
 		String CopyFiles = parameters.getValue ( "CopyFiles" );
 		CopyFiles = TSCommandProcessorUtil.expandParameterValue(processor,this,CopyFiles);
-		int copyKeysCount = 0;
+		int copyFilesCount = 0;
 		List<String> copyFilesSourceKeyList = new ArrayList<>();
 		List<String> copyFilesDestKeyList = new ArrayList<>();
     	if ( (CopyFiles != null) && !CopyFiles.isEmpty() && (CopyFiles.indexOf(":") > 0) ) {
@@ -1807,14 +2114,14 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         	List<String>pairs = StringUtil.breakStringList(CopyFiles, ",", 0 );
         	// Now break pairs and put in lists.
         	for ( String pair : pairs ) {
-        		++copyKeysCount;
+        		++copyFilesCount;
             	String [] parts = pair.split(":");
             	if ( parts.length == 2 ) {
             		String sourceKey = parts[0].trim();
             		String destKey = parts[1].trim();
             		if ( commandPhase == CommandPhaseType.RUN ) {
             			if ( sourceKey.indexOf("${") >= 0 ) { // } to match bracket
-       			   			message = "File source key " + copyKeysCount + " (" + sourceKey +
+       			   			message = "File source key " + copyFilesCount + " (" + sourceKey +
        			   				") contains ${ due to unknown processor property - skipping to avoid copy error."; // } to match bracket
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
@@ -1823,7 +2130,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         		   			continue;
         	   			}
             			if ( destKey.indexOf("${") >= 0 ) { // } to match bracket
-       			   			message = "File destination key " + copyKeysCount + " (" + destKey +
+       			   			message = "File destination key " + copyFilesCount + " (" + destKey +
        			   				") contains ${ due to unknown processor property - skipping to avoid copy error."; // } to match bracket
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
@@ -1832,7 +2139,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         		   			continue;
         	   			}
             			if ( sourceKey.endsWith("/") ) {
-       			   			message = "File source key " + copyKeysCount + " (" + sourceKey +
+       			   			message = "File source key " + copyFilesCount + " (" + sourceKey +
        			   				") ends with /, which indicates a folder - skipping.";
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
@@ -1841,7 +2148,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         		   			continue;
         	   			}
             			if ( destKey.endsWith("/") ) {
-       			   			message = "File destination key " + copyKeysCount + " (" + sourceKey +
+       			   			message = "File destination key " + copyFilesCount + " (" + sourceKey +
        			   				") ends with /, which indicates a folder - skipping.";
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
@@ -1915,17 +2222,51 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	}
 
 		// Delete.
-		String DeleteKeys = parameters.getValue ( "DeleteKeys" );
-		DeleteKeys = TSCommandProcessorUtil.expandParameterValue(processor,this,DeleteKeys);
+		String DeleteFiles = parameters.getValue ( "DeleteFiles" );
+		DeleteFiles = TSCommandProcessorUtil.expandParameterValue(processor,this,DeleteFiles);
 		List<String> deleteFilesKeys = new ArrayList<>();
-		if ( (DeleteKeys == null) || !DeleteKeys.isEmpty() ) {
-			deleteFilesKeys = StringUtil.breakStringList(DeleteKeys,",", StringUtil.DELIM_TRIM_STRINGS);
+		int deleteFilesCount = 0;
+		if ( (DeleteFiles == null) || !DeleteFiles.isEmpty() ) {
+			List<String> deleteFilesKeys0 = StringUtil.breakStringList(DeleteFiles,",", StringUtil.DELIM_TRIM_STRINGS);
+			for ( String deleteFilesKey : deleteFilesKeys0 ) {
+				++deleteFilesCount;
+           		if ( commandPhase == CommandPhaseType.RUN ) {
+           			if ( deleteFilesKey.endsWith("/") ) {
+		   				message = "File key " + deleteFilesCount + " (" + deleteFilesKey +
+		   					") ends with /, which indicates a folder - skipping.";
+     	   				Message.printWarning(warningLevel,
+   		   				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+      	   				status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+    		   				message, "Confirm that the key for the file to delete is not a folder (does not end in /).") );
+   		   				continue;
+           			}
+           			// Add the file to delete.
+           			deleteFilesKeys.add(deleteFilesKey);
+           		}
+			}
 		}
 		String DeleteFolders = parameters.getValue ( "DeleteFolders" );
 		DeleteFolders = TSCommandProcessorUtil.expandParameterValue(processor,this,DeleteFolders);
 		List<String> deleteFoldersKeys = new ArrayList<>();
+		int deleteFoldersCount = 0;
 		if ( (DeleteFolders == null) || !DeleteFolders.isEmpty() ) {
-			deleteFoldersKeys = StringUtil.breakStringList(DeleteFolders,",", StringUtil.DELIM_TRIM_STRINGS);
+			List<String> deleteFoldersKeys0 = StringUtil.breakStringList(DeleteFolders,",", StringUtil.DELIM_TRIM_STRINGS);
+			for ( String deleteFoldersKey : deleteFoldersKeys0 ) {
+				++deleteFoldersCount;
+           		if ( commandPhase == CommandPhaseType.RUN ) {
+           			if ( !deleteFoldersKey.endsWith("/") ) {
+		   				message = "Folder key " + deleteFoldersCount + " (" + deleteFoldersKey +
+		   					") does not end with /, which indicates a file - skipping.";
+     	   				Message.printWarning(warningLevel,
+   		   				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+      	   				status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+    		   				message, "Confirm that the key for the folder to delete is not a file (folder key should end with /).") );
+   		   				continue;
+           			}
+           			// Add the folder to delete.
+           			deleteFoldersKeys.add(deleteFoldersKey);
+           		}
+			}
 		}
 		String DeleteFoldersScope = parameters.getValue ( "DeleteFoldersScope" );
 		if ( (DeleteFoldersScope == null) || DeleteFoldersScope.isEmpty() ) {
@@ -2804,7 +3145,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		String CopyBucket = parameters.getValue("CopyBucket");
 		String CopyObjectsCountProperty = parameters.getValue("CopyObjectsCountProperty");
 		// Delete.
-		String DeleteKeys = parameters.getValue("DeleteKeys");
+		String DeleteFiles = parameters.getValue("DeleteFiles");
 		String DeleteFolders = parameters.getValue("DeleteFolders");
 		String DeleteFoldersScope = parameters.getValue("DeleteFoldersScope");
 		String DeleteFoldersMinDepth = parameters.getValue("DeleteFoldersMinDepth");
@@ -2885,11 +3226,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			b.append ( "CopyObjectsCountProperty=\"" + CopyObjectsCountProperty + "\"");
 		}
 		// Delete.
-		if ( (DeleteKeys != null) && (DeleteKeys.length() > 0) ) {
+		if ( (DeleteFiles != null) && (DeleteFiles.length() > 0) ) {
         	if ( b.length() > 0 ) {
             	b.append ( "," );
         	}
-			b.append ( "DeleteKeys=\"" + DeleteKeys + "\"");
+			b.append ( "DeleteFiles=\"" + DeleteFiles + "\"");
 		}
 		if ( (DeleteFolders != null) && (DeleteFolders.length() > 0) ) {
         	if ( b.length() > 0 ) {
