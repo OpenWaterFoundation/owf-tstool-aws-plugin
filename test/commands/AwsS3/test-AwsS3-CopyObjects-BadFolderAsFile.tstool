@@ -1,0 +1,15 @@
+StartLog(LogFile="results/test-AwsS3-CopyObjects-BadFolderAsFile.tstool.log")
+# Test copying file objects:
+# - use the test.openwaterfoundation.org bucket
+# - use the bucket folder tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-CopyObjects
+# - try specifying a folder to copy
+# - should generate a warning before doing anything since not supported
+#@expectedStatus Warning
+#
+# Configuration data.
+SetProperty(PropertyName="TestS3Folder",PropertyType=String,PropertyValue="tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-CopyObjects")
+#
+# Copy the objects:
+# - check the copy count
+# - should fail
+AwsS3(S3Command="CopyObjects",Bucket="test.openwaterfoundation.org",CopyFiles="${TestS3Folder}/testfolder/:${TestS3Folder}/testfolder1-testfile1-copy.txt,${TestS3Folder}/testfolder1-testfile2.txt:${TestS3Folder}/",CopyObjectsCountProperty="TestCopyObjectsCount")
