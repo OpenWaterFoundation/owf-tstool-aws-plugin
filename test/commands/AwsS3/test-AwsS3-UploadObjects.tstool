@@ -1,77 +1,26 @@
 StartLog(LogFile="results/test-AwsS3-UploadObjects.tstool.log")
-# Test uploading objects:
-# - use the data folder files
-# - use an S3 path that matches this command file and the data files
-SetProperty(PropertyName="TestS3RootFolder",PropertyType=String,PropertyValue="tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-UploadObjects")
+# Test uploading file and folder objects:
+# - use the test.openwaterfoundation.org bucket
+# - use the bucket folder tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-UploadObjects
+# - this test is similar to test-AwsS3-DeleteObjects except without the last step of deleting the objects
 #
-# Remove the old folder and confirm that it was removed.
+# Configuration data.
+SetProperty(PropertyName="TestS3Folder",PropertyType=String,PropertyValue="tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-UploadObjects")
 #
-# Upload the new files and confirm that they were uploaded.
-AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",ListBucketObjectsCountProperty="TestListBucketAllObjectsCount",UploadFolders="data/testfolder1:${TestS3RootFolder}/testfolder1/,data/testfolder2:${TestS3RootFolder}/testfolder2/",UploadFiles="data/root-testfile1.txt:${TestS3RootFolder}/*,data/root-testfile2.txt:${TestS3RootFolder}/*",OutputTableID="BucketAllObjectList")
-# Exit until get the rest of the test figured out.
-Exit()
+# Delete the bucket files first:
+# - list the folder to make sure the files were deleted before uploading and copying
+SetDebugLevel(LogFileLevel=1)
+AwsS3(S3Command="DeleteObjects",Bucket="test.openwaterfoundation.org",DeleteFolders="${TestS3Folder}/",DeleteFoldersScope="AllFilesAndFolders")
+SetDebugLevel(ScreenLevel=0,LogFileLevel=0)
+AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",ListBucketObjectsScope=All,Prefix="${TestS3Folder}/",ListBucketObjectsCountProperty="TestSetupListCount",OutputTableID="TestSetupList")
+If(Name="IfDeleteCheck",Condition="${TestSetupListCount} != 0")
+Message(Message="The upload test files were not deleted for setup.  Expecting 0 but have ${TestSetupListCount} files remaining.",CommandStatus=FAILURE)
+EndIf(Name="IfDeleteCheck")
 #
-# ================ Set up tests using a dedicated folder ===============
-#
-# Remove the previous test files.
-#
-# ================ List one object tests =================
-#
-# List a single object in a bucket:
-# - for example, this is useful for checking for existence
-AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",Prefix="index.html",ListBucketObjectsCountProperty="TestListBucketOneObjectCount",OutputTableID="BucketOneObjectList")
-If(Name="IfOneCount",Condition="${TestListBucketOneObjectCount} != 1")
-Message(Message="Error - should be 1 index.html object in the list.",CommandStatus=FAILURE)
-EndIf(Name="IfOneCount")
-#
-# ================ List all objects in bucket tests =================
-#
-# List all objects in a bucket.
-AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",ListBucketObjectsCountProperty="TestListBucketAllObjectsCount",OutputTableID="BucketAllObjectList")
-If(Name="IfAllCount",Condition="${TestListBucketAllObjectsCount} == 0")
-Message(Message="Error - should be > 0 bucket objects in the list.",CommandStatus=FAILURE)
-EndIf(Name="IfAllCount")
-#
-# Separately list all files and folders and check counts.
-AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",ListFiles=True,ListFolders=False,ListBucketObjectsCountProperty="TestListBucketAllFileObjectsCount",OutputTableID="BucketAllFileObjectList")
-AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",ListFiles=False,ListFolders=True,ListBucketObjectsCountProperty="TestListBucketAllFolderObjectsCount",OutputTableID="BucketAllFolderObjectList")
-If(Name="IfAllFileCountTooBig",Condition="${TestListBucketAllFileObjectsCount} >= ${TestListBucketAllObjectsCount}")
-Message(Message="Error - all file count should be < all object count",CommandStatus=FAILURE)
-EndIf(Name="IfAllFileCountTooBig")
-If(Name="IfAllFolderCountTooBig",Condition="${TestListBucketAllFolderObjectsCount} >= ${TestListBucketAllObjectsCount}")
-Message(Message="Error - all file count should be < all object count",CommandStatus=FAILURE)
-EndIf(Name="IfAllFolderCountTooBig")
-#
-# ================== List root tests ====================
-#
-# List top-level (root) objects:
-# - just check the counts, should be a relatively small number
-#
-# List files and folders in root.
-AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",ListBucketObjectsCountProperty="TestListBucketRootObjectsCount",OutputTableID="BucketRootObjectList")
-If(Name="IfRootCountTooSmall",Condition="${TestListBucketRootObjectsCount} == 0")
-Message(Message="Error - should be > 0 bucket objects in the list.",CommandStatus=FAILURE)
-EndIf(Name="IfRootCountTooSmall")
-If(Name="IfRootCountTooBig",Condition="${TestListBucketRootObjectsCount} > 50")
-Message(Message="Error - should be < 50 bucket root objects in the list.",CommandStatus=FAILURE)
-EndIf(Name="IfRootCountTooBig")
-#
-# Separately list root files and folders and check counts.
-AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",ListFiles=True,ListFolders=False,ListBucketObjectsCountProperty="TestListBucketRootFileObjectsCount",OutputTableID="BucketRootFileObjectList")
-AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",ListFiles=False,ListFolders=True,ListBucketObjectsCountProperty="TestListBucketRootFolderObjectsCount",OutputTableID="BucketRootFolderObjectList")
-If(Name="IfRootFileCountTooBig",Condition="${TestListBucketRootFileObjectsCount} >= ${TestListBucketRootObjectsCount}")
-Message(Message="Error - root file count should be < root object count",CommandStatus=FAILURE)
-EndIf(Name="IfRootFileCountTooBig")
-If(Name="IfRootFolderCountTooBig",Condition="${TestListBucketRootFolderObjectsCount} >= ${TestListBucketRootObjectsCount}")
-Message(Message="Error - root file count should be < root object count",CommandStatus=FAILURE)
-EndIf(Name="IfRootFolderCountTooBig")
-#
-# ================= List a folder tests ================
-#
-# List files in a folder.
-AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",ListBucketObjectsCountProperty="TestListBucketObjectsCount",OutputTableID="BucketList")
-If(Name="IfSubFolderCount",Condition="${TestListBucketObjectsCount} == 0")
-Message(Message="Error - should be > 0 bucket objects in the list.",CommandStatus=FAILURE)
-EndIf(Name="ISubFolderfCount")
-#
-AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",ListBucketObjectsScope=Folder,Prefix="test/",ListBucketObjectsRegEx="*ass*",ListBucketObjectsCountProperty="TestListBucketAllObjectsCount",OutputTableID="BucketAllObjectList")
+# Upload the files for the test that will be the source of the copy:
+# - confirm that the files were uploaded, in order to ensure that the delete will work
+AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",UploadFolders="data/testfolder2:${TestS3Folder}/data/testfolder2/",UploadFiles="data/testfolder1/testfolder1-testfile1.txt:${TestS3Folder}/*,data/testfolder1/testfolder1-testfile2.txt:${TestS3Folder}/*",OutputTableID="BucketList")
+AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",ListBucketObjectsScope=All,Prefix="${TestS3Folder}/",ListBucketObjectsCountProperty="TestUploadListCount",OutputTableID="TestUploadList")
+If(Name="IfTestUploadListCount",Condition="${TestUploadListCount} != 4")
+Message(Message="Error - should be 4 if the objects are correctly uploaded (have ${TestUploadListCount}).",CommandStatus=FAILURE)
+EndIf(Name="IfTestUploadListCount")

@@ -101,6 +101,12 @@ using keys to identify objects.
 The S3 API does not provide a service to delete folders.
 Therefore folder contents are listed first and then the corresponding files are deleted.
 
+Because deleting objects is a destructive action,
+the `DeleteFoldersMinDepth` default value requires 3 levels of folder depth by default
+and the `DeleteFoldersScope` default value of `FolderFiles` will only delete files in the folder,
+not all files recursively.
+These parameter values can be changed using the command editor.
+
 **<p style="text-align: center;">
 ![AwsS3-delete](AwsS3-delete.png)
 </p>**
@@ -146,6 +152,14 @@ Use the ***Output*** tab to set the output table and file.
 </p>**
 
 ### Upload Objects ###
+
+Files on a local computer can be uploaded to S3 for storage as S3 objects.
+To facilitate bulk uploads, folders on the computer can also be uploaded.
+The filename on the local computer will automatically match the S3 object key for folder uploads.
+File uploads can specify a different key for the S3 object.
+
+If appropriate, the [`DeleteObjects`](#delete-objects) S3 command can be used to delete a folder before upload
+to ensure that the S3 objects do not contain out of date files.
 
 **<p style="text-align: center;">
 ![AwsS3-upload](AwsS3-upload.png)
@@ -272,8 +286,8 @@ Command Parameters - Upload Objects
 
 |**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default** |
 |-----|-----------------|-----------------|
-|`UploadDirectories`| List of directories (folders) to upload using syntax: `folder1:key1,folder2:key2`, `folder` is a local folder name and `key` identifies an S3 object, can use `${Property}` syntax. | |
-|`UploadFiles`| List of files to upload using syntax: `file1:key1,file2:key2`, where `file` is a local file name and the `key` identifies an S3 object, can use `${Property}` syntax.<br><br>The local file can contain `*` wildcard to match a pattern, in which case the last part of the key (the file in the path) must be `*` to indicate that the S3 file will have the same name as the local file. | |
+|`UploadFolders`| List of folders (directories) to upload using syntax: `folder1:key1,folder2:key2`, where `folder1` is a local folder name and `key1` (ending in `/`) identifies an S3 virtual folder. Can use `${Property}` syntax. | |
+|`UploadFiles`| List of files to upload using syntax: `file1:key1,file2:key2`, where `file1` is a local file name and the `key1` identifies an S3 object. Can use `${Property}` syntax.<br><br>The local file can contain `*` wildcard in the last part to match a filename pattern in a folder (e.g., `somefolder/*.png`).<br><br>If the local file uses a wildcard, then the last part of the S3 object key must be `*` (e.g., `/somefolder/*`) to indicate that the S3 file will have the same name as the local file.  If file names in a folder need to be specifically renamed, don't use wildcards. | |
 
 ### Output Command Parameters ###
 
@@ -334,6 +348,13 @@ Automated tests require AWS permissions to run.
 ## Troubleshooting ##
 
 If there is an error, view the TSTool log file using the ***Tools / Diagnostics - View Log File...*** menu.
+If necessary, use the 
+[`SetDebugLevel`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/SetDebugLevel/SetDebugLevel/)
+command to troubleshoot (turn debug on to the log file before a command and then set levels to zero after a command).
+
+### Files are not deleted as expected ###
+
+Confirm all command parameters, in particular the `DeleteFoldersScope`.
 
 ### Uploaded File is Not Listed in S3 ###
 
@@ -346,3 +367,5 @@ Sometimes local files that are uploaded are not visible.
 
 *   [`AwsS3Catalog`](../AwsS3Catalog/AwsS3Catalog.md) command
 *   [`AwsCloudFront`](../AwsCloudFront/AwsCloudFront.md) command
+*   [`If`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/If/If/) command
+*   [`SetDebugLevel`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/SetDebugLevel/SetDebugLevel/) command
