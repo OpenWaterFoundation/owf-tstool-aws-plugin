@@ -101,9 +101,7 @@ private SimpleJComboBox __Bucket_JComboBox = null;
 //private SimpleJComboBox __IfInputNotFound_JComboBox = null;
 
 // Copy tab.
-//private JTextField __CopySourceKey_JTextField = null;
-//private JTextField __CopyDestKey_JTextField = null;
-private JTextArea __CopyKeys_JTextArea = null;
+private JTextArea __CopyFiles_JTextArea = null;
 private SimpleJComboBox __CopyBucket_JComboBox = null;
 private JTextField __CopyObjectsCountProperty_JTextField = null;
 
@@ -243,20 +241,20 @@ public void actionPerformed( ActionEvent event ) {
 	else if ( o == __cancel_JButton ) {
 		response ( false );
 	}
-    else if ( event.getActionCommand().equalsIgnoreCase("EditCopyKeys") ) {
+    else if ( event.getActionCommand().equalsIgnoreCase("EditCopyFiles") ) {
         // Edit the dictionary in the dialog.  It is OK for the string to be blank.
-        String CopyKeys = __CopyKeys_JTextArea.getText().trim();
+        String CopyFiles = __CopyFiles_JTextArea.getText().trim();
         String [] notes = {
-        	"Copy S3 objects by specifying source and destination keys for bucket:  " + this.__Bucket_JComboBox.getSelected(),
+        	"Copy S3 file objects by specifying source and destination keys for bucket:  " + this.__Bucket_JComboBox.getSelected(),
             "Specify the S3 object key using a path (e.g., folder1/folder2/file.ext).",
             "The S3 destination will be created if it does not exist, or overwritten if it does exist.",
             "A leading / in the S3 bucket key is required only if the bucket uses a top-level / in object keys.",
             "${Property} notation can be used for all values to expand at run time."
         };
-        String dict = (new DictionaryJDialog ( __parent, true, CopyKeys,
-            "Edit CopyKeys Parameter", notes, "Source S3 Key (Path)", "Destination S3 Key (Path)", 10)).response();
+        String dict = (new DictionaryJDialog ( __parent, true, CopyFiles,
+            "Edit CopyFiles Parameter", notes, "Source S3 Key (Path)", "Destination S3 Key (Path)", 10)).response();
         if ( dict != null ) {
-            __CopyKeys_JTextArea.setText ( dict );
+            __CopyFiles_JTextArea.setText ( dict );
             refresh();
         }
     }
@@ -428,7 +426,7 @@ private void checkInput () {
 	String Region = getSelectedRegion();
 	String Bucket = __Bucket_JComboBox.getSelected();
 	// Copy.
-	String CopyKeys = __CopyKeys_JTextArea.getText().trim().replace("\n"," ");
+	String CopyFiles = __CopyFiles_JTextArea.getText().trim().replace("\n"," ");
 	String CopyBucket = __CopyBucket_JComboBox.getSelected();
 	String CopyObjectsCountProperty = __CopyObjectsCountProperty_JTextField.getText().trim();
 	// Delete.
@@ -481,8 +479,8 @@ private void checkInput () {
 		props.set ( "Bucket", Bucket );
 	}
 	// Copy.
-	if ( (CopyKeys != null) && !CopyKeys.isEmpty() ) {
-		props.set ( "CopyKeys", CopyKeys );
+	if ( (CopyFiles != null) && !CopyFiles.isEmpty() ) {
+		props.set ( "CopyFiles", CopyFiles );
 	}
 	if ( (CopyBucket != null) && !CopyBucket.isEmpty() ) {
 		props.set ( "CopyBucket", CopyBucket );
@@ -607,7 +605,7 @@ private void commitEdits () {
 	String Region = getSelectedRegion();
 	String Bucket = __Bucket_JComboBox.getSelected();
 	// Copy.
-	String CopyKeys = __CopyKeys_JTextArea.getText().trim().replace("\n"," ");
+	String CopyFiles = __CopyFiles_JTextArea.getText().trim().replace("\n"," ");
 	String CopyBucket = __CopyBucket_JComboBox.getSelected();
 	String CopyObjectsCountProperty = __CopyObjectsCountProperty_JTextField.getText().trim();
 	// Delete.
@@ -653,7 +651,7 @@ private void commitEdits () {
 	__command.setCommandParameter ( "Region", Region );
 	__command.setCommandParameter ( "Bucket", Bucket );
 	// Copy.
-	__command.setCommandParameter ( "CopyKeys", CopyKeys );
+	__command.setCommandParameter ( "CopyFiles", CopyFiles );
 	__command.setCommandParameter ( "CopyBucket", CopyBucket );
 	__command.setCommandParameter ( "CopyObjectsCountProperty", CopyObjectsCountProperty );
 	// Delete.
@@ -873,7 +871,8 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     	"An S3 bucket may be associated with a CloudFront distribution, which provides a Content Deliver Network (CDN) suitable for public websites."),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel (
-        "Each S3 object (file) is identified with a \"key\", similar to a file path.  An S3 object key typically does not start with /."),
+        "Each S3 object (file) is identified with a \"key\", similar to a file path.  "
+        + "An S3 object key typically does not start with / but some buckets may use keys starting in /."),
         0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel (
         "S3 may store folders as objects with key ending in /, but otherwise folders are virtual and indicate storage hierarchy."),
@@ -883,7 +882,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
         0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     if ( __working_dir != null ) {
     	JGUIUtil.addComponent(main_JPanel, new JLabel (
-		"It is recommended that the file names are relative to the working directory, which is:"),
+		"It is recommended that file and folders on the local computer are relative to the working directory, which is:"),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     	JGUIUtil.addComponent(main_JPanel, new JLabel ("    " + __working_dir),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -1029,18 +1028,18 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(copy_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(copy_JPanel, new JLabel ("Copy keys:"),
+    JGUIUtil.addComponent(copy_JPanel, new JLabel ("Copy files:"),
         0, ++yCopy, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __CopyKeys_JTextArea = new JTextArea (6,35);
-    __CopyKeys_JTextArea.setLineWrap ( true );
-    __CopyKeys_JTextArea.setWrapStyleWord ( true );
-    __CopyKeys_JTextArea.setToolTipText("SourceKey1:DestKey1,SourceKey2:DestKey2,...");
-    __CopyKeys_JTextArea.addKeyListener (this);
-    JGUIUtil.addComponent(copy_JPanel, new JScrollPane(__CopyKeys_JTextArea),
+    __CopyFiles_JTextArea = new JTextArea (6,35);
+    __CopyFiles_JTextArea.setLineWrap ( true );
+    __CopyFiles_JTextArea.setWrapStyleWord ( true );
+    __CopyFiles_JTextArea.setToolTipText("SourceKey1:DestKey1,SourceKey2:DestKey2,...");
+    __CopyFiles_JTextArea.addKeyListener (this);
+    JGUIUtil.addComponent(copy_JPanel, new JScrollPane(__CopyFiles_JTextArea),
         1, yCopy, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
     JGUIUtil.addComponent(copy_JPanel, new JLabel ("Source and destination key(s)."),
         3, yCopy, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
-    JGUIUtil.addComponent(copy_JPanel, new SimpleJButton ("Edit","EditCopyKeys",this),
+    JGUIUtil.addComponent(copy_JPanel, new SimpleJButton ("Edit","EditCopyFiles",this),
         3, ++yCopy, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
     JGUIUtil.addComponent(copy_JPanel, new JLabel ( "Copy destination bucket:"),
@@ -1189,7 +1188,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 		0, ++yListBuckets, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(listBuckets_JPanel, new JLabel ("Use * in the regular expression as wildcards to filter the results."),
 		0, ++yListBuckets, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(listBuckets_JPanel, new JLabel ("See the 'Output' tab to specify the output file and/or table for the bucket list."),
+    JGUIUtil.addComponent(listBuckets_JPanel, new JLabel ("See the 'Output' tab to specify the output table and/or file for the bucket list."),
 		0, ++yListBuckets, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(listBuckets_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yListBuckets, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -1211,7 +1210,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     __ListBucketsCountProperty_JTextField.addKeyListener ( this );
     JGUIUtil.addComponent(listBuckets_JPanel, __ListBucketsCountProperty_JTextField,
         1, yListBuckets, 1, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(listBuckets_JPanel, new JLabel ( "Optional - processor property to set as object count." ),
+    JGUIUtil.addComponent(listBuckets_JPanel, new JLabel ( "Optional - processor property to set as bucket count." ),
         3, yListBuckets, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     // Panel for 'List Bucket Objects' parameters:
@@ -1527,9 +1526,10 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(cf_JPanel, new JLabel ("This ensures that modified objects are quickly visible to the CloudFront distribution website."),
 		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(cf_JPanel, new JLabel ("The bucket S3 keys must match the CloudFront paths (OK for S3 keys to not have / at front)."),
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ("The bucket S3 keys must match the CloudFront paths "
+   		+ "(a leading / is added if the S3 keys to not have / at the front)."),
 		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(cf_JPanel, new JLabel ("The aws-global region may be required for CloudFront distributions."),
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ("The 'aws-global' region may be required for CloudFront distributions."),
 		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(cf_JPanel, new JLabel (
     	"Specify a CloudFront distribution using the distribution ID or comment (description) pattern (e.g., *some.domain.org*)."),
@@ -1800,7 +1800,7 @@ private void refresh () {
 	String Region = "";
 	String Bucket = "";
 	// Copy.
-	String CopyKeys = "";
+	String CopyFiles = "";
 	String CopyBucket = "";
 	String CopyObjectsCountProperty = "";
 	// Delete.
@@ -1849,7 +1849,7 @@ private void refresh () {
 		Region = parameters.getValue ( "Region" );
 		Bucket = parameters.getValue ( "Bucket" );
 		// Copy.
-		CopyKeys = parameters.getValue ( "CopyKeys" );
+		CopyFiles = parameters.getValue ( "CopyFiles" );
 		CopyBucket = parameters.getValue ( "CopyBucket" );
 		CopyObjectsCountProperty = parameters.getValue ( "CopyObjectsCountProperty" );
 		// Delete.
@@ -1989,8 +1989,8 @@ private void refresh () {
 				"Bucket parameter \"" + Bucket + "\".  Select a value or Cancel." );
 			}
 		}
-        if ( CopyKeys != null ) {
-            __CopyKeys_JTextArea.setText ( CopyKeys );
+        if ( CopyFiles != null ) {
+            __CopyFiles_JTextArea.setText ( CopyFiles );
         }
         // Populate the copy bucket choices, which depends on the above profile and region.
         AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __CopyBucket_JComboBox, true );
@@ -2311,7 +2311,7 @@ private void refresh () {
 		Bucket = "";
 	}
 	// Copy.
-	CopyKeys = __CopyKeys_JTextArea.getText().trim().replace("\n"," ");
+	CopyFiles = __CopyFiles_JTextArea.getText().trim().replace("\n"," ");
 	CopyBucket = __CopyBucket_JComboBox.getSelected();
 	if ( CopyBucket == null ) {
 		CopyBucket = "";
@@ -2363,7 +2363,7 @@ private void refresh () {
 	props.add ( "Region=" + Region );
 	props.add ( "Bucket=" + Bucket );
 	// Copy.
-	props.add ( "CopyKeys=" + CopyKeys );
+	props.add ( "CopyFiles=" + CopyFiles );
 	props.add ( "CopyBucket=" + CopyBucket );
 	props.add ( "CopyObjectsCountProperty=" + CopyObjectsCountProperty );
 	// Delete.

@@ -1,7 +1,8 @@
-StartLog(LogFile="results/test-AwsS3-CopyObjects.tstool.log")
+StartLog(LogFile="results/test-AwsS3-CopyObjects-Wildcard.tstool.log")
 # Test copying file objects:
 # - use the test.openwaterfoundation.org bucket
 # - use the bucket folder tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-CopyObjects
+# - use wildcard for the destination
 #
 # Configuration data.
 SetProperty(PropertyName="TestS3Folder",PropertyType=String,PropertyValue="tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-CopyObjects")
@@ -20,13 +21,13 @@ AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundat
 # Copy the objects:
 # - check the copy count
 # - also do a list below to check the count a second way
-AwsS3(S3Command="CopyObjects",Bucket="test.openwaterfoundation.org",CopyFiles="${TestS3Folder}/testfolder1-testfile1.txt:${TestS3Folder}/testfolder1-testfile1-copy.txt,${TestS3Folder}/testfolder1-testfile2.txt:${TestS3Folder}/testfolder1-testfile2-copy.txt",CopyObjectsCountProperty="TestCopyObjectsCount")
+AwsS3(S3Command="CopyObjects",Bucket="test.openwaterfoundation.org",CopyFiles="${TestS3Folder}/testfolder1-testfile1.txt:${TestS3Folder}/copy/*,${TestS3Folder}/testfolder1-testfile2.txt:${TestS3Folder}/copy/*",CopyObjectsCountProperty="TestCopyObjectsCount")
 If(Name="IfCount",Condition="${TestCopyObjectsCount} != 2")
 Message(Message="Error - should be 1 if the object is copied.",CommandStatus=FAILURE)
 EndIf(Name="IfCount")
 #
 # Check to see if the copied objects exists.
-AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",DeleteFolders="${TestS3Folder}",ListBucketObjectsScope=All,Prefix="${TestS3Folder}",ListBucketObjectsRegEx="*copy*",ListBucketObjectsCountProperty="TestCopyListCount",OutputTableID="TestCopyList")
+AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",DeleteFolders="${TestS3Folder}",ListBucketObjectsScope=All,Prefix="${TestS3Folder}/copy",ListBucketObjectsRegEx="*copy*",ListBucketObjectsCountProperty="TestCopyListCount",OutputTableID="TestCopyList")
 If(Name="IfTestCopyListCount",Condition="${TestCopyListCount} != 2")
 Message(Message="Error - should be 1 if the object is copied.",CommandStatus=FAILURE)
 EndIf(Name="IfTestCopyListCount")

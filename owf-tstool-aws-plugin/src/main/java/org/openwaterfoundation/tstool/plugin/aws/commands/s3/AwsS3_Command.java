@@ -178,7 +178,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		String Profile = parameters.getValue ( "Profile" );
 		String Region = parameters.getValue ( "Region" );
     	String Bucket = parameters.getValue ( "Bucket" );
-    	String CopyKeys = parameters.getValue ( "CopyKeys" );
+    	String CopyFiles = parameters.getValue ( "CopyFiles" );
     	String DeleteKeys = parameters.getValue ( "DeleteKeys" );
     	String DeleteFolders = parameters.getValue ( "DeleteFolders" );
     	String DeleteFoldersScope = parameters.getValue ( "DeleteFoldersScope" );
@@ -374,21 +374,21 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		}
 
 		if ( s3Command == AwsS3CommandType.COPY_OBJECTS ) {
-			if ( (CopyKeys == null) || CopyKeys.isEmpty() ) {
-				message = "The copy keys must be specified.";
+			if ( (CopyFiles == null) || CopyFiles.isEmpty() ) {
+				message = "The copy files list must be specified.";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
 					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Specify the copy keys."));
+						message, "Specify the copy files list."));
 			}
 		}
 		else if ( s3Command == AwsS3CommandType.DELETE_OBJECTS ) {
 			if ( ((DeleteKeys == null) || DeleteKeys.isEmpty()) && ((DeleteFolders == null) || DeleteFolders.isEmpty()) ) {
-				message = "The keys or folders must be specified for the delete.";
+				message = "The files or folders must be specified for the delete.";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
 					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Specify 1+ keys or folder paths to delete."));
+						message, "Specify 1+ file or folder keys to delete."));
 			}
 		}
 
@@ -457,7 +457,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		validList.add ( "Region" );
 		validList.add ( "Bucket" );
 		// Copy.
-		validList.add ( "CopyKeys" );
+		validList.add ( "CopyFiles" );
 		validList.add ( "CopyBucket" );
 		validList.add ( "CopyObjectsCountProperty" );
 		// Delete.
@@ -511,17 +511,23 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	 */
 	private int doCloudFrontInvalidation (
 		AwsSession awsSession,
-		String region, String distributionId, String commentPattern,
+		String region, String cloudFrontRegion, String distributionId, String commentPattern,
 		List<String> cloudFrontPaths, String callerReference, boolean waitForCompletion,
 		CommandStatus status, int logLevel, int warningLevel, int warningCount, String commandTag ) throws Exception {
 		String routine = getClass().getSimpleName() + ".doCloudFrontInvalidation";
 		String message;
 		CommandPhaseType commandPhase = CommandPhaseType.RUN;
+		
+		// If the CloudFront region is not specified, use the Region value or default.
+		if ( (cloudFrontRegion == null) || cloudFrontRegion.isEmpty() ) {
+			cloudFrontRegion = region;
+		}
 
    	   	// Invalidate files in a distribution using one or more paths:
    	   	// - see: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
    	   	// List the distributions given the input parameters.
-   	   	distributionId = AwsToolkit.getInstance().getCloudFrontDistributionId(awsSession, region, distributionId, commentPattern);
+   	   	distributionId = AwsToolkit.getInstance().getCloudFrontDistributionId(
+   	   		awsSession, cloudFrontRegion, distributionId, commentPattern);
        	boolean doInvalidate = true;
        	if ( distributionId == null ) {
    			message = "Unable to determine CloudFront distribution ID for invalidation.";
@@ -529,11 +535,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
    			status.addToLog ( commandPhase,
    				new CommandLogRecord(CommandStatusType.FAILURE,
-   					message, "Verify that the distribution ID is valid for the region." ) );
+   					message, "Verify that the distribution ID is valid for the CloudFront region." ) );
    			doInvalidate = false;
        	}
        	if ( cloudFrontPaths.size() == 0 ) {
-   			message = "No paths have been specified to invalidate.";
+   			message = "No paths have been specified to invalidate - copy, delete, or upload commands must have failed.";
    			Message.printWarning(warningLevel,
    				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
    			status.addToLog ( commandPhase,
@@ -560,7 +566,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
        			.callerReference(callerReference)
        			.build();
 
-       		Region regionO = Region.of(region);
+       		Region regionObject = Region.of(cloudFrontRegion);
 
 			// Handle credentials.
 
@@ -569,7 +575,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			ProfileCredentialsProvider credentialsProvider = credentialsProvider0;
 
 			CloudFrontClient cloudfront = CloudFrontClient.builder()
-				.region(regionO)
+				.region(regionObject)
 				.credentialsProvider(credentialsProvider)
 				.build();
 
@@ -587,7 +593,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
       	int waitTimeout = 3600*1000;
       	int waitMs = 5000;
        	if ( waitForCompletion ) {
-			AwsToolkit.getInstance().waitForCloudFrontInvalidations(awsSession, region, distributionId, waitMs, waitTimeout);
+			AwsToolkit.getInstance().waitForCloudFrontInvalidations(awsSession, cloudFrontRegion, distributionId, waitMs, waitTimeout);
       	}
 
        	// Return the updated warning count.
@@ -629,6 +635,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		for ( int i = 0; i < copySourceKeyList.size(); i++ ) {
 			String sourceKey = copySourceKeyList.get(i);
 			String destKey = copyDestKeyList.get(i);
+			if ( Message.isDebugOn ) {
+				Message.printStatus(2, routine, "Attempting copy of \"" + sourceKey + "\" to \"" + destKey + "\".");
+			}
 			CopyObjectRequest request = CopyObjectRequest
 				.builder()
 				.sourceBucket(sourceBucket)
@@ -641,7 +650,14 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			if ( response.sdkHttpResponse().statusCode() == HttpURLConnection.HTTP_OK ) {
 				// Successful.
 				++copyCount;
-				cloudFrontPaths.add(destKey);
+				if ( destKey.startsWith("/") ) {
+					// Add as is.
+					cloudFrontPaths.add(destKey);
+				}
+				else {
+					// Add with leading /.
+					cloudFrontPaths.add("/" + destKey);
+				}
 			}
 			else {
 				message = "Copy object returned HTTP status " + response.sdkHttpResponse().statusCode() + " - object copy failed.";
@@ -1781,14 +1797,14 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		final String bucket = TSCommandProcessorUtil.expandParameterValue(processor,this,bucket0);
 
 		// Copy.
-		String CopyKeys = parameters.getValue ( "CopyKeys" );
-		CopyKeys = TSCommandProcessorUtil.expandParameterValue(processor,this,CopyKeys);
+		String CopyFiles = parameters.getValue ( "CopyFiles" );
+		CopyFiles = TSCommandProcessorUtil.expandParameterValue(processor,this,CopyFiles);
 		int copyKeysCount = 0;
-		List<String> copySourceKeyList = new ArrayList<>();
-		List<String> copyDestKeyList = new ArrayList<>();
-    	if ( (CopyKeys != null) && !CopyKeys.isEmpty() && (CopyKeys.indexOf(":") > 0) ) {
+		List<String> copyFilesSourceKeyList = new ArrayList<>();
+		List<String> copyFilesDestKeyList = new ArrayList<>();
+    	if ( (CopyFiles != null) && !CopyFiles.isEmpty() && (CopyFiles.indexOf(":") > 0) ) {
         	// First break map pairs by comma.
-        	List<String>pairs = StringUtil.breakStringList(CopyKeys, ",", 0 );
+        	List<String>pairs = StringUtil.breakStringList(CopyFiles, ",", 0 );
         	// Now break pairs and put in lists.
         	for ( String pair : pairs ) {
         		++copyKeysCount;
@@ -1798,7 +1814,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
             		String destKey = parts[1].trim();
             		if ( commandPhase == CommandPhaseType.RUN ) {
             			if ( sourceKey.indexOf("${") >= 0 ) { // } to match bracket
-       			   			message = "Source key " + copyKeysCount + " (" + sourceKey +
+       			   			message = "File source key " + copyKeysCount + " (" + sourceKey +
        			   				") contains ${ due to unknown processor property - skipping to avoid copy error."; // } to match bracket
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
@@ -1807,7 +1823,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         		   			continue;
         	   			}
             			if ( destKey.indexOf("${") >= 0 ) { // } to match bracket
-       			   			message = "Destination key " + copyKeysCount + " (" + destKey +
+       			   			message = "File destination key " + copyKeysCount + " (" + destKey +
        			   				") contains ${ due to unknown processor property - skipping to avoid copy error."; // } to match bracket
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
@@ -1816,31 +1832,31 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         		   			continue;
         	   			}
             			if ( sourceKey.endsWith("/") ) {
-       			   			message = "Source key " + copyKeysCount + " (" + sourceKey +
-       			   				") ends with /, which indicates a folder.";
+       			   			message = "File source key " + copyKeysCount + " (" + sourceKey +
+       			   				") ends with /, which indicates a folder - skipping.";
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
-		    		   			message, "Confirm that a key for the source file is specified." ) );
+		    		   			message, "Confirm that the key for the source file is not a folder (does not end in /).") );
         		   			continue;
         	   			}
             			if ( destKey.endsWith("/") ) {
-       			   			message = "Destination key " + copyKeysCount + " (" + sourceKey +
-       			   				") ends with /, which indicates a folder.";
+       			   			message = "File destination key " + copyKeysCount + " (" + sourceKey +
+       			   				") ends with /, which indicates a folder - skipping.";
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
-		    		   			message, "Confirm that a key for the destination file is specified." ) );
+		    		   			message, "Confirm that the key for the destination file is not a folder (does not end in /)." ) );
         		   			continue;
         	   			}
             			if ( sourceKey.indexOf("*") >= 0 ) {
             				// Source key has a wildcard:
             				// - not supported
-            				message = "Source key uses * wildcard - skipping.";
+            				message = "File source key uses * wildcard - skipping.";
 			       			Message.printWarning(warningLevel,
 				   				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 			       			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
-				   				message, "Wildcard is not allowed for the source key." ) );
+				   				message, "Wildcard is not allowed for the file source key." ) );
 			       			continue;
             			}
             			if ( destKey.endsWith("*") ) {
@@ -1862,30 +1878,30 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
            					if ( destKey.equals("*") ) {
            						destKey = sourceName;
    						    	if ( Message.isDebugOn ) {
-   						    		Message.printStatus(2, routine, "                     Source key: " + sourceKey );
-   						    		Message.printStatus(2, routine, "Destination key from * wildcard: " + destKey );
+   						    		Message.printStatus(2, routine, "                     File xource key: " + sourceKey );
+   						    		Message.printStatus(2, routine, "File destination key from * wildcard: " + destKey );
    						    	}
            					}
            					else if ( destKey.endsWith("/*") ) {
-            					destKey = sourceKey.replace("*", sourceName );
+            					destKey = destKey.replace("*", sourceName );
    						    	if ( Message.isDebugOn ) {
-   						    		Message.printStatus(2, routine, "                      Source key: " + sourceKey );
-   						    		Message.printStatus(2, routine, "Destination key from /* wildcard: " + destKey );
+   						    		Message.printStatus(2, routine, "                      File source key: " + sourceKey );
+   						    		Message.printStatus(2, routine, "File destination key from /* wildcard: " + destKey );
    						    	}
            					}
            					else {
-           						message = "Destination key must equal * or end in /* to use source key file name.";
+           						message = "File destination key must equal * or end in /* to use source key file name.";
 		       					Message.printWarning(warningLevel,
 			   						MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 		       					status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
-			   						message, "Fix the destination key to equal * or end in /*." ) );
+			   						message, "Fix the file destination key to equal * or end in /*." ) );
 		       					continue;
            					}	
             			}
             			// Add to the lists for further processing.
             			//uploadFilesOrig.add(localFile);
-            			copySourceKeyList.add(sourceKey);
-            			copyDestKeyList.add(destKey);
+            			copyFilesSourceKeyList.add(sourceKey);
+            			copyFilesDestKeyList.add(destKey);
             		}
             	}
         	}
@@ -2316,6 +2332,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		if ( (InvalidateCloudFront != null) && InvalidateCloudFront.equalsIgnoreCase(this._True) ) {
 			invalidateCloudFront = true;
 		}
+		String CloudFrontRegion = parameters.getValue ( "CloudFrontRegion" );
 		String CloudFrontDistributionId = parameters.getValue ( "CloudFrontDistributionId" );
 		CloudFrontDistributionId = TSCommandProcessorUtil.expandParameterValue(processor,this,CloudFrontDistributionId);
 		String CloudFrontComment = parameters.getValue ( "CloudFrontComment" );
@@ -2331,7 +2348,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		if ( (CloudFrontCallerReference == null) || CloudFrontCallerReference.isEmpty() ) {
 			// Default is user-time.
 			DateTime dt = new DateTime ( DateTime.DATE_CURRENT);
-			callerReference = System.getProperty("user.name") + "-" + TimeUtil.formatDateTime(dt, "%Y-%m-%dT%H:%M:%S");
+			callerReference = "TSTool-" + System.getProperty("user.name").replace(" ", "")
+				+ "-" + TimeUtil.formatDateTime(dt, "%Y%m%d%H%M%S");
 		}
 		else {
 			// Append current time to ensure uniqueness.
@@ -2574,7 +2592,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	    		warningCount = doS3CopyObjects(
     	    			processor,
 		  	    		s3,
-		  	    		bucket, copySourceKeyList, copyBucket, copyDestKeyList,
+		  	    		bucket, copyFilesSourceKeyList, copyBucket, copyFilesDestKeyList,
   	    				CopyObjectsCountProperty,
 		  	    		cloudFrontPaths,
 		  	    		status, logLevel, warningCount, commandTag );
@@ -2628,7 +2646,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	        	if ( invalidateCloudFront && (cloudFrontPaths.size() > 0) ) {
 	        		warningCount = doCloudFrontInvalidation (
 	        			awsSession,
-	        			region, CloudFrontDistributionId, commentPattern,
+	        			region, CloudFrontRegion, CloudFrontDistributionId, commentPattern,
 	        			cloudFrontPaths, callerReference, waitForCompletion,
 	        			status, logLevel, warningLevel, warningCount, commandTag );
 	        	}
@@ -2782,7 +2800,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		String Region = parameters.getValue("Region");
 		String Bucket = parameters.getValue("Bucket");
 		// Copy.
-		String CopyKeys = parameters.getValue("CopyKeys");
+		String CopyFiles = parameters.getValue("CopyFiles");
 		String CopyBucket = parameters.getValue("CopyBucket");
 		String CopyObjectsCountProperty = parameters.getValue("CopyObjectsCountProperty");
 		// Delete.
@@ -2848,11 +2866,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			b.append ( "Bucket=\"" + Bucket + "\"" );
 		}
 		// Copy.
-		if ( (CopyKeys != null) && (CopyKeys.length() > 0) ) {
+		if ( (CopyFiles != null) && (CopyFiles.length() > 0) ) {
         	if ( b.length() > 0 ) {
             	b.append ( "," );
         	}
-			b.append ( "CopyKeys=\"" + CopyKeys + "\"");
+			b.append ( "CopyFiles=\"" + CopyFiles + "\"");
 		}
 		if ( (CopyBucket != null) && (CopyBucket.length() > 0) ) {
         	if ( b.length() > 0 ) {
