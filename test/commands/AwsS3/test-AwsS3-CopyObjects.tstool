@@ -24,11 +24,11 @@ AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundat
 # - also do a list below to check the count a second way
 AwsS3(S3Command="CopyObjects",Bucket="test.openwaterfoundation.org",CopyFiles="${TestS3Folder}/testfolder1-testfile1.txt:${TestS3Folder}/testfolder1-testfile1-copy.txt,${TestS3Folder}/testfolder1-testfile2.txt:${TestS3Folder}/testfolder1-testfile2-copy.txt",CopyObjectsCountProperty="TestCopyObjectsCount")
 If(Name="IfCount",Condition="${TestCopyObjectsCount} != 2")
-Message(Message="Error - should be 1 if the object is copied.",CommandStatus=FAILURE)
+Message(Message="Error - should be 2 if the object is copied, instead have ${TestCopyObjectsCount}.",CommandStatus=FAILURE)
 EndIf(Name="IfCount")
 #
 # Check to see if the copied objects exists.
 AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",ListBucketObjectsScope=All,Prefix="${TestS3Folder}/",ListBucketObjectsRegEx="*copy*",ListBucketObjectsCountProperty="TestCopyListCount",OutputTableID="TestCopyList")
 If(Name="IfTestCopyListCount",Condition="${TestCopyListCount} != 2")
-Message(Message="Error - should be 1 if the object is copied.",CommandStatus=FAILURE)
+Message(Message="Error - should be 2 if the object is copied, instead have ${TestCopyListCount}.",CommandStatus=FAILURE)
 EndIf(Name="IfTestCopyListCount")
