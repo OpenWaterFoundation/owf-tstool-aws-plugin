@@ -113,7 +113,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	protected final String _FolderFiles = "FolderFiles";
 
 	/**
-	Data members used for ListBucketObjectsScope parameter values.
+	Data members used for ListObjectsScope parameter values.
 	*/
 	protected final String _Root = "Root";
 	protected final String _Folder = "Folder";
@@ -164,6 +164,34 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		super();
 		setCommandName ( "AwsS3" );
 	}
+	
+	/**
+	 * Add a path to the CloudFront invalidation list.
+	 * The path is added only if not already in the list.
+	 * The * wildcard should be added by the calling code.
+	 * @param cloudFrontPaths the full list of CloudFront paths
+	 * @param cloudFrontPath single CloudFront path to add.
+	 * A leading / is added if not present.
+	 */
+	private void addCloudFrontPath ( List<String> cloudFrontPaths, String cloudFrontPath ) {
+		if ( !cloudFrontPath.startsWith("/") ) {
+			// Prepend /
+			cloudFrontPath = "/" + cloudFrontPath;
+		}
+		if ( cloudFrontPaths == null ) {
+			return;
+		}
+		boolean found = false;
+		for ( String cloudFrontPath0 : cloudFrontPaths ) {
+			if ( cloudFrontPath.equals(cloudFrontPath0) ) {
+				found = true;
+				break;
+			}
+		}
+		if ( !found ) {
+			cloudFrontPaths.add(cloudFrontPath);
+		}
+	}
 
 	/**
 	Check the command parameter for valid values, combination, etc.
@@ -185,7 +213,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	String DeleteFoldersMinDepth = parameters.getValue ( "DeleteFoldersMinDepth" );
     	String DownloadFiles = parameters.getValue ( "DownloadFiles" );
     	String DownloadFolders = parameters.getValue ( "DownloadFolders" );
-    	String ListBucketObjectsScope = parameters.getValue ( "ListBucketObjectsScope" );
+    	String ListObjectsScope = parameters.getValue ( "ListObjectsScope" );
     	//String Prefix = parameters.getValue ( "Prefix" );
     	String Delimiter = parameters.getValue ( "Delimiter" );
     	String ListFiles = parameters.getValue ( "ListFiles" );
@@ -331,10 +359,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			}
 		}
 
-		// Put ListBucketObjectsScope at the end so combinations of parameters can be checked.
-		if ( (ListBucketObjectsScope != null) && !ListBucketObjectsScope.equals("") ) {
-			if ( !ListBucketObjectsScope.equalsIgnoreCase(_All) && !ListBucketObjectsScope.equalsIgnoreCase(_Folder) && !ListBucketObjectsScope.equalsIgnoreCase(_Root)) {
-				message = "The ListBucketObjectsScope parameter \"" + ListBucketObjectsScope + "\" is invalid.";
+		// Put ListObjectsScope at the end so combinations of parameters can be checked.
+		if ( (ListObjectsScope != null) && !ListObjectsScope.equals("") ) {
+			if ( !ListObjectsScope.equalsIgnoreCase(_All) && !ListObjectsScope.equalsIgnoreCase(_Folder) && !ListObjectsScope.equalsIgnoreCase(_Root)) {
+				message = "The ListObjectsScope parameter \"" + ListObjectsScope + "\" is invalid.";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
 					new CommandLogRecord(CommandStatusType.FAILURE,
@@ -342,8 +370,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			}
 			// Cannot be specified with Prefix.
 			/*
-			if ( ListBucketObjectsScope.equalsIgnoreCase(_True) && (Prefix != null) && !Prefix.isEmpty() ) {
-				message = "ListBucketObjectsScope=True cannot be specified with a Prefix value.";
+			if ( ListObjectsScope.equalsIgnoreCase(_True) && (Prefix != null) && !Prefix.isEmpty() ) {
+				message = "ListObjectsScope=True cannot be specified with a Prefix value.";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
 					new CommandLogRecord(CommandStatusType.FAILURE,
@@ -554,7 +582,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 						message, "Remove the UploadFolders parameter."));
 			}
 		}
-		else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+		else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
 			// Make sure extra commands are not provided to avoid confusion with file and folder lists.
 			if ( (CopyFiles != null) && !CopyFiles.isEmpty() ) {
 				message = "The CopyFiles parameter is not used when listing objects.";
@@ -662,7 +690,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		// The output table or file is needed for lists:
 		// - some internal logic such as counts uses the table
 		if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
-			(s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
+			(s3Command == AwsS3CommandType.LIST_OBJECTS) ) {
 			// Must specify table and/or file.
 			if ( ((OutputTableID == null) || OutputTableID.isEmpty()) && ((OutputFile == null) || OutputFile.isEmpty()) ) {
 				message = "The output table and/or file must be specified.";
@@ -739,15 +767,15 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		validList.add ( "ListBucketsRegEx" );
 		validList.add ( "ListBucketsCountProperty" );
 		// List bucket objects.
-		validList.add ( "ListBucketObjectsScope" );
+		validList.add ( "ListObjectsScope" );
 		validList.add ( "Prefix" );
 		validList.add ( "Delimiter" );
-		validList.add ( "ListBucketObjectsRegEx" );
+		validList.add ( "ListObjectsRegEx" );
 		validList.add ( "ListFiles" );
 		validList.add ( "ListFolders" );
 		validList.add ( "MaxKeys" );
 		validList.add ( "MaxObjects" );
-		validList.add ( "ListBucketObjectsCountProperty" );
+		validList.add ( "ListObjectsCountProperty" );
 		// Upload.
 		validList.add ( "UploadFolders" );
 		validList.add ( "UploadFiles" );
@@ -875,6 +903,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
  	* @param destBucket destination bucket for the key
  	* @param copyDestKeyList list of destination object key keys for copy (must align with copySourceKeyList)
  	* @param copyObjectCountProperty the processor property name to set the copy count
+ 	* @param invalidateCloudFront whether to automatically invalidate CloudFront
  	* @param cloudFrontPaths list of CloudFront paths to invalidate, should invalidation be requested
  	* @exception Exception let the exceptions
  	*/
@@ -883,7 +912,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		S3Client s3,
 		String sourceBucket, List<String> copySourceKeyList, String destBucket, List<String> copyDestKeyList,
 		String copyObjectCountProperty,
-		List<String> cloudFrontPaths,
+		boolean invalidateCloudFront, List<String> cloudFrontPaths,
 		CommandStatus status, int logLevel, int warningCount, String commandTag )
 		throws Exception {
 		String routine = getClass().getSimpleName() + ".doS3CopyObject";
@@ -917,14 +946,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			if ( response.sdkHttpResponse().statusCode() == HttpURLConnection.HTTP_OK ) {
 				// Successful.
 				++copyCount;
-				if ( destKey.startsWith("/") ) {
-					// Add as is.
-					cloudFrontPaths.add(destKey);
-				}
-				else {
-					// Add with leading /.
-					cloudFrontPaths.add("/" + destKey);
-				}
+				addCloudFrontPath(cloudFrontPaths, destKey);
 			}
 			else {
 				message = "Copy object returned HTTP status " + response.sdkHttpResponse().statusCode() + " - object copy failed.";
@@ -970,6 +992,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	 * @param deleteFoldersScope scope for deleting folders, controls whether shallow or deep delete
 	 * @param deleteFoldersMinDepth minimum number of folders in keys to allow delete,
 	 * used to protect against accidental deletes
+ 	 * @param invalidateCloudFront whether to automatically invalidate CloudFront
+     * @param cloudFrontPaths list of CloudFront paths to invalidate, should invalidation be requested,
+     * will contain the parent of deleted files and folders
 	 * @param status command status for command logging messages
 	 * @param logLevel log level for messages
 	 * @param warningLevel warning level for messages
@@ -981,6 +1006,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		String bucket,
 		List<String> deleteFilesKeys, List<String> deleteFoldersKeys,
 		String deleteFoldersScope, int deleteFoldersMinDepth,
+		boolean invalidateCloudFront, List<String> cloudFrontPaths,
 		CommandStatus status, int logLevel, int warningLevel, int warningCount, String commandTag
 		) throws Exception {
 		String routine = getClass().getSimpleName() + ".doS3DeleteObjects";
@@ -1148,6 +1174,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
   	   					ObjectIdentifier objectId = objectIds.get(i);
   	   					if ( objectId.key().equals(deleted.key()) ) {
   	   						isDeleted[i] = true;
+  	   						// If invalidating CloudFront, invalidate the parent folder.
+  	   						if ( invalidateCloudFront ) {
+  	   							addCloudFrontPath(cloudFrontPaths, getKeyParentFolder(deleted.key() + "*"));
+  	   						}
   	   						break;
   	   					}
   	   				}
@@ -1356,290 +1386,6 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	}
 
 	/**
-	 * List S3 bucket objects.
-	 */
-	private int doS3ListBucketObjects (
-		CommandProcessor processor,
-		S3Client s3,
-		String bucket,
-		String listScope, String prefix, String delimiter, int maxKeys, int maxObjects,
-		boolean listFiles, boolean listFolders, String regex,
-		DataTable table, int objectKeyCol, int objectTypeCol, int objectNameCol, int objectParentNameCol,
-		String listBucketObjectsCountProperty,
-		int objectSizeCol, int objectOwnerCol, int objectLastModifiedCol,
-		CommandStatus status, int logLevel, int warningCount, String commandTag
-		) throws Exception {
-		String routine = getClass().getSimpleName() + ".doS3ListBucketObjects";
-		String message;
-
-   	    // List bucket objects for files and/or "common prefix" for folders.
-   	    ListObjectsV2Request.Builder builder = ListObjectsV2Request
-    		.builder()
-    		.fetchOwner(Boolean.TRUE) // Get the owner so it can be shown in output.
-    		.bucket(bucket); // Bucket is required.
-    	if ( maxKeys > 0 ) {
-    		// Set the maximum number of keys that will be returned per request.
-    		builder.maxKeys(maxKeys);
-    	}
-    	// Indicate whether prefix is being used, to speed up checks.
-    	boolean doPrefix = false;
-    	if ( listScope.equalsIgnoreCase(this._Root) ) {
-    		// Listing root files and/or folders:
-    		// - do not specify prefix
-    		// - do specify delimiter
-    		// - if the bucket uses / as the root, the folder listing can be used
-    		if ( (prefix != null) && prefix.isEmpty() ) {
-    			builder.prefix(prefix);
-    			doPrefix = true;
-    		}
-    		if ( (delimiter == null) || delimiter.isEmpty() ) {
-    			builder.delimiter("/");
-    		}
-    		else {
-    			// Set what the command provided.
-    			builder.delimiter(delimiter);
-    		}
-    		Message.printStatus ( 2, routine, "Requesting all objects in the bucket root." );
-      	}
-    	else if ( listScope.equalsIgnoreCase(this._Folder) ) {
-    		// Listing a specific folder:
-    		// - prefix will have been checked previously
-    		// - delimiter is required and will have been checked previously
-    		if ( (prefix != null) && !prefix.isEmpty() ) {
-    			builder.prefix(prefix);
-    			doPrefix = true;
-    		}
-    		// Also need to set the delimiter.
-    		if ( (delimiter == null) || delimiter.isEmpty() ) {
-    			builder.delimiter("/");
-    		}
-    		else {
-    			// Set what the command provided.
-    			builder.delimiter(delimiter);
-    		}
-    		Message.printStatus ( 2, routine, "Requesting all objects matching prefix \"" + prefix + "\"." );
-    	}
-    	else {
-    		// Listing everything in the bucket:
-    		// - can use the prefix to filter
-    		// - no delimiter is used
-    		// - ok to return a folder matching a prefix
-    		Message.printStatus ( 2, routine, "Requesting all objects in the bucket." );
-    		if ( (prefix != null) && !prefix.isEmpty() ) {
-    			builder.prefix(prefix);
-    		}
-    	}
-
-    	ListObjectsV2Request request = builder.build();
-    	ListObjectsV2Response response = null;
-    	TableRecord rec = null;
-    	boolean allowDuplicates = false;
-    	// TODO smalers 2022-05-31 for now use UTC time.
-    	String timezone = "Z";
-    	ZoneId zoneId = ZoneId.of("Z");
-    	int dateTimeBehaviorFlag = 0;
-    	boolean done = false;
-    	int objectCount = 0;
-    	int fileCount = 0;
-    	int folderCount = 0;
-    	while ( !done ) {
-    		response = s3.listObjectsV2(request);
-    		// Process files and folders separately, with the maximum count checked based on what is returned.
-    		if ( listFiles || listFolders ) {
-    			// S3Objects can contain files or folders (objects with key ending in /, typically with size=0).
-    			// Loop in any case to get the count.
-    			for ( S3Object s3Object : response.contents() ) {
-    				// Check the maximum object count, to protect against runaway processes.
-    				if ( objectCount >= maxObjects ) {
-			  			// Quit saving objects when the limit has been reached.
-    					break;
-    				}
-    				// Output to table:
-    				// - key is the full path to the file
-    				// - have size, owner and modification time properties
-   					String key = s3Object.key();
-   					if ( doPrefix && prefix.endsWith("/") && key.equals(prefix) ) {
-   						// Do not include the requested prefix itself because want the contents of the folder,
-   						// not the folder itself.
-   						Message.printStatus(2, routine, "Ignoring Prefix that is a folder because want folder contents.");
-   						continue;
-   					}
-   					if ( regex != null ) {
-   						// Want to apply a regular expression to the key.
-   						if ( !key.matches(regex) ) {
-   							continue;
-   						}
-   					}
-   					if ( !listFolders && key.endsWith("/") ) {
-   						// Is a folder and don't want folders so continue.
-   						continue;
-   					}
-   					else if ( !listFiles && !key.endsWith("/") ) {
-   						// Is a file and don't files want so continue.
-   						continue;
-   					}
-    				if ( table != null ) {
-    					if ( !allowDuplicates ) {
-    						// Try to match the object key, which is the unique identifier.
-    						rec = table.getRecord ( objectKeyCol, s3Object.key() );
-    					}
-    					if ( rec == null ) {
-    						// Create a new record.
-    						rec = table.addRecord(table.emptyRecord());
-    					}
-    					// Set the data in the record.
-    					rec.setFieldValue(objectKeyCol,s3Object.key());
-    					// Set the name as the end of the key without folder delimiter.
-    					String name = s3Object.key();
-    					if ( name.endsWith("/") ) {
-    						name = name.substring(0,(name.length() - 1));
-    						int pos = name.lastIndexOf("/");
-    						if ( pos >= 0 ) {
-    							// Have subfolders:
-    							// - strip so only the name remains
-    							name = name.substring(pos + 1);
-    						}
-    					}
-   						rec.setFieldValue(objectNameCol,name);
-    					// Set the parent name as the folder above the current name string.
-   						int pos = name.lastIndexOf("/");
-   						String parentName = "";
-   						if ( pos >= 0 ) {
-   							// Have subfolders:
-   							// - strip so only the name remains
-   							parentName = name.substring(pos + 1);
-   						}
-   						rec.setFieldValue(objectParentNameCol,parentName);
-    					if ( key.endsWith("/") ) {
-    						rec.setFieldValue(objectTypeCol,"folder");
-    					}
-    					else {
-    						rec.setFieldValue(objectTypeCol,"file");
-    					}
-    					rec.setFieldValue(objectSizeCol,s3Object.size());
-    					if ( s3Object.owner() == null ) {
-    						rec.setFieldValue(objectOwnerCol,"");
-    					}
-    					else {
-    						rec.setFieldValue(objectOwnerCol,s3Object.owner().displayName());
-    					}
-    					rec.setFieldValue(objectLastModifiedCol,
-    						new DateTime(OffsetDateTime.ofInstant(s3Object.lastModified(), zoneId), dateTimeBehaviorFlag, timezone));
-    				}
-   					// Increment the count of objects processed (includes files and folders).
-   					++objectCount;
-   					if ( key.endsWith("/") ) {
-   						++folderCount;
-   					}
-   					else {
-   						++fileCount;
-   					}
-    			}
-    		}
-    		if ( listFolders ) {
-    			// Common prefixes are only used with folders:
-    			// - the key will be from the root to the / (inclusive) after the prefix
-    			for ( CommonPrefix commonPrefix : response.commonPrefixes() ) {
-			  		// Check the maximum object count, to protect against runaway processes.
-			  		if ( objectCount >= maxObjects ) {
-			  			// Quit saving objects when the limit has been reached.
-						break;
-			  		}
-   					if ( doPrefix && prefix.endsWith("/") && commonPrefix.prefix().equals(prefix) ) {
-   						// Do not include the requested prefix itself because want the contents of the folder,
-   						// not the folder itself.
-   						Message.printStatus(2, routine, "Ignoring Prefix that is a folder because want folder contents.");
-   						continue;
-   					}
-   					if ( regex != null ) {
-   						// Want to apply a regular expression to the key.
-   						if ( !commonPrefix.prefix().matches(regex) ) {
-   							continue;
-   						}
-   					}
-    				// Output to table:
-			  		// - key is the path to the folder including trailing / to indicate a folder
-			  		// - only have the key since folders are virtual and have no properties
-    				if ( table != null ) {
-    					if ( !allowDuplicates ) {
-    						// Try to match the object key, which is the unique identifier.
-    						rec = table.getRecord ( objectKeyCol, commonPrefix.prefix() );
-    					}
-    					if ( rec == null ) {
-    						// Create a new record.
-    						rec = table.addRecord(table.emptyRecord());
-    					}
-    					// Set the data in the record.
-    					rec.setFieldValue(objectKeyCol, commonPrefix.prefix());
-    					// Set the name as the end of the key without folder delimiter.
-    					String name = commonPrefix.prefix();
-    					if ( name.endsWith("/") ) {
-    						name = name.substring(0,(name.length() - 1));
-    						int pos = name.lastIndexOf("/");
-    						if ( pos >= 0 ) {
-    							// Have subfolders:
-    							// - strip so only the name remains
-    							name = name.substring(pos + 1);
-    						}
-    					}
-   						rec.setFieldValue(objectNameCol,name);
-   						int pos = name.lastIndexOf("/");
-   						String parentName = "";
-   						if ( pos >= 0 ) {
-   							// Have subfolders:
-   							// - strip so only the name remains
-   							parentName = name.substring(pos + 1);
-   						}
-   						rec.setFieldValue(objectParentNameCol,parentName);
-    					rec.setFieldValue(objectTypeCol,"folder");
-    				}
-   					// Increment the count of objects processed (includes files and folders).
-			  		++objectCount;
-   					++folderCount;
-		  		}
-    		}
-    		if ( response.nextContinuationToken() == null ) {
-    			done = true;
-    		}
-    		request = request.toBuilder()
-   				.continuationToken(response.nextContinuationToken())
-   				.build();
-    	}
-    	// Sort the table by key if both files and folders were queried:
-    	// - necessary because files come out of the objects and folders out of common prefixes
-    	if ( listFiles && listFolders ) {
-    		String [] sortColumns = { "Key" };
-    		int [] sortOrder = { 1 };
-    		table.sortTable( sortColumns, sortOrder);
-    	}
-    	Message.printStatus ( 2, routine, "Response has objects=" + response.contents().size()
-    		+ ", commonPrefixes=" + response.commonPrefixes().size() );
-    	Message.printStatus ( 2, routine, "List has fileCount=" + fileCount + ", folderCount="
-    		+ folderCount + ", objectCount=" + objectCount );
-    	// Set the property indicating the number of bucket objects.
-       	if ( (listBucketObjectsCountProperty != null) && !listBucketObjectsCountProperty.equals("") ) {
-           	PropList requestParams = new PropList ( "" );
-           	requestParams.setUsingObject ( "PropertyName", listBucketObjectsCountProperty );
-           	requestParams.setUsingObject ( "PropertyValue", new Integer(objectCount) );
-           	try {
-               	processor.processRequest( "SetProperty", requestParams);
-           	}
-           	catch ( Exception e ) {
-               	message = "Error requesting SetProperty(Property=\"" + listBucketObjectsCountProperty + "\") from processor.";
-               	Message.printWarning(logLevel,
-                   	MessageUtil.formatMessageTag( commandTag, ++warningCount),
-                   	routine, message );
-                    	status.addToLog ( CommandPhaseType.RUN,
-                   	new CommandLogRecord(CommandStatusType.FAILURE,
-                       	message, "Report the problem to software support." ) );
-           	}
-       	}
-
-       	// Return the updated warning count.
-       	return warningCount;
-	}
-
-	/**
 	 * List S3 buckets.
 	 */
 	private int doS3ListBuckets (
@@ -1723,7 +1469,278 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	}
 
 	/**
+	 * List S3 bucket objects.
+	 */
+	private int doS3ListObjects (
+		CommandProcessor processor,
+		S3Client s3,
+		String bucket,
+		String listScope, String prefix, String delimiter, int maxKeys, int maxObjects,
+		boolean listFiles, boolean listFolders, String regex,
+		DataTable table, int objectKeyCol, int objectTypeCol, int objectNameCol, int objectParentFolderCol,
+		String listObjectsCountProperty,
+		int objectSizeCol, int objectOwnerCol, int objectLastModifiedCol,
+		CommandStatus status, int logLevel, int warningCount, String commandTag
+		) throws Exception {
+		String routine = getClass().getSimpleName() + ".doS3ListObjects";
+		String message;
+
+   	    // List bucket objects for files and/or "common prefix" for folders.
+   	    ListObjectsV2Request.Builder builder = ListObjectsV2Request
+    		.builder()
+    		.fetchOwner(Boolean.TRUE) // Get the owner so it can be shown in output.
+    		.bucket(bucket); // Bucket is required.
+    	if ( maxKeys > 0 ) {
+    		// Set the maximum number of keys that will be returned per request.
+    		builder.maxKeys(maxKeys);
+    	}
+    	// Indicate whether prefix is being used, to speed up checks.
+    	boolean doPrefix = false;
+    	if ( listScope.equalsIgnoreCase(this._Root) ) {
+    		// Listing root files and/or folders:
+    		// - do not specify prefix
+    		// - do specify delimiter
+    		// - if the bucket uses / as the root, the folder listing can be used
+    		if ( (prefix != null) && prefix.isEmpty() ) {
+    			builder.prefix(prefix);
+    			doPrefix = true;
+    		}
+    		if ( (delimiter == null) || delimiter.isEmpty() ) {
+    			builder.delimiter("/");
+    		}
+    		else {
+    			// Set what the command provided.
+    			builder.delimiter(delimiter);
+    		}
+    		Message.printStatus ( 2, routine, "Requesting all objects in the bucket root." );
+      	}
+    	else if ( listScope.equalsIgnoreCase(this._Folder) ) {
+    		// Listing a specific folder:
+    		// - prefix will have been checked previously
+    		// - delimiter is required and will have been checked previously
+    		if ( (prefix != null) && !prefix.isEmpty() ) {
+    			builder.prefix(prefix);
+    			doPrefix = true;
+    		}
+    		// Also need to set the delimiter.
+    		if ( (delimiter == null) || delimiter.isEmpty() ) {
+    			builder.delimiter("/");
+    		}
+    		else {
+    			// Set what the command provided.
+    			builder.delimiter(delimiter);
+    		}
+    		Message.printStatus ( 2, routine, "Requesting all objects matching prefix \"" + prefix + "\"." );
+    	}
+    	else {
+    		// Listing everything in the bucket:
+    		// - can use the prefix to filter
+    		// - no delimiter is used
+    		// - ok to return a folder matching a prefix
+    		Message.printStatus ( 2, routine, "Requesting all objects in the bucket." );
+    		if ( (prefix != null) && !prefix.isEmpty() ) {
+    			builder.prefix(prefix);
+    		}
+    	}
+
+    	ListObjectsV2Request request = builder.build();
+    	ListObjectsV2Response response = null;
+    	TableRecord rec = null;
+    	boolean allowDuplicates = false;
+    	// TODO smalers 2022-05-31 for now use UTC time.
+    	String timezone = "Z";
+    	ZoneId zoneId = ZoneId.of("Z");
+    	int dateTimeBehaviorFlag = 0;
+    	boolean done = false;
+    	int objectCount = 0;
+    	int fileCount = 0;
+    	int folderCount = 0;
+    	while ( !done ) {
+    		response = s3.listObjectsV2(request);
+    		// Process files and folders separately, with the maximum count checked based on what is returned.
+    		if ( listFiles || listFolders ) {
+    			// S3Objects can contain files or folders (objects with key ending in /, typically with size=0).
+    			// Loop in any case to get the count.
+    			for ( S3Object s3Object : response.contents() ) {
+   					String key = s3Object.key();
+    				// Check the maximum object count, to protect against runaway processes.
+    				if ( objectCount >= maxObjects ) {
+			  			// Quit saving objects when the limit has been reached.
+						if ( Message.isDebugOn ) {
+							Message.printStatus(2, routine, "Reached maxObjects limit (" + maxObjects + ") - skipping: " + key);
+						}
+    					break;
+    				}
+    				// Output to table:
+    				// - key is the full path to the file
+    				// - have size, owner and modification time properties
+   					if ( doPrefix && prefix.endsWith("/") && key.equals(prefix) ) {
+   						// Do not include the requested prefix itself because want the contents of the folder,
+   						// not the folder itself.
+   						Message.printStatus(2, routine, "Ignoring Prefix that is a folder because want folder contents.");
+   						continue;
+   					}
+   					if ( regex != null ) {
+   						// Want to apply a regular expression to the key.
+   						if ( !key.matches(regex) ) {
+   							if ( Message.isDebugOn ) {
+   								Message.printStatus(2, routine, "Does not match regular expression - skipping: " + key);
+   							}
+   							continue;
+   						}
+   					}
+   					if ( !listFolders && key.endsWith("/") ) {
+   						// Is a folder and don't want folders so continue.
+   						if ( Message.isDebugOn ) {
+   							Message.printStatus(2, routine, "Is a folder and ignoring folder - skipping: " + key);
+   						}
+   						continue;
+   					}
+   					else if ( !listFiles && !key.endsWith("/") ) {
+   						// Is a file and don't files want so continue.
+   						if ( Message.isDebugOn ) {
+   							Message.printStatus(2, routine, "Is a file and ignoring files - skipping: " + key);
+   						}
+   						continue;
+   					}
+   					// If here, the object should be listed in the output table.
+    				if ( table != null ) {
+    					rec = null;
+    					if ( !allowDuplicates ) {
+    						// Try to match the object key, which is the unique identifier.
+    						rec = table.getRecord ( objectKeyCol, s3Object.key() );
+    					}
+    					if ( rec == null ) {
+    						// Create a new record.
+    						rec = table.addRecord(table.emptyRecord());
+    					}
+    					// Set the data in the record.
+    					rec.setFieldValue(objectKeyCol,s3Object.key());
+   						rec.setFieldValue(objectNameCol,getKeyName(s3Object.key()));
+   						rec.setFieldValue(objectParentFolderCol,getKeyParentFolder(s3Object.key()));
+    					if ( key.endsWith("/") ) {
+    						rec.setFieldValue(objectTypeCol,"folder");
+    					}
+    					else {
+    						rec.setFieldValue(objectTypeCol,"file");
+    					}
+    					rec.setFieldValue(objectSizeCol,s3Object.size());
+    					if ( s3Object.owner() == null ) {
+    						rec.setFieldValue(objectOwnerCol,"");
+    					}
+    					else {
+    						rec.setFieldValue(objectOwnerCol,s3Object.owner().displayName());
+    					}
+    					rec.setFieldValue(objectLastModifiedCol,
+    						new DateTime(OffsetDateTime.ofInstant(s3Object.lastModified(), zoneId), dateTimeBehaviorFlag, timezone));
+    				}
+   					// Increment the count of objects processed (includes files and folders).
+   					++objectCount;
+   					if ( key.endsWith("/") ) {
+   						++folderCount;
+   					}
+   					else {
+   						++fileCount;
+   					}
+    			}
+    		}
+    		if ( listFolders ) {
+    			// Common prefixes are only used with folders:
+    			// - the key will be from the root to the / (inclusive) after the prefix
+    			for ( CommonPrefix commonPrefix : response.commonPrefixes() ) {
+			  		// Check the maximum object count, to protect against runaway processes.
+			  		if ( objectCount >= maxObjects ) {
+			  			// Quit saving objects when the limit has been reached.
+						break;
+			  		}
+   					if ( doPrefix && prefix.endsWith("/") && commonPrefix.prefix().equals(prefix) ) {
+   						// Do not include the requested prefix itself because want the contents of the folder,
+   						// not the folder itself.
+   						Message.printStatus(2, routine, "Ignoring Prefix that is a folder because want folder contents.");
+   						continue;
+   					}
+   					if ( regex != null ) {
+   						// Want to apply a regular expression to the key.
+   						if ( !commonPrefix.prefix().matches(regex) ) {
+   							continue;
+   						}
+   					}
+    				// Output to table:
+			  		// - key is the path to the folder including trailing / to indicate a folder
+			  		// - only have the key since folders are virtual and have no properties
+    				if ( table != null ) {
+    					rec = null;
+    					if ( !allowDuplicates ) {
+    						// Try to match the object key, which is the unique identifier.
+    						rec = table.getRecord ( objectKeyCol, commonPrefix.prefix() );
+    					}
+    					if ( rec == null ) {
+    						// Create a new record.
+    						rec = table.addRecord(table.emptyRecord());
+    					}
+    					// Set the data in the record.
+    					rec.setFieldValue(objectKeyCol, commonPrefix.prefix());
+    					// Set the name as the end of the key with folder delimiter.
+   						rec.setFieldValue(objectNameCol,getKeyName(commonPrefix.prefix()));
+   						rec.setFieldValue(objectParentFolderCol,getKeyParentFolder(commonPrefix.prefix()));
+   						// No size so keep as null;
+   						// No owner so keep as null;
+   						// No modification date so keep as null;
+    					rec.setFieldValue(objectTypeCol,"folder");
+    				}
+   					// Increment the count of objects processed (includes files and folders).
+			  		++objectCount;
+   					++folderCount;
+		  		}
+    		}
+    		if ( response.nextContinuationToken() == null ) {
+    			done = true;
+    		}
+    		request = request.toBuilder()
+   				.continuationToken(response.nextContinuationToken())
+   				.build();
+    	}
+    	// Sort the table by key if both files and folders were queried:
+    	// - necessary because files come out of the objects and folders out of common prefixes
+    	if ( listFiles && listFolders ) {
+    		String [] sortColumns = { "Key" };
+    		int [] sortOrder = { 1 };
+    		table.sortTable( sortColumns, sortOrder);
+    	}
+    	Message.printStatus ( 2, routine, "Response has objects=" + response.contents().size()
+    		+ ", commonPrefixes=" + response.commonPrefixes().size() );
+    	Message.printStatus ( 2, routine, "List has fileCount=" + fileCount + ", folderCount="
+    		+ folderCount + ", objectCount=" + objectCount );
+    	// Set the property indicating the number of bucket objects.
+       	if ( (listObjectsCountProperty != null) && !listObjectsCountProperty.equals("") ) {
+       		//int numObjects = objectCount;
+       		int numObjects = table.getNumberOfRecords();
+           	PropList requestParams = new PropList ( "" );
+           	requestParams.setUsingObject ( "PropertyName", listObjectsCountProperty );
+           	requestParams.setUsingObject ( "PropertyValue", new Integer(numObjects) );
+           	try {
+               	processor.processRequest( "SetProperty", requestParams);
+           	}
+           	catch ( Exception e ) {
+               	message = "Error requesting SetProperty(Property=\"" + numObjects + "\") from processor.";
+               	Message.printWarning(logLevel,
+                   	MessageUtil.formatMessageTag( commandTag, ++warningCount),
+                   	routine, message );
+                    	status.addToLog ( CommandPhaseType.RUN,
+                   	new CommandLogRecord(CommandStatusType.FAILURE,
+                       	message, "Report the problem to software support." ) );
+           	}
+       	}
+
+       	// Return the updated warning count.
+       	return warningCount;
+	}
+
+	/**
 	 * Do S3 upload files and folders.
+ 	 * @param invalidateCloudFront whether to automatically invalidate CloudFront
+     * @param cloudFrontPaths list of CloudFront paths to invalidate, should invalidation be requested,
+     * will contain the parent of deleted files and folders
 	 */
 	private int doS3UploadObjects (
 		CommandProcessor processor,
@@ -1731,6 +1748,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		String bucket, String region,
 		List<String> uploadFilesOrig, List<String> uploadFilesFileList, List<String> uploadFilesKeyList,
 		List<String> uploadFoldersOrig, List<String> uploadFoldersDirectoryList, List<String> uploadFoldersKeyList,
+		boolean invalidateCloudFront, List<String> cloudFrontPaths,
 		CommandStatus status, int logLevel, int warningLevel, int warningCount, String commandTag
 		) throws Exception {
 		String routine = getClass().getSimpleName() + ".doS3UploadObjects";
@@ -1801,6 +1819,12 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    							.uploadFile(d -> d.putObjectRequest(g -> g.bucket(bucket).key(uploadKeyFinal))
 								.source(Paths.get(localFileFinal)));
     					upload.completionFuture().join();
+
+  						// If invalidating CloudFront, invalidate the file:
+    					// - TODO smalers 2023-02-07 need to figure out how to invalidate only successful uploaded folders
+   						if ( invalidateCloudFront ) {
+   							addCloudFrontPath(cloudFrontPaths, uploadKey + "*");
+   						}
     				}
     			}
     			catch ( Exception e ) {
@@ -1891,6 +1915,12 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    								new CommandLogRecord(CommandStatusType.FAILURE,
    									message, "Check command parameters."));
     					}
+
+  						// If invalidating CloudFront, invalidate the folder:
+    					// - TODO smalers 2023-02-07 need to figure out how to invalidate only successful uploaded folders
+   						if ( invalidateCloudFront ) {
+   							addCloudFrontPath(cloudFrontPaths, uploadKey + "*");
+   						}
     				}
     			}
     			catch ( Exception e ) {
@@ -1941,6 +1971,94 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         	list.add ( getOutputFile() );
     	}
     	return list;
+	}
+
+	/**
+	 * Return the name part of a key, which is the last part, without trailing /.
+	 * If the last part ends in /, return the substring after the previous delimiter.
+	 * If the last part does not end in /, return the part after the last /.
+	 * If there is no /, return the original key.
+	 * @param key S3 object key (or common prefix).
+	 * @return the trailing file or folder name, without trailing /
+	 */
+	private String getKeyName ( String key ) {
+		return getKeyName ( key, false );
+	}
+
+	/**
+	 * Return the name part of a key, which is the last part.
+	 * If the last part ends in /, return the substring after the previous delimiter to the /.
+	 * If the last part does not end in /, return the part after the last /.
+	 * If there is no /, return the original key.
+	 * @param key S3 object key (or common prefix).
+	 * @param keepTrailingDelimiter if true and a folder with trailing /, keep the /. If false, remove the slash.
+	 * @return the trailing file or folder name (with trailing /)
+	 */
+	private String getKeyName ( String key, boolean keepTrailingDelimiter ) {
+    	// Set the name as the end of the key without folder delimiter.
+		String name = key;
+    	if ( key.endsWith("/") ) {
+    		// Folder.
+    		int pos = key.lastIndexOf("/",2);
+    		if ( pos < 0 ) {
+    			// There was only the trailing /.
+    			name = key;
+    		}
+    		else {
+    			// Return the string after the found position.
+    			name = key.substring(pos + 1);
+    		}
+    	}
+    	else {
+    		// File.
+    		int pos = key.lastIndexOf("/");
+    		if ( pos >= 0 ) {
+    			// Have subfolders:
+    			// - strip so only the name remains
+    			name = name.substring(pos + 1);
+    		}
+    		else {
+    			// No folder so use the full name as is.
+    			name = key;
+   			}
+    	}
+    	if ( name.endsWith("/") && !keepTrailingDelimiter ) {
+    		// Remove the trailing slash.
+    		name = name.substring(0,(name.length() - 1));
+    	}
+    	return name;
+	}
+
+	/**
+	 * Return the parent folder part of the key, without trailing /.
+	 * @param key S3 object key (or common prefix).
+	 * @return the key parent folder, without trailing /.
+	 */
+	private String getKeyParentFolder ( String key ) {
+		return getKeyParentFolder ( key, false );
+	}
+
+	/**
+	 * Return the parent folder part of the key.
+	 * This is the folder, including / prior to the trailing file or folder name.
+	 * @param key S3 object key (or common prefix).
+	 * @param keepTrailingDelimiter if true and a folder with trailing /, keep the /. If false, remove the slash.
+	 * @return the key parent folder, with trailing /.
+	 */
+	private String getKeyParentFolder ( String key, boolean keepTrailingDelimiter ) {
+		String parentFolder = "";
+		// Get the key name, with trailing delimiter.
+		String name = getKeyName(key, true);
+		// The parent is everything before the name.
+		if ( key.length() > name.length() ) {
+			// Have a parent folder.
+			parentFolder = key.substring(0, (key.length() - name.length()) );
+		}
+    	if ( parentFolder.endsWith("/") && !keepTrailingDelimiter ) {
+    		// Remove the trailing slash.
+    		parentFolder = parentFolder.substring(0,(parentFolder.length() - 1));
+    	}
+		return parentFolder;
 	}
 
 	/**
@@ -2351,28 +2469,28 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	}
 
     	// List bucket objects.
-		String ListBucketObjectsScope = parameters.getValue ( "ListBucketObjectsScope" );
-		if ( (ListBucketObjectsScope == null) || ListBucketObjectsScope.isEmpty() ) {
-			ListBucketObjectsScope = this._All; // Default.
+		String ListObjectsScope = parameters.getValue ( "ListObjectsScope" );
+		if ( (ListObjectsScope == null) || ListObjectsScope.isEmpty() ) {
+			ListObjectsScope = this._All; // Default.
 		}
 		String Prefix = parameters.getValue ( "Prefix" );
 		Prefix = TSCommandProcessorUtil.expandParameterValue(processor,this,Prefix);
 		// Set the default delimiter lower in the code because defaulting to / has implications.
 		String Delimiter = parameters.getValue ( "Delimiter" );
 		Delimiter = TSCommandProcessorUtil.expandParameterValue(processor,this,Delimiter);
-		String ListBucketObjectsRegEx = parameters.getValue ( "ListBucketObjectsRegEx" );
+		String ListObjectsRegEx = parameters.getValue ( "ListObjectsRegEx" );
 		// TODO smalers 2023-01-27 evaluate whether regex can be expanded or will have conflicts.
-		//ListBucketObjectsRegEx = TSCommandProcessorUtil.expandParameterValue(processor,this,ListBucketObjectsRegEx);
+		//ListObjectsRegEx = TSCommandProcessorUtil.expandParameterValue(processor,this,ListObjectsRegEx);
 		// Convert the RegEx to Java style.
-		String listBucketObjectsRegEx = null;
-		if ( (ListBucketObjectsRegEx != null) && !ListBucketObjectsRegEx.isEmpty() ) {
-			if ( ListBucketObjectsRegEx.toUpperCase().startsWith("JAVA:") ) {
+		String listObjectsRegEx = null;
+		if ( (ListObjectsRegEx != null) && !ListObjectsRegEx.isEmpty() ) {
+			if ( ListObjectsRegEx.toUpperCase().startsWith("JAVA:") ) {
 				// Use as is for a Java regular expression.
-				listBucketObjectsRegEx = ListBucketObjectsRegEx.substring(5);
+				listObjectsRegEx = ListObjectsRegEx.substring(5);
 			}
 			else {
 				// Default to glob so convert * to Java .*
-				listBucketObjectsRegEx = ListBucketObjectsRegEx.replace("*", ".*");
+				listObjectsRegEx = ListObjectsRegEx.replace("*", ".*");
 			}
 		}
 		String MaxKeys = parameters.getValue ( "MaxKeys" );
@@ -2405,9 +2523,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		if ( (ListFolders != null) && ListFolders.equalsIgnoreCase("false") ) {
 			listFolders = false;
 		}
-    	String ListBucketObjectsCountProperty = parameters.getValue ( "ListBucketObjectsCountProperty" );
+    	String ListObjectsCountProperty = parameters.getValue ( "ListObjectsCountProperty" );
     	if ( commandPhase == CommandPhaseType.RUN ) {
-    		ListBucketObjectsCountProperty = TSCommandProcessorUtil.expandParameterValue(processor, this, ListBucketObjectsCountProperty);
+    		ListObjectsCountProperty = TSCommandProcessorUtil.expandParameterValue(processor, this, ListObjectsCountProperty);
     	}
 
     	// Upload.
@@ -2732,7 +2850,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	if ( commandPhase == CommandPhaseType.RUN ) {
     		PropList requestParams = null;
 			CommandProcessorRequestResultsBean bean = null;
-		  	if ( (OutputTableID != null) && !OutputTableID.equals("") && appendOutput ) {
+		  	if ( (OutputTableID != null) && !OutputTableID.isEmpty() && appendOutput ) {
 				// Get the table to be updated.
 				requestParams = new PropList ( "" );
 				requestParams.set ( "TableID", OutputTableID );
@@ -2780,9 +2898,6 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			.build();
 
 		try {
-			// Create the table if it does not exist.
-
-	    	// Make sure the table has the columns that are needed.
 	    	if ( commandPhase == CommandPhaseType.RUN ) {
 
 	    		// Create a session with the credentials.
@@ -2797,7 +2912,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         		// Bucket object list columns.
         		int objectKeyCol = -1;
         		int objectNameCol = -1;
-        		int objectParentNameCol = -1;
+        		int objectParentFolderCol = -1;
         		int objectTypeCol = -1;
    	    		int objectSizeCol = -1;
    	    		int objectOwnerCol = -1;
@@ -2818,10 +2933,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "BucketName", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_DATETIME, "CreationDate", -1) );
     	        		}
-    	        		else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+    	        		else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Key", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Name", -1) );
-    	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "ParentName", -1) );
+    	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "ParentFolder", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Type", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_LONG, "Size", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Owner", -1) );
@@ -2829,7 +2944,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        		}
     	        		// 2. Create the table if not found from the processor above.
     	        		if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
-    	        			(s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
+    	        			(s3Command == AwsS3CommandType.LIST_OBJECTS) ) {
     	        			// Create the table.
     	        			table = new DataTable( columnList );
     	        		}
@@ -2838,10 +2953,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			bucketNameCol = table.getFieldIndex("BucketName");
     	        			bucketCreationDateCol = table.getFieldIndex("CreationDate");
     	        		}
-    	        		else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+    	        		else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
     	        			objectKeyCol = table.getFieldIndex("Key");
     	        			objectNameCol = table.getFieldIndex("Name");
-    	        			objectParentNameCol = table.getFieldIndex("ParentName");
+    	        			objectParentFolderCol = table.getFieldIndex("ParentFolder");
     	        			objectTypeCol = table.getFieldIndex("Type");
     	        			objectSizeCol = table.getFieldIndex("Size");
     	        			objectOwnerCol = table.getFieldIndex("Owner");
@@ -2851,7 +2966,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        		//    - if new will add
     	        		//    - if append will overwrite by replacing the matching table ID
     	        		if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
-    	        			(s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
+    	        			(s3Command == AwsS3CommandType.LIST_OBJECTS) ) {
     	        			if ( (OutputTableID != null) && !OutputTableID.isEmpty() ) {
     	        				table.setTableID ( OutputTableID );
                 				Message.printStatus(2, routine, "Created new table \"" + OutputTableID + "\" for output.");
@@ -2892,11 +3007,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	            			bucketCreationDateCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "CreationDate", -1), "");
     	        			}
     	        		}
-    	        		else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+    	        		else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
     	        			objectKeyCol = table.getFieldIndex("Key");
     	        			objectNameCol = table.getFieldIndex("Name");
-    	        			objectParentNameCol = table.getFieldIndex("ParentName");
-    	        			objectTypeCol = table.getFieldIndex("Key");
+    	        			objectParentFolderCol = table.getFieldIndex("ParentFolder");
+    	        			objectTypeCol = table.getFieldIndex("Type");
     	        			objectSizeCol = table.getFieldIndex("Size");
     	        			objectOwnerCol = table.getFieldIndex("Owner");
     	        			objectLastModifiedCol = table.getFieldIndex("LastModified");
@@ -2906,8 +3021,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			if ( objectNameCol < 0 ) {
     	            			objectNameCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "Name", -1), "");
     	        			}
-    	        			if ( objectParentNameCol < 0 ) {
-    	            			objectParentNameCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "ParentName", -1), "");
+    	        			if ( objectParentFolderCol < 0 ) {
+    	            			objectParentFolderCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "ParentFolder", -1), "");
     	        			}
     	        			if ( objectTypeCol < 0 ) {
     	            			objectTypeCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "Type", -1), "");
@@ -2935,7 +3050,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		  	    		s3,
 		  	    		bucket, copyFilesSourceKeyList, copyBucket, copyFilesDestKeyList,
   	    				CopyObjectsCountProperty,
-		  	    		cloudFrontPaths,
+		  	    		invalidateCloudFront, cloudFrontPaths,
 		  	    		status, logLevel, warningCount, commandTag );
     	    	}
     	    	else if ( s3Command == AwsS3CommandType.DELETE_OBJECTS ) {
@@ -2944,6 +3059,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		  	    		bucket,
    	        			deleteFilesKeys, deleteFoldersKeys,
    	        			DeleteFoldersScope, deleteFoldersMinDepth,
+		  	    		invalidateCloudFront, cloudFrontPaths,
 		  	    		status, logLevel, warningLevel, warningCount, commandTag );
     	    	}
     	    	else if ( s3Command == AwsS3CommandType.DOWNLOAD_OBJECTS ) {
@@ -2961,15 +3077,15 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	    			listBucketsRegEx, ListBucketsCountProperty,
     	    			status, logLevel, warningCount, commandTag );
     	    	}
-   	        	else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
-   	        		warningCount = doS3ListBucketObjects (
+   	        	else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
+   	        		warningCount = doS3ListObjects (
    	        			processor,
    	        			s3,
 		 	       		bucket,
-		 	       		ListBucketObjectsScope, Prefix, Delimiter, maxKeys, maxObjects,
-		 	       		listFiles, listFolders, listBucketObjectsRegEx,
-		 	       		table, objectKeyCol, objectTypeCol, objectNameCol, objectParentNameCol,
-		 	       		ListBucketObjectsCountProperty,
+		 	       		ListObjectsScope, Prefix, Delimiter, maxKeys, maxObjects,
+		 	       		listFiles, listFolders, listObjectsRegEx,
+		 	       		table, objectKeyCol, objectTypeCol, objectNameCol, objectParentFolderCol,
+		 	       		ListObjectsCountProperty,
 		 	       		objectSizeCol, objectOwnerCol, objectLastModifiedCol,
 		 	       		status, logLevel, warningCount, commandTag );
     	    	}
@@ -2980,6 +3096,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	        			bucket, region,
    	        			uploadFilesOrig, uploadFilesFileList, uploadFilesKeyList,
    	        			uploadFoldersOrig, uploadFoldersDirectoryList, uploadFoldersKeyList,
+		  	    		invalidateCloudFront, cloudFrontPaths,
    	        			status, logLevel, warningLevel, warningCount, commandTag );
     	    	}
 
@@ -3029,7 +3146,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	    	}
 	    	else if ( commandPhase == CommandPhaseType.DISCOVERY ) {
    	        	if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
-   	        		(s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
+   	        		(s3Command == AwsS3CommandType.LIST_OBJECTS) ) {
    	        		if ( (table == null) && (OutputTableID != null) && !OutputTableID.isEmpty() ) {
 	               		// Did not find table so is being created in this command.
 	               		// Create an empty table and set the ID.
@@ -3054,7 +3171,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
   	    	else if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
 				message = "Unexpected error listing buckets (" + e.awsErrorDetails().errorMessage() + ").";
 			}
-        	else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+        	else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
 				message = "Unexpected error listing bucket objects (" + e.awsErrorDetails().errorMessage() + ").";
         	}
   	    	else if ( s3Command == AwsS3CommandType.UPLOAD_OBJECTS ) {
@@ -3084,7 +3201,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
   	    	else if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
 				message = "Unexpected error listing buckets (" + e + ").";
 			}
-        	else if ( s3Command == AwsS3CommandType.LIST_BUCKET_OBJECTS ) {
+        	else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
 				message = "Unexpected error listing bucket objects (" + e + ").";
         	}
   	    	else if ( s3Command == AwsS3CommandType.UPLOAD_OBJECTS ) {
@@ -3156,15 +3273,15 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		String ListBucketsRegEx = parameters.getValue("ListBucketsRegEx");
 		String ListBucketsCountProperty = parameters.getValue("ListBucketsCountProperty");
 		// List bucket objects.
-		String ListBucketObjectsScope = parameters.getValue("ListBucketObjectsScope");
+		String ListObjectsScope = parameters.getValue("ListObjectsScope");
 		String Prefix = parameters.getValue("Prefix");
 		String Delimiter = parameters.getValue("Delimiter");
-		String ListBucketObjectsRegEx = parameters.getValue("ListBucketObjectsRegEx");
+		String ListObjectsRegEx = parameters.getValue("ListObjectsRegEx");
 		String ListFiles = parameters.getValue("ListFiles");
 		String ListFolders = parameters.getValue("ListFolders");
 		String MaxKeys = parameters.getValue("MaxKeys");
 		String MaxObjects = parameters.getValue("MaxObjects");
-		String ListBucketObjectsCountProperty = parameters.getValue("ListBucketObjectsCountProperty");
+		String ListObjectsCountProperty = parameters.getValue("ListObjectsCountProperty");
 		// Upload.
 		String UploadFolders = parameters.getValue("UploadFolders");
 		String UploadFiles = parameters.getValue("UploadFiles");
@@ -3277,11 +3394,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			b.append ( "ListBucketsCountProperty=\"" + ListBucketsCountProperty + "\"");
 		}
 		// List bucket objects.
-		if ( (ListBucketObjectsScope != null) && (ListBucketObjectsScope.length() > 0) ) {
+		if ( (ListObjectsScope != null) && (ListObjectsScope.length() > 0) ) {
         	if ( b.length() > 0 ) {
             	b.append ( "," );
         	}
-			b.append ( "ListBucketObjectsScope=" + ListBucketObjectsScope );
+			b.append ( "ListObjectsScope=" + ListObjectsScope );
 		}
 		if ( (Prefix != null) && (Prefix.length() > 0) ) {
         	if ( b.length() > 0 ) {
@@ -3295,11 +3412,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         	}
 			b.append ( "Delimiter=\"" + Delimiter + "\"");
 		}
-		if ( (ListBucketObjectsRegEx != null) && (ListBucketObjectsRegEx.length() > 0) ) {
+		if ( (ListObjectsRegEx != null) && (ListObjectsRegEx.length() > 0) ) {
         	if ( b.length() > 0 ) {
             	b.append ( "," );
         	}
-			b.append ( "ListBucketObjectsRegEx=\"" + ListBucketObjectsRegEx + "\"");
+			b.append ( "ListObjectsRegEx=\"" + ListObjectsRegEx + "\"");
 		}
 		if ( (ListFiles != null) && (ListFiles.length() > 0) ) {
         	if ( b.length() > 0 ) {
@@ -3325,11 +3442,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         	}
 			b.append ( "MaxObjects=" + MaxObjects );
 		}
-		if ( (ListBucketObjectsCountProperty != null) && (ListBucketObjectsCountProperty.length() > 0) ) {
+		if ( (ListObjectsCountProperty != null) && (ListObjectsCountProperty.length() > 0) ) {
         	if ( b.length() > 0 ) {
             	b.append ( "," );
         	}
-			b.append ( "ListBucketObjectsCountProperty=\"" + ListBucketObjectsCountProperty + "\"");
+			b.append ( "ListObjectsCountProperty=\"" + ListObjectsCountProperty + "\"");
 		}
 		// Upload.
 		if ( (UploadFolders != null) && (UploadFolders.length() > 0) ) {

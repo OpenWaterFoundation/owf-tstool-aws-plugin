@@ -6,7 +6,7 @@
     +   [Delete Objects](#delete-objects)
     +   [Download Objects](#download-objects)
     +   [List Buckets](#list-buckets)
-    +   [List Bucket Objects](#list-bucket-objects)
+    +   [List Objects](#list-objects)
     +   [Upload Objects](#upload-objects)
     +   [Output](#output)
     +   [CloudFront](#cloudfront)
@@ -16,7 +16,7 @@
     +   [Delete Objects Command Parameters](#delete-objects-command-parameters)
     +   [Download Objects Command Parameters](#download-objects-command-parameters)
     +   [List Buckets Command Parameters](#list-buckets-command-parameters)
-    +   [List Bucket Objects Command Parameters](#list-bucket-objects-command-parameters)
+    +   [List Objects Command Parameters](#list-objects-command-parameters)
     +   [Upload Objects Command Parameters](#upload-objects-command-parameters)
     +   [Output Command Parameters](#output-command-parameters)
     +   [CloudFront Command Parameters](#cloudfront-command-parameters)
@@ -86,6 +86,9 @@ Use the [`If`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/I
 Use the `AwsCommand=CopyObjects` parameter to copy one or more S3 objects from a source to destination,
 using keys to identify objects.  Currently, copying folders is not supported.
 
+If `InvalidateCloudFront=True` in the ***CloudFront*** tab,
+each copied object will be invalidated.
+
 **<p style="text-align: center;">
 ![AwsS3-copy](AwsS3-copy.png)
 </p>**
@@ -106,6 +109,9 @@ the `DeleteFoldersMinDepth` default value requires 3 levels of folder depth by d
 and the `DeleteFoldersScope` default value of `FolderFiles` will only delete files in the folder,
 not all files recursively.
 These parameter values can be changed using the command editor.
+
+If `InvalidateCloudFront=True` in the ***CloudFront*** tab,
+the parent folders for deleted objects are invalidated, using a wildcard.
 
 **<p style="text-align: center;">
 ![AwsS3-delete](AwsS3-delete.png)
@@ -141,14 +147,24 @@ Use the ***Output*** tab to set the output table and file.
 `AwsS3` Command Editor for ListBuckets Parameters (<a href="../AwsS3-list-buckets.png">see also the full-size image)</a>
 </p>**
 
-### List Bucket Objects ###
+### List Objects ###
+
+Use the `S3Command=ListObjects` parameter to list objects for the selected bucket and user profile.
+AWS provides options for controlling the output, which can be confusing.
+Refer to the table in the command editor for instructions on how to list file objects and virtual folders.
+
+Listing the contents of a folder only (not all subfolders) will list subfolder names without their contents.
+Listing all folders will only list file objects and file objects that happen to have a name ending in `/`,
+which are typically empty folder objects created by the AWS Console or have been accidentally created.
+
+See the examples.
 
 **<p style="text-align: center;">
-![AwsS3-list-bucket-objects](AwsS3-list-bucket-objects.png)
+![AwsS3-list-objects](AwsS3-list-objects.png)
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for ListBucketObjects Parameters (<a href="../AwsS3-list-bucket-objects.png">see also the full-size image)</a>
+`AwsS3` Command Editor for ListObjects Parameters (<a href="../AwsS3-list-objects.png">see also the full-size image)</a>
 </p>**
 
 ### Upload Objects ###
@@ -160,6 +176,9 @@ File uploads can specify a different key for the S3 object.
 
 If appropriate, the [`DeleteObjects`](#delete-objects) S3 command can be used to delete a folder before upload
 to ensure that the S3 objects do not contain out of date files.
+
+If `InvalidateCloudFront=True` in the ***CloudFront*** tab,
+the uploaded files and folders (using wildcard) are invalidated.
 
 **<p style="text-align: center;">
 ![AwsS3-upload](AwsS3-upload.png)
@@ -266,17 +285,37 @@ Command Parameters - List Buckets
 |`ListBucketsCountProperty`| Processor property to set containing the number of buckets in the list. If appending to output (***Output*** `AppendOutput=True`) the count will be the total count. | |
 | | Note:  The general `Bucket` parameter is not required since buckets are being listed. | |
 
-### List Bucket Objects Command Parameters ###
+### List Objects Command Parameters ###
+
+Use the following combination of parameters to list the desired objects:
 
 **<p style="text-align: center;">
-Command Parameters - List Bucket Objects 
+Parameter Combinations to List Objects
+</p>**
+
+| **List What?** | **`ListScope`** | **`Prefix`** |
+| -- | -- | -- |
+| One object | `All` (default) | Path (key) for the object. |
+| Files in root | `Folder` | |
+| Files in folder | `Folder` | Path (key) for the folder, ending in `/`. |
+| All objects matching a leading path | `All` (default) | Path (key) to match, can be a partial file name. |
+| All files in a bucket | `All` (default). | |
+
+**<p style="text-align: center;">
+Command Parameters - List Objects 
 </p>**
 
 |**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default** |
 |-----|-----------------|-----------------|
-|`Prefix`| Prefix to filter objects in the output from the `S3Command=ListObjects` command.  Specify as a top-level directory such as `folder/folder2`. | All objects are listed. |
+|`ListObjectsScope` | Indicates how deep the listing is:<ul><li>`All` - list all files and subfolder contents</li><li>`Folder` - list only the contents of a specific folder but not the contents of subfolders</li></ul> Use the `ListFiles`, `ListFolders`, and `ListObjectsRegEx` parameters to further constrain output. | `All` |
+|`Prefix`| Prefix to filter objects in the output:<ul><li>When listing a folder's contents, the prefix should indicate a folder to list with trailing `/` (e.g., `folder1/folder2/)`</li><li>When listing any prefix, specify a leading path to match (e.g., `folder`).</li></ul>. | All objects are listed without constraining to the prefix. |
+| `Delimiter` | Delimiter to indicate folders.  The delimiter is automatically specified internally when needed to list folders.  | `/` |
+|`ListObjectsRegEx`| Regular expression to filter objects:<ul><li>use `*` as a wildcard</li><li>`java:...` - specify a [Java regular expression](https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#sum) - **not fully tested**</li></ul> | All objects are listed. |
+|`ListFiles` | Whether files (objects that have keys not ending in `/`) are listed, `True` or `False`. | `True` |
+|`ListFolders` | Whether folders (objects that have keys ending in `/`) are listed, `True` or `False`. | `True` |
 |`MaxKeys`| Maximum number of keys to list per request.  AWS limits the number of objects returned per request to 1000 and `MaxKeys` must be <= 1000. | `1000` (AWS limit). |
-|`MaxObjects`| Maximum number of objects returned in an object list.  Care should be taken to limit the load on the system and there are S3 charges for downloads.  Large downloads should probably use the prefix to limit downloads. | `2000` |
+|`MaxObjects`| Maximum number of objects returned in the overall output.  Care should be taken to limit the load on the system and there are S3 charges for downloads.  Command parameters can generally be used to limit object listings. | `2000` |
+|`ListObjectCountProperty`| Processor property to set containing the number of objects in the list. If appending to output (***Output*** `AppendOutput=True`) the count will be the total count. | |
 
 ### Upload Objects Command Parameters ###
 
@@ -287,7 +326,7 @@ Command Parameters - Upload Objects
 |**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default** |
 |-----|-----------------|-----------------|
 |`UploadFolders`| List of folders (directories) to upload using syntax: `folder1:key1,folder2:key2`, where `folder1` is a local folder name and `key1` (ending in `/`) identifies an S3 virtual folder. Can use `${Property}` syntax. | |
-|`UploadFiles`| List of files to upload using syntax: `file1:key1,file2:key2`, where `file1` is a local file name and the `key1` identifies an S3 object. Can use `${Property}` syntax.<br><br>The local file can contain `*` wildcard in the last part to match a filename pattern in a folder (e.g., `somefolder/*.png`).<br><br>If the local file uses a wildcard, then the last part of the S3 object key must be `*` (e.g., `/somefolder/*`) to indicate that the S3 file will have the same name as the local file.  If file names in a folder need to be specifically renamed, don't use wildcards. | |
+|`UploadFiles`| List of files to upload using syntax: `file1:key1,file2:key2`, where `file1` is a local file name and the `key1` identifies an S3 object. Can use `${Property}` syntax.<br><br>The local file can contain `*` wildcard in the last part to match a filename pattern in a folder (e.g., `somefolder/*.png`).<ul><li>If the local file uses a wildcard, then the last part of the S3 object key **must be** `*` (e.g., `/somefolder/*`) to indicate that the S3 file will have the same name as the local file.</li><li>If file names in a folder need to be specifically renamed on S3, don't use wildcards.</li><li>If the local file does not contain a wildcard, the S3 key can contain a wildcard in the file name part to use the local file name, as described above.</li></ul> | |
 
 ### Output Command Parameters ###
 

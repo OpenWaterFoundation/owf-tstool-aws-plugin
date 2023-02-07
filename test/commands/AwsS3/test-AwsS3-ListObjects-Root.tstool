@@ -1,0 +1,23 @@
+StartLog(LogFile="results/test-AwsS3-ListObjects-Root.tstool.log")
+# Test listing root objects:
+# - use the test.openwaterfoundation.org bucket
+# - because the contents of the bucket are dynamic, just check that the separate file list
+#   and folder lists add up to listing all
+# - no files are deleted for setup or uploaded
+#
+# List the root files separately from folders, then list all and compare.
+# SetDebugLevel(LogFileLevel=1)
+AwsS3(S3Command="ListObjects",Bucket="test.openwaterfoundation.org",ListObjectsScope=Folder,ListFiles=True,ListFolders=False,ListObjectsCountProperty="TestListFilesCount",OutputTableID="TestFileList")
+AwsS3(S3Command="ListObjects",Bucket="test.openwaterfoundation.org",ListObjectsScope=Folder,ListFiles=False,ListFolders=True,ListObjectsCountProperty="TestListFoldersCount",OutputTableID="TestFolderList")
+AwsS3(S3Command="ListObjects",Bucket="test.openwaterfoundation.org",ListObjectsScope=Folder,ListObjectsCountProperty="TestListAllCount",OutputTableID="TestAllList")
+SetProperty(PropertyName="TestListAllSum",PropertyType=Integer,PropertyValue="${TestListFilesCount}",Add="${TestListFoldersCount}")
+If(Name="IfTestListCount",Condition="${TestListAllCount} != ${TestListAllSum}")
+Message(Message="Sum of root file and folder count does not equal the count of all files and folders.",CommandStatus=FAILURE)
+EndIf(Name="IfTestListCount")
+#
+# Also check that the number of files and folders is not the same:
+# - is highly unlikely
+# - if the same would indicate a possible test configuration error
+If(Name="IfTestFilesAndFolders",Condition="${TestListFilesCount} == ${TestListFoldersCount}")
+Message(Message="Count of files (${TestListFilesCount}) should not equal the count of folders (${TestListFoldersCount}) but it does.",CommandStatus=FAILURE)
+EndIf(Name="IfTestFilesAndFolders")

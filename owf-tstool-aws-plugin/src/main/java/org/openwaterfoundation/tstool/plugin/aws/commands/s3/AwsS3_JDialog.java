@@ -119,16 +119,16 @@ private JTextArea __DownloadFolders_JTextArea = null;
 private JTextField __ListBucketsRegEx_JTextField = null;
 private JTextField __ListBucketsCountProperty_JTextField = null;
 
-// List Bucket Objects tab.
-private SimpleJComboBox __ListBucketObjectsScope_JComboBox = null;
+// List Objects tab.
+private SimpleJComboBox __ListObjectsScope_JComboBox = null;
 private JTextField __Prefix_JTextField = null;
 private JTextField __Delimiter_JTextField = null;
-private JTextField __ListBucketObjectsRegEx_JTextField = null;
+private JTextField __ListObjectsRegEx_JTextField = null;
 private SimpleJComboBox __ListFiles_JComboBox = null;
 private SimpleJComboBox __ListFolders_JComboBox = null;
 private JTextField __MaxKeys_JTextField = null;
 private JTextField __MaxObjects_JTextField = null;
-private JTextField __ListBucketObjectsCountProperty_JTextField = null;
+private JTextField __ListObjectsCountProperty_JTextField = null;
 
 // Upload tab.
 private JTextArea __UploadFiles_JTextArea = null;
@@ -440,15 +440,15 @@ private void checkInput () {
 	String ListBucketsRegEx = __ListBucketsRegEx_JTextField.getText().trim();
 	String ListBucketsCountProperty = __ListBucketsCountProperty_JTextField.getText().trim();
 	// List bucket objects.
-	String ListBucketObjectsScope = __ListBucketObjectsScope_JComboBox.getSelected();
+	String ListObjectsScope = __ListObjectsScope_JComboBox.getSelected();
 	String Prefix = __Prefix_JTextField.getText().trim();
 	String Delimiter = __Delimiter_JTextField.getText().trim();
-	String ListBucketObjectsRegEx = __ListBucketObjectsRegEx_JTextField.getText().trim();
+	String ListObjectsRegEx = __ListObjectsRegEx_JTextField.getText().trim();
 	String ListFiles = __ListFiles_JComboBox.getSelected();
 	String ListFolders = __ListFolders_JComboBox.getSelected();
 	String MaxKeys = __MaxKeys_JTextField.getText().trim();
 	String MaxObjects = __MaxObjects_JTextField.getText().trim();
-	String ListBucketObjectsCountProperty = __ListBucketObjectsCountProperty_JTextField.getText().trim();
+	String ListObjectsCountProperty = __ListObjectsCountProperty_JTextField.getText().trim();
 	// Upload.
 	String UploadFolders = __UploadFolders_JTextArea.getText().trim().replace("\n"," ");
 	String UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
@@ -515,8 +515,8 @@ private void checkInput () {
 		props.set ( "ListBucketsCountProperty", ListBucketsCountProperty );
 	}
 	// List bucket objects.
-	if ( (ListBucketObjectsScope != null) && !ListBucketObjectsScope.isEmpty() ) {
-		props.set ( "ListBucketObjectsScope", ListBucketObjectsScope);
+	if ( (ListObjectsScope != null) && !ListObjectsScope.isEmpty() ) {
+		props.set ( "ListObjectsScope", ListObjectsScope);
 	}
 	if ( (Prefix != null) && !Prefix.isEmpty() ) {
 		props.set ( "Prefix", Prefix );
@@ -524,8 +524,8 @@ private void checkInput () {
 	if ( (Delimiter != null) && !Delimiter.isEmpty() ) {
 		props.set ( "Delimiter", Delimiter );
 	}
-	if ( (ListBucketObjectsRegEx != null) && !ListBucketObjectsRegEx.isEmpty() ) {
-		props.set ( "ListBucketObjectsRegEx", ListBucketObjectsRegEx );
+	if ( (ListObjectsRegEx != null) && !ListObjectsRegEx.isEmpty() ) {
+		props.set ( "ListObjectsRegEx", ListObjectsRegEx );
 	}
 	if ( (ListFiles != null) && !ListFiles.isEmpty() ) {
 		props.set ( "ListFiles", ListFiles );
@@ -539,8 +539,8 @@ private void checkInput () {
 	if ( (MaxObjects != null) && !MaxObjects.isEmpty() ) {
 		props.set ( "MaxObjects", MaxObjects );
 	}
-	if ( (ListBucketObjectsCountProperty != null) && !ListBucketObjectsCountProperty.isEmpty() ) {
-		props.set ( "ListBucketObjectsCountProperty", ListBucketObjectsCountProperty );
+	if ( (ListObjectsCountProperty != null) && !ListObjectsCountProperty.isEmpty() ) {
+		props.set ( "ListObjectsCountProperty", ListObjectsCountProperty );
 	}
 	// Upload.
 	if ( (UploadFolders != null) && !UploadFolders.isEmpty() ) {
@@ -619,15 +619,15 @@ private void commitEdits () {
 	String ListBucketsRegEx = __ListBucketsRegEx_JTextField.getText().trim();
 	String ListBucketsCountProperty = __ListBucketsCountProperty_JTextField.getText().trim();
 	// List bucket objects.
-	String ListBucketObjectsScope = __ListBucketObjectsScope_JComboBox.getSelected();
+	String ListObjectsScope = __ListObjectsScope_JComboBox.getSelected();
 	String Prefix = __Prefix_JTextField.getText().trim();
 	String Delimiter = __Delimiter_JTextField.getText().trim();
-	String ListBucketObjectsRegEx = __ListBucketObjectsRegEx_JTextField.getText().trim();
+	String ListObjectsRegEx = __ListObjectsRegEx_JTextField.getText().trim();
 	String ListFiles = __ListFiles_JComboBox.getSelected();
 	String ListFolders = __ListFolders_JComboBox.getSelected();
 	String MaxKeys = __MaxKeys_JTextField.getText().trim();
 	String MaxObjects = __MaxObjects_JTextField.getText().trim();
-	String ListBucketObjectsCountProperty = __ListBucketObjectsCountProperty_JTextField.getText().trim();
+	String ListObjectsCountProperty = __ListObjectsCountProperty_JTextField.getText().trim();
 	// Upload.
 	String UploadFolders = __UploadFolders_JTextArea.getText().trim().replace("\n"," ");
 	String UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
@@ -664,16 +664,16 @@ private void commitEdits () {
 	// List Buckets.
 	__command.setCommandParameter ( "ListBucketsRegEx", ListBucketsRegEx );
 	__command.setCommandParameter ( "ListBucketsCountProperty", ListBucketsCountProperty );
-	// List Bucket Objects.
-	__command.setCommandParameter ( "ListBucketObjectsScope", ListBucketObjectsScope );
+	// List Objects.
+	__command.setCommandParameter ( "ListObjectsScope", ListObjectsScope );
 	__command.setCommandParameter ( "Prefix", Prefix );
 	__command.setCommandParameter ( "Delimiter", Delimiter );
-	__command.setCommandParameter ( "ListBucketObjectsRegEx", ListBucketObjectsRegEx );
+	__command.setCommandParameter ( "ListObjectsRegEx", ListObjectsRegEx );
 	__command.setCommandParameter ( "ListFiles", ListFiles );
 	__command.setCommandParameter ( "ListFolders", ListFolders );
 	__command.setCommandParameter ( "MaxKeys", MaxKeys );
 	__command.setCommandParameter ( "MaxObjects", MaxObjects );
-	__command.setCommandParameter ( "ListBucketObjectsCountProperty", ListBucketObjectsCountProperty );
+	__command.setCommandParameter ( "ListObjectsCountProperty", ListObjectsCountProperty );
 	// Upload.
 	__command.setCommandParameter ( "UploadFolders", UploadFolders );
 	__command.setCommandParameter ( "UploadFiles", UploadFiles );
@@ -1212,12 +1212,12 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(listBuckets_JPanel, new JLabel ( "Optional - processor property to set as bucket count." ),
         3, yListBuckets, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-    // Panel for 'List Bucket Objects' parameters:
+    // Panel for 'List Objects' parameters:
     // - this includes filtering
     int yListObjects = -1;
     JPanel listObjects_JPanel = new JPanel();
     listObjects_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "List Bucket Objects", listObjects_JPanel );
+    __main_JTabbedPane.addTab ( "List Objects", listObjects_JPanel );
 
     JGUIUtil.addComponent(listObjects_JPanel, new JLabel ("List all bucket objects that are visible to the user based on the profile."
     	+ "  See the 'Output' tab to specify the output file and/or table for the bucket object list."),
@@ -1241,7 +1241,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     		+ "    <tr" + trStyle + ">"
     		+ "       <td" + tdStyle + ">One object</td>"
     		+ "       <td" + tdStyle + ">All (default)</td>"
-    		+ "       <td" + tdStyle + ">Key for the object</td>"
+    		+ "       <td" + tdStyle + ">Path (key) for the object</td>"
     		+ "    </tr>"
     		+ "    <tr" + trStyle + ">"
     		+ "       <td" + tdStyle + ">Files in root</td>"
@@ -1251,15 +1251,15 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     		+ "    <tr" + trStyle + ">"
     		+ "       <td" + tdStyle + ">Files in folder</td>"
     		+ "       <td" + tdStyle + ">Folder</td>"
-    		+ "       <td" + tdStyle + ">Folder key ending in /</td>"
+    		+ "       <td" + tdStyle + ">Folder path (key) ending in /</td>"
     		+ "    </tr>"
     		+ "    <tr" + trStyle + ">"
     		+ "       <td" + tdStyle + ">All objects matching leading path</td>"
     		+ "       <td" + tdStyle + ">All (default)</td>"
-    		+ "       <td" + tdStyle + ">path (key) to match</td>"
+    		+ "       <td" + tdStyle + ">Path (key) to match, can be partial file name</td>"
     		+ "    </tr>"
     		+ "    <tr" + trStyle + ">"
-    		+ "       <td" + tdStyle + ">All Files in bucket</td>"
+    		+ "       <td" + tdStyle + ">All files in bucket</td>"
     		+ "       <td" + tdStyle + ">All (default)</td>"
     		+ "       <td" + tdStyle + "></td>"
     		+ "    </tr>"
@@ -1283,17 +1283,17 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 
    JGUIUtil.addComponent(listObjects_JPanel, new JLabel ( "List scope:"),
 		0, ++yListObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-	__ListBucketObjectsScope_JComboBox = new SimpleJComboBox ( false );
-	__ListBucketObjectsScope_JComboBox.setToolTipText("Scope (depth) of the list, which controls the output");
+	__ListObjectsScope_JComboBox = new SimpleJComboBox ( false );
+	__ListObjectsScope_JComboBox.setToolTipText("Scope (depth) of the list, which controls the output");
 	List<String> listRootChoices = new ArrayList<>();
 	listRootChoices.add ( "" );	// Default.
 	listRootChoices.add ( __command._All );
 	listRootChoices.add ( __command._Folder );
 	//listRootChoices.add ( __command._Root );
-	__ListBucketObjectsScope_JComboBox.setData(listRootChoices);
-	__ListBucketObjectsScope_JComboBox.select ( 0 );
-	__ListBucketObjectsScope_JComboBox.addActionListener ( this );
-    JGUIUtil.addComponent(listObjects_JPanel, __ListBucketObjectsScope_JComboBox,
+	__ListObjectsScope_JComboBox.setData(listRootChoices);
+	__ListObjectsScope_JComboBox.select ( 0 );
+	__ListObjectsScope_JComboBox.addActionListener ( this );
+    JGUIUtil.addComponent(listObjects_JPanel, __ListObjectsScope_JComboBox,
 		1, yListObjects, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(listObjects_JPanel, new JLabel(
 		"Optional - scope (depth) of the listing (default=" + __command._All + ")."),
@@ -1321,10 +1321,10 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 
     JGUIUtil.addComponent(listObjects_JPanel, new JLabel ( "Regular expression:"),
         0, ++yListObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __ListBucketObjectsRegEx_JTextField = new JTextField ( "", 30 );
-    __ListBucketObjectsRegEx_JTextField.setToolTipText("Regular expression to filter results, default=glob (*) style");
-    __ListBucketObjectsRegEx_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(listObjects_JPanel, __ListBucketObjectsRegEx_JTextField,
+    __ListObjectsRegEx_JTextField = new JTextField ( "", 30 );
+    __ListObjectsRegEx_JTextField.setToolTipText("Regular expression to filter results, default=glob (*) style");
+    __ListObjectsRegEx_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(listObjects_JPanel, __ListObjectsRegEx_JTextField,
         1, yListObjects, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(listObjects_JPanel, new JLabel ( "Optional - regular expression filter (default=none)."),
         3, yListObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -1386,10 +1386,10 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 
     JGUIUtil.addComponent(listObjects_JPanel, new JLabel("List bucket objects count property:"),
         0, ++yListObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __ListBucketObjectsCountProperty_JTextField = new JTextField ( "", 30 );
-    __ListBucketObjectsCountProperty_JTextField.setToolTipText("Specify the property name for the bucket object list result size, can use ${Property} notation");
-    __ListBucketObjectsCountProperty_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(listObjects_JPanel, __ListBucketObjectsCountProperty_JTextField,
+    __ListObjectsCountProperty_JTextField = new JTextField ( "", 30 );
+    __ListObjectsCountProperty_JTextField.setToolTipText("Specify the property name for the bucket object list result size, can use ${Property} notation");
+    __ListObjectsCountProperty_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(listObjects_JPanel, __ListObjectsCountProperty_JTextField,
         1, yListObjects, 1, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(listObjects_JPanel, new JLabel ( "Optional - processor property to set as object count." ),
         3, yListObjects, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -1443,7 +1443,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     __main_JTabbedPane.addTab ( "Output", output_JPanel );
 
     JGUIUtil.addComponent(output_JPanel, new JLabel (
-    	"The following parameters are used with 'List Buckets' and 'List Bucket Objects' commands."),
+    	"The following parameters are used with 'List Buckets' and 'List Objects' commands."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JLabel ("An output table and/or file can be created."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -1461,7 +1461,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(output_JPanel, new JLabel ( "Output Table ID:" ),
         0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __OutputTableID_JComboBox = new SimpleJComboBox ( 12, true ); // Allow edit.
-    __OutputTableID_JComboBox.setToolTipText("Table for output, available for List Buckets and List Bucket Objects");
+    __OutputTableID_JComboBox.setToolTipText("Table for output, available for List Buckets and List Objects");
     tableIDChoices.add(0,""); // Add blank to ignore table.
     __OutputTableID_JComboBox.setData ( tableIDChoices );
     __OutputTableID_JComboBox.addItemListener ( this );
@@ -1476,7 +1476,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
         0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __OutputFile_JTextField = new JTextField ( 50 );
     __OutputFile_JTextField.setToolTipText(
-    	"Output file, available for List Buckets and List Bucket Objects, can use ${Property} notation.");
+    	"Output file, available for List Buckets and List Objects, can use ${Property} notation.");
     __OutputFile_JTextField.addKeyListener ( this );
     // Output file layout fights back with other rows so put in its own panel.
 	JPanel OutputFile_JPanel = new JPanel();
@@ -1814,15 +1814,15 @@ private void refresh () {
 	String ListBucketsRegEx = "";
 	String ListBucketsCountProperty = "";
 	// List bucket objects.
-	String ListBucketObjectsScope = "";
+	String ListObjectsScope = "";
 	String Prefix = "";
 	String Delimiter = "";
-	String ListBucketObjectsRegEx = "";
+	String ListObjectsRegEx = "";
 	String ListFiles = "";
 	String ListFolders = "";
 	String MaxKeys = "";
 	String MaxObjects = "";
-	String ListBucketObjectsCountProperty = "";
+	String ListObjectsCountProperty = "";
 	// Upload.
 	String UploadFolders = "";
 	String UploadFiles = "";
@@ -1863,15 +1863,15 @@ private void refresh () {
 		ListBucketsRegEx = parameters.getValue ( "ListBucketsRegEx" );
 		ListBucketsCountProperty = parameters.getValue ( "ListBucketsCountProperty" );
 		// List bucket objects.
-		ListBucketObjectsScope = parameters.getValue ( "ListBucketObjectsScope" );
+		ListObjectsScope = parameters.getValue ( "ListObjectsScope" );
 		Prefix = parameters.getValue ( "Prefix" );
 		Delimiter = parameters.getValue ( "Delimiter" );
-		ListBucketObjectsRegEx = parameters.getValue ( "ListBucketObjectsRegEx" );
+		ListObjectsRegEx = parameters.getValue ( "ListObjectsRegEx" );
 		ListFiles = parameters.getValue ( "ListFiles" );
 		ListFolders = parameters.getValue ( "ListFolders" );
 		MaxKeys = parameters.getValue ( "MaxKeys" );
 		MaxObjects = parameters.getValue ( "MaxObjects" );
-		ListBucketObjectsCountProperty = parameters.getValue ( "ListBucketObjectsCountProperty" );
+		ListObjectsCountProperty = parameters.getValue ( "ListObjectsCountProperty" );
 		// Upload.
 		UploadFolders = parameters.getValue ( "UploadFolders" );
 		UploadFiles = parameters.getValue ( "UploadFiles" );
@@ -2049,19 +2049,19 @@ private void refresh () {
         if ( ListBucketsCountProperty != null ) {
             __ListBucketsCountProperty_JTextField.setText ( ListBucketsCountProperty );
         }
-		if ( JGUIUtil.isSimpleJComboBoxItem(__ListBucketObjectsScope_JComboBox, ListBucketObjectsScope,JGUIUtil.NONE, null, null ) ) {
-			__ListBucketObjectsScope_JComboBox.select ( ListBucketObjectsScope );
+		if ( JGUIUtil.isSimpleJComboBoxItem(__ListObjectsScope_JComboBox, ListObjectsScope,JGUIUtil.NONE, null, null ) ) {
+			__ListObjectsScope_JComboBox.select ( ListObjectsScope );
 		}
 		else {
-            if ( (ListBucketObjectsScope == null) || ListBucketObjectsScope.equals("") ) {
+            if ( (ListObjectsScope == null) || ListObjectsScope.equals("") ) {
 				// New command...select the default.
-				__ListBucketObjectsScope_JComboBox.select ( 0 );
+				__ListObjectsScope_JComboBox.select ( 0 );
 			}
 			else {
 				// Bad user command.
 				Message.printWarning ( 1, routine,
 				"Existing command references an invalid\n"+
-				"ListBucketObjectsScope parameter \"" + ListBucketObjectsScope + "\".  Select a value or Cancel." );
+				"ListObjectsScope parameter \"" + ListObjectsScope + "\".  Select a value or Cancel." );
 			}
 		}
         if ( Prefix != null ) {
@@ -2070,8 +2070,8 @@ private void refresh () {
         if ( Delimiter != null ) {
             __Delimiter_JTextField.setText ( Delimiter );
         }
-        if ( ListBucketObjectsRegEx != null ) {
-            __ListBucketObjectsRegEx_JTextField.setText ( ListBucketObjectsRegEx );
+        if ( ListObjectsRegEx != null ) {
+            __ListObjectsRegEx_JTextField.setText ( ListObjectsRegEx );
         }
 		if ( JGUIUtil.isSimpleJComboBoxItem(__ListFiles_JComboBox, ListFiles,JGUIUtil.NONE, null, null ) ) {
 			__ListFiles_JComboBox.select ( ListFiles );
@@ -2109,8 +2109,8 @@ private void refresh () {
         if ( MaxObjects != null ) {
             __MaxObjects_JTextField.setText ( MaxObjects );
         }
-        if ( ListBucketObjectsCountProperty != null ) {
-            __ListBucketObjectsCountProperty_JTextField.setText ( ListBucketObjectsCountProperty );
+        if ( ListObjectsCountProperty != null ) {
+            __ListObjectsCountProperty_JTextField.setText ( ListObjectsCountProperty );
         }
         if ( UploadFolders != null ) {
             __UploadFolders_JTextArea.setText ( UploadFolders );
@@ -2287,7 +2287,7 @@ private void refresh () {
 			__main_JTabbedPane.setSelectedIndex(2);
 		}
 		else if ( (command == AwsS3CommandType.LIST_BUCKETS) ||
-			(command == AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
+			(command == AwsS3CommandType.LIST_OBJECTS) ) {
 			__main_JTabbedPane.setSelectedIndex(3);
 		}
 		else if ( command == AwsS3CommandType.UPLOAD_OBJECTS ) {
@@ -2328,15 +2328,15 @@ private void refresh () {
 	ListBucketsRegEx = __ListBucketsRegEx_JTextField.getText().trim();
 	ListBucketsCountProperty = __ListBucketsCountProperty_JTextField.getText().trim();
 	// List bucket objects.
-	ListBucketObjectsScope = __ListBucketObjectsScope_JComboBox.getSelected();
+	ListObjectsScope = __ListObjectsScope_JComboBox.getSelected();
 	Prefix = __Prefix_JTextField.getText().trim();
 	Delimiter = __Delimiter_JTextField.getText().trim();
-	ListBucketObjectsRegEx = __ListBucketObjectsRegEx_JTextField.getText().trim();
+	ListObjectsRegEx = __ListObjectsRegEx_JTextField.getText().trim();
 	ListFiles = __ListFiles_JComboBox.getSelected();
 	ListFolders = __ListFolders_JComboBox.getSelected();
 	MaxKeys = __MaxKeys_JTextField.getText().trim();
 	MaxObjects = __MaxObjects_JTextField.getText().trim();
-	ListBucketObjectsCountProperty = __ListBucketObjectsCountProperty_JTextField.getText().trim();
+	ListObjectsCountProperty = __ListObjectsCountProperty_JTextField.getText().trim();
 	// Upload.
 	UploadFolders = __UploadFolders_JTextArea.getText().trim().replace("\n"," ");
 	UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
@@ -2377,15 +2377,15 @@ private void refresh () {
 	props.add ( "ListBucketsRegEx=" + ListBucketsRegEx );
 	props.add ( "ListBucketsCountProperty=" + ListBucketsCountProperty );
 	// List bucket objects.
-	props.add ( "ListBucketObjectsScope=" + ListBucketObjectsScope );
+	props.add ( "ListObjectsScope=" + ListObjectsScope );
 	props.add ( "Prefix=" + Prefix );
 	props.add ( "Delimiter=" + Delimiter );
-	props.add ( "ListBucketObjectsRegEx=" + ListBucketObjectsRegEx );
+	props.add ( "ListObjectsRegEx=" + ListObjectsRegEx );
 	props.add ( "ListFiles=" + ListFiles );
 	props.add ( "ListFolders=" + ListFolders );
 	props.add ( "MaxKeys=" + MaxKeys );
 	props.add ( "MaxObjects=" + MaxObjects );
-	props.add ( "ListBucketObjectsCountProperty=" + ListBucketObjectsCountProperty );
+	props.add ( "ListObjectsCountProperty=" + ListObjectsCountProperty );
 	// Upload.
 	props.add ( "UploadFolders=" + UploadFolders );
 	props.add ( "UploadFiles=" + UploadFiles );
@@ -2461,7 +2461,7 @@ private void setTabForS3Command() {
 	else if ( command.equalsIgnoreCase("" + AwsS3CommandType.LIST_BUCKETS) ) {
 		__main_JTabbedPane.setSelectedIndex(3);
 	}
-	else if ( command.equalsIgnoreCase("" + AwsS3CommandType.LIST_BUCKET_OBJECTS) ) {
+	else if ( command.equalsIgnoreCase("" + AwsS3CommandType.LIST_OBJECTS) ) {
 		__main_JTabbedPane.setSelectedIndex(4);
 	}
 	else if ( command.equalsIgnoreCase("" + AwsS3CommandType.UPLOAD_OBJECTS) ) {

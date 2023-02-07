@@ -50,9 +50,9 @@ public enum AwsS3CommandType {
 	LIST_BUCKETS ( "ListBuckets", "List S3 buckets" ),
 
 	/**
-	List S3 bucket objects.
+	List S3 objects.
 	*/
-	LIST_BUCKET_OBJECTS ( "ListBucketObjects", "List S3 bucket objects" ),
+	LIST_OBJECTS ( "ListObjects", "List S3 objects" ),
 
 	/**
 	Upload objects (files and/or directories).
@@ -89,7 +89,7 @@ public enum AwsS3CommandType {
     	choices.add ( AwsS3CommandType.DELETE_OBJECTS );
     	choices.add ( AwsS3CommandType.DOWNLOAD_OBJECTS );
     	choices.add ( AwsS3CommandType.LIST_BUCKETS );
-    	choices.add ( AwsS3CommandType.LIST_BUCKET_OBJECTS );
+    	choices.add ( AwsS3CommandType.LIST_OBJECTS );
     	choices.add ( AwsS3CommandType.UPLOAD_OBJECTS );
     	return choices;
 	}

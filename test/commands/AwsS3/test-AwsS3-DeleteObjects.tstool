@@ -11,7 +11,7 @@ SetProperty(PropertyName="TestS3Folder",PropertyType=String,PropertyValue="tstoo
 SetDebugLevel(LogFileLevel=1)
 AwsS3(S3Command="DeleteObjects",Bucket="test.openwaterfoundation.org",DeleteFolders="${TestS3Folder}/",DeleteFoldersScope="AllFilesAndFolders")
 SetDebugLevel(ScreenLevel=0,LogFileLevel=0)
-AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",ListBucketObjectsScope=All,Prefix="${TestS3Folder}/",ListBucketObjectsCountProperty="TestSetupListCount",OutputTableID="TestSetupList")
+AwsS3(S3Command="ListObjects",Bucket="test.openwaterfoundation.org",ListObjectsScope=All,Prefix="${TestS3Folder}/",ListObjectsCountProperty="TestSetupListCount",OutputTableID="TestSetupList")
 If(Name="IfDeleteCheck",Condition="${TestSetupListCount} != 0")
 Message(Message="The copy test files were not deleted for setup.  Expecting 0 but have ${TestSetupListCount} remaining.",CommandStatus=FAILURE)
 EndIf(Name="IfDeleteCheck")
@@ -19,7 +19,7 @@ EndIf(Name="IfDeleteCheck")
 # Upload the files for the test that will be the source of the copy:
 # - confirm that the files were uploaded, in order to ensure that the delete will work
 AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",UploadFolders="data/testfolder2:${TestS3Folder}/data/testfolder2/",UploadFiles="data/testfolder1/testfolder1-testfile1.txt:${TestS3Folder}/*,data/testfolder1/testfolder1-testfile2.txt:${TestS3Folder}/*",OutputTableID="BucketList")
-AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",ListBucketObjectsScope=All,Prefix="${TestS3Folder}/",ListBucketObjectsCountProperty="TestUploadListCount",OutputTableID="TestUploadList")
+AwsS3(S3Command="ListObjects",Bucket="test.openwaterfoundation.org",ListObjectsScope=All,Prefix="${TestS3Folder}/",ListObjectsCountProperty="TestUploadListCount",OutputTableID="TestUploadList")
 If(Name="IfTestUploadListCount",Condition="${TestUploadListCount} != 4")
 Message(Message="Error - should be 4 if the objects are correctly uploaded (have ${TestUploadListCount}).",CommandStatus=FAILURE)
 EndIf(Name="IfTestUploadListCount")
@@ -27,7 +27,7 @@ EndIf(Name="IfTestUploadListCount")
 # Delete the bucket files again to test the delete command:
 # - list the folder to make sure the files were deleted before uploading and copying
 AwsS3(S3Command="DeleteObjects",Bucket="test.openwaterfoundation.org",DeleteFolders="${TestS3Folder}/",DeleteFoldersScope="AllFilesAndFolders")
-AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",ListBucketObjectsScope=All,Prefix="${TestS3Folder}/",ListBucketObjectsCountProperty="TestDeleteListCount",OutputTableID="TestDeleteList")
+AwsS3(S3Command="ListObjects",Bucket="test.openwaterfoundation.org",ListObjectsScope=All,Prefix="${TestS3Folder}/",ListObjectsCountProperty="TestDeleteListCount",OutputTableID="TestDeleteList")
 If(Name="IfDeleteCheck2",Condition="${TestDeleteListCount} != 0")
 Message(Message="The delete test files were not deleted (${TestDeleteListCount} remain).",CommandStatus=FAILURE)
 EndIf(Name="IfDeleteCheck2")

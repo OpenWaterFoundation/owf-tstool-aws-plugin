@@ -11,7 +11,7 @@ SetProperty(PropertyName="TestS3Folder",PropertyType=String,PropertyValue="tstoo
 SetDebugLevel(LogFileLevel=1)
 AwsS3(S3Command="DeleteObjects",Bucket="test.openwaterfoundation.org",DeleteFolders="${TestS3Folder}/",DeleteFoldersScope="AllFilesAndFolders")
 SetDebugLevel(ScreenLevel=0,LogFileLevel=0)
-AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",ListBucketObjectsScope=All,Prefix="${TestS3Folder}/",ListBucketObjectsCountProperty="TestSetupListCount",OutputTableID="TestSetupList")
+AwsS3(S3Command="ListObjects",Bucket="test.openwaterfoundation.org",ListObjectsScope=All,Prefix="${TestS3Folder}/",ListObjectsCountProperty="TestSetupListCount",OutputTableID="TestSetupList")
 If(Name="IfDeleteCheck",Condition="${TestSetupListCount} != 0")
 Message(Message="The copy test files were not deleted for setup. 0 are expected but ${TestSetupListCount} remain.",CommandStatus=FAILURE)
 EndIf(Name="IfDeleteCheck")
@@ -28,7 +28,7 @@ Message(Message="Error - should be 2 if the object is copied, instead have ${Tes
 EndIf(Name="IfCount")
 #
 # Check to see if the copied objects exists.
-AwsS3(S3Command="ListBucketObjects",Bucket="test.openwaterfoundation.org",ListBucketObjectsScope=All,Prefix="${TestS3Folder}/",ListBucketObjectsRegEx="*copy*",ListBucketObjectsCountProperty="TestCopyListCount",OutputTableID="TestCopyList")
+AwsS3(S3Command="ListObjects",Bucket="test.openwaterfoundation.org",ListObjectsScope=All,Prefix="${TestS3Folder}/",ListObjectsRegEx="*copy*",ListObjectsCountProperty="TestCopyListCount",OutputTableID="TestCopyList")
 If(Name="IfTestCopyListCount",Condition="${TestCopyListCount} != 2")
 Message(Message="Error - should be 2 if the object is copied, instead have ${TestCopyListCount}.",CommandStatus=FAILURE)
 EndIf(Name="IfTestCopyListCount")
