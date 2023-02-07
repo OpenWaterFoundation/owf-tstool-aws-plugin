@@ -1,19 +1,19 @@
 # Test AwsS3 command:
 # - use the 'test.openwaterfoundation.org' bucket
-# - AWS permissiosn are required to run the tests
+# - AWS permissions are required to run the tests
 # - the default profile is used
 #
 # List the buckets.
 AwsS3(S3Command="ListBuckets",Region="us-west-2",OutputTableID="BucketListTable")
 #
 # Read up to 500 objects.
-AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="software.openwaterfoundation.org",MaxKeys=500,Prefix=cdss-app-snodas-tools-doc-dev,OutputTableID="BucketObjectsUsingPrefix")
+AwsS3(S3Command="ListObjects",Region="us-west-2",Bucket="software.openwaterfoundation.org",MaxKeys=500,Prefix=cdss-app-snodas-tools-doc-dev,OutputTableID="BucketObjectsUsingPrefix")
 #
 # Only read keys starting with the prefix, including a slash.
-AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="software.openwaterfoundation.org",MaxKeys=500,Prefix=cdss-app-snodas-tools-doc-dev/software-design,OutputTableID="BucketObjectsUsingLongPrefix")
+AwsS3(S3Command="ListObjects",Region="us-west-2",Bucket="software.openwaterfoundation.org",MaxKeys=500,Prefix=cdss-app-snodas-tools-doc-dev/software-design,OutputTableID="BucketObjectsUsingLongPrefix")
 #
 # Try to read all objects in a bucket up to to the maximum limit.
-AwsS3(S3Command="ListBucketObjects",Region="us-west-2",Bucket="software.openwaterfoundation.org",MaxObjects=8000,OutputTableID="BucketObjectsDefaultMaxObjects")
+AwsS3(S3Command="ListObjects",Region="us-west-2",Bucket="software.openwaterfoundation.org",MaxObjects=8000,OutputTableID="BucketObjectsDefaultMaxObjects")
 #
 # Copy an object on the test bucket.
 AwsS3(S3Command="CopyObject",Region="us-west-2",Bucket="owf-test",CopySourceKey="index.html",CopyDestKey="test-index.html")

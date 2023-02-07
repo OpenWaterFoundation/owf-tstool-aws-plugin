@@ -1,0 +1,25 @@
+StartLog(LogFile="results/test-AwsS3-ListObjects-Folder.tstool.log")
+# Test listing folder objects:
+# - use the test.openwaterfoundation.org bucket
+# - use the bucket folder tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-ListObjects-Folder
+#
+# Configuration data.
+SetProperty(PropertyName="TestS3Folder",PropertyType=String,PropertyValue="tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-ListObjects-Folder")
+#
+# Delete the bucket files first:
+# - list the folder to make sure the files were deleted before uploading and copying
+AwsS3(S3Command="DeleteObjects",Bucket="test.openwaterfoundation.org",DeleteFolders="${TestS3Folder}/",DeleteFoldersScope="AllFilesAndFolders")
+AwsS3(S3Command="ListObjects",Bucket="test.openwaterfoundation.org",ListObjectsScope=All,Prefix="${TestS3Folder}/",ListObjectsCountProperty="TestSetupListCount",OutputTableID="TestSetupList")
+If(Name="IfDeleteCheck",Condition="${TestSetupListCount} != 0")
+Message(Message="The copy test files were not deleted for setup.  Expecting 0 but have ${TestSetupListCount} remaining.",CommandStatus=FAILURE)
+EndIf(Name="IfDeleteCheck")
+#
+# Upload the files for the test that will be the source of the copy:
+# - list files in a folder
+AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",UploadFolders="data/testfolder2:${TestS3Folder}/testfolder2/",UploadFiles="data/root-testfile1.txt:${TestS3Folder}/*,data/root-testfile2.txt:${TestS3Folder}/*,data/testfolder1/testfolder1-testfile1.txt:${TestS3Folder}/testfolder1/*,data/testfolder1/testfolder1-testfile2.txt:${TestS3Folder}/testfolder1/*",OutputTableID="BucketList")
+# SetDebugLevel(LogFileLevel=1)
+AwsS3(S3Command="ListObjects",Bucket="test.openwaterfoundation.org",ListObjectsScope=Folder,Prefix="${TestS3Folder}/",ListObjectsCountProperty="TestUploadListCount",OutputTableID="TestUploadList")
+# SetDebugLevel(ScreenLevel=0,LogFileLevel=0)
+If(Name="IfTestUploadListCount",Condition="${TestUploadListCount} != 4")
+Message(Message="Error - should be 4 (2 files, 2 folders) if the objects are correctly uploaded (have ${TestUploadListCount}).",CommandStatus=FAILURE)
+EndIf(Name="IfTestUploadListCount")
