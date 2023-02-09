@@ -59,9 +59,11 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.transfer.s3.CompletedDirectoryDownload;
 import software.amazon.awssdk.transfer.s3.CompletedDirectoryUpload;
+import software.amazon.awssdk.transfer.s3.CompletedFileDownload;
 import software.amazon.awssdk.transfer.s3.DirectoryDownload;
 import software.amazon.awssdk.transfer.s3.DirectoryUpload;
 import software.amazon.awssdk.transfer.s3.DownloadDirectoryRequest;
+import software.amazon.awssdk.transfer.s3.DownloadFileRequest;
 import software.amazon.awssdk.transfer.s3.FailedFileDownload;
 import software.amazon.awssdk.transfer.s3.FailedFileUpload;
 import software.amazon.awssdk.transfer.s3.FileDownload;
@@ -1041,15 +1043,21 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		// - reuse the ObjectIdentifier.Builder
 		List<ObjectIdentifier> objectIds = new ArrayList<>();
 		ObjectIdentifier.Builder objectIdBuilder = ObjectIdentifier.builder();
+		// List of object ID strings being deleted, to check for duplicates:
+		// - trying to delete the same key more than once may cause a concurrency issue in S3?
+		List<String> objectIdStrings = new ArrayList<>();
 		for ( String deleteFilesKey : deleteFilesKeys ) {
 			if ( keyFolderDepthIsAtLeast(deleteFilesKey, deleteFoldersMinDepth) ) {
-				objectIds.add(
-					objectIdBuilder
-						.key(deleteFilesKey)
-						.build());
-				if ( debug ) {
+				if ( !StringUtil.isInList(objectIdStrings, deleteFilesKey)) {
+					objectIdStrings.add(deleteFilesKey);
+					objectIds.add(
+						objectIdBuilder
+							.key(deleteFilesKey)
+							.build());
 					if ( debug ) {
-						Message.printStatus(2, routine, "Attempting to delete file key: \"" + deleteFilesKey + "\"" );
+						if ( debug ) {
+							Message.printStatus(2, routine, "Attempting to delete file key: \"" + deleteFilesKey + "\"" );
+						}
 					}
 				}
 			}
@@ -1094,12 +1102,15 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 					maxKeys, maxObjects, listFiles, listFolders, regex);
 				for ( AwsS3Object s3Object : s3Objects ) {
 					if ( keyFolderDepthIsAtLeast(s3Object.getKey(), deleteFoldersMinDepth) ) {
-						objectIds.add(
-							objectIdBuilder
-								.key(s3Object.getKey())
-								.build());
-						if ( debug ) {
-							Message.printStatus(2, routine, "Attempting to delete file (from folder) key: \"" + s3Object.getKey() + "\"" );
+						if ( !StringUtil.isInList(objectIdStrings, s3Object.getKey())) {
+							objectIdStrings.add(s3Object.getKey());
+							objectIds.add(
+								objectIdBuilder
+									.key(s3Object.getKey())
+									.build());
+							if ( debug ) {
+								Message.printStatus(2, routine, "Attempting to delete file (from folder) key: \"" + s3Object.getKey() + "\"" );
+							}
 						}
 					}
 					else {
@@ -1130,12 +1141,15 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 					maxKeys, maxObjects, listFiles, listFolders, regex);
 				for ( AwsS3Object s3Object : s3Objects ) {
 					if ( keyFolderDepthIsAtLeast(s3Object.getKey(), deleteFoldersMinDepth) ) {
-						objectIds.add(
-							objectIdBuilder
-								.key(s3Object.getKey())
-								.build());
-						if ( debug ) {
-							Message.printStatus(2, routine, "Attempting to delete file (from folder) key: \"" + s3Object.getKey() + "\"" );
+						if ( !StringUtil.isInList(objectIdStrings, s3Object.getKey())) {
+							objectIdStrings.add(s3Object.getKey());
+							objectIds.add(
+								objectIdBuilder
+									.key(s3Object.getKey())
+									.build());
+							if ( debug ) {
+								Message.printStatus(2, routine, "Attempting to delete file (from folder) key: \"" + s3Object.getKey() + "\"" );
+							}
 						}
 					}
 					else {
@@ -1221,7 +1235,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		ProfileCredentialsProvider credentialsProvider,
 		String bucket, String region,
 		List<String> downloadFilesKeys, List<String> downloadFilesFiles,
-		List<String> downloadFoldersKeys, List<String> downloadFoldersDirectories,
+		List<String> downloadFoldersKeys, List<String> downloadFoldersFolders,
 		CommandStatus status, int logLevel, int warningLevel, int warningCount, String commandTag
 		) {
 		String routine = getClass().getSimpleName() + ".doS3DownloadObjects";
@@ -1232,14 +1246,96 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
     	Region regionObject = Region.of(region);
 
-    	if ( (downloadFilesFiles.size() > 0) || (downloadFoldersDirectories.size() > 0) ) {
+    	// Create a transfer manager if files or folders are going to be downloaded.
+    	if ( (downloadFilesFiles.size() > 0) || (downloadFoldersFolders.size() > 0) ) {
     		tm = S3TransferManager
     			.builder()
     			.s3ClientConfiguration(b -> b.credentialsProvider(credentialsProvider)
    				.region(regionObject))
     			.build();
     	}
+    	else {
+    		// Nothing to process.
+    		if ( Message.isDebugOn ) {
+    			Message.printStatus(2, routine, "No files are folders are to be downloaded.  Skipped because of checks?" );
+    		}
+    		return warningCount;
+    	}
 
+    	// Process folders first so that files can be downloaded into folders below.
+
+      	if ( downloadFoldersFolders.size() > 0 ) {
+    		// Process each folder in the list.
+    		boolean error = false;
+    		int iFolder = -1;
+    		for ( String downloadKey : downloadFoldersKeys ) {
+    			++iFolder;
+    			error = false;
+    			String localFolder = null;
+    			try {
+    				downloadKey = downloadKey.trim();
+    				localFolder = downloadFoldersFolders.get(iFolder);
+    				// TODO smalers 2023-02-07 remove the error check since no longer used:
+    				// - most of the checks are done in the main runCommandInternal() method
+    				if ( !error ) {
+    					// TODO smalers 2023-02-07 path was determined in earlier code.
+    					//localFolder = localFolder.trim();
+    					// There is not a way to examine the filenames so can't apply a regular expression.
+    					//String localFolderFull = IOUtil.verifyPathForOS(
+						//IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
+						//TSCommandProcessorUtil.expandParameterValue(processor,this,localFolder)));
+    					if ( Message.isDebugOn ) {
+    						Message.printStatus(2, routine, "Attemping to download S3 folder \"" + downloadKey
+    							+ "\" to local folder \"" + localFolder + "\".");
+    					}
+    					DirectoryDownload download = tm.downloadDirectory(
+    						DownloadDirectoryRequest.builder()
+								.destinationDirectory(Paths.get(localFolder))
+								.bucket(bucket)
+								.prefix(downloadKey)
+								.build()
+						);
+    					// Wait for the transfer to complete.
+    					CompletedDirectoryDownload completed = download.completionFuture().join();
+    					// Log failed downloads, up to 50 messages.
+    					int maxMessage = 50;
+    					int failCount = 0;
+    					for ( FailedFileDownload fail : completed.failedTransfers() ) {
+    						++failCount;
+    						if ( failCount > maxMessage ) {
+    							// Limit messages.
+    							message = "Only listing " + maxMessage + " download errors.";
+   								Message.printWarning ( warningLevel,
+   									MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
+   								status.addToLog(CommandPhaseType.RUN,
+   									new CommandLogRecord(CommandStatusType.FAILURE,
+   										message, "Check command parameters."));
+    							break;
+    						}
+   							message = "Error downloading folder \"" + downloadKey + "\" to folder \"" + localFolder + "\"(" + fail + ").";
+   							Message.printWarning ( warningLevel,
+   								MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
+   							status.addToLog(CommandPhaseType.RUN,
+   								new CommandLogRecord(CommandStatusType.FAILURE,
+   									message, "Check command parameters."));
+    					}
+    				}
+    			}
+    			catch ( Exception e ) {
+    				message = "Error downloading S3 folder \"" + downloadKey + "\" to local folder \"" + localFolder + "\" (" + e + ")";
+    				Message.printWarning ( warningLevel,
+    					MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
+    				Message.printWarning ( 3, routine, e );
+    				status.addToLog(CommandPhaseType.RUN,
+    					new CommandLogRecord(CommandStatusType.FAILURE,
+    						message, "See the log file for details."));
+    			}
+    		}
+    	}
+
+      	// Download files individually.
+      	
+      	int downloadCount = 0;
     	if ( downloadFilesFiles.size() > 0 ) {
     		// Process each file in the list.
     		boolean error = false;
@@ -1251,47 +1347,61 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     			try {
     				downloadKey = downloadKey.trim();
     				localFile = downloadFilesFiles.get(iFile).trim();
-    				if ( (localFile == null) || localFile.trim().isEmpty() ) {
-    					// Use the same name as the key, but only the file name.
-    					int pos = localFile.lastIndexOf("/");
-    					if ( pos >= 0 ) {
-    						if ( pos < (localFile.length() - 1) ) {
-    							localFile = localFile.substring(pos + 1).trim();
-    						}
-    						else {
-    							// Error because / at the end of the key.
-    							message = "No local file given and key (" + downloadKey + ") ends in / - cannot default file name to copy.";
-    							Message.printWarning ( warningLevel,
-    								MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
-    							status.addToLog(CommandPhaseType.RUN,
-    								new CommandLogRecord(CommandStatusType.FAILURE,
-    									message, "Fix the local file name."));
-    							error = true;
-    						}
-    					}
-    				}
+    				// Apparently the folder for the file must exist so create if necessary.
+    				File file = new File(localFile);
+    				// Get the parent.
+	    			File folder = file.getParentFile();
+	    			// Create the parent.
+	    			if ( !folder.exists() ) {
+	    				if ( Message.isDebugOn ) {
+	    					Message.printStatus(2, routine, "Creating folder: " + folder.getAbsolutePath() );
+	    				}
+	    				folder.mkdirs();
+	    			}
+    				
     				if ( !error ) {
-    					localFile = localFile.trim();
-    					String localFileFull = IOUtil.verifyPathForOS(
-    							IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
-	      	    				TSCommandProcessorUtil.expandParameterValue(processor,this,localFile)));
-    					/*
-    					FileDownload download = tm.downloadFile(DownloadFileRequest
-    						.builder()
-    						// getObjectRequest
-    						.key(downloadKey)
-    						.destination(Paths.get(localFileFull))
-    						.build());
-    						*/
     					final String downloadKeyFinal = downloadKey;
-    	    			FileDownload download = tm
-   	    					.downloadFile(d -> d.getObjectRequest(g -> g.bucket(bucket).key(downloadKeyFinal))
-    						.destination(Paths.get(localFileFull)));
-    	    			download.completionFuture().join();
+    					final String downloadLocalFileFinal = localFile;
+    					/* TODO smalers 2023-02-07 does not compile.
+    					FileDownload download = tm.downloadFile(
+    						DownloadFileRequest
+    							.builder()
+    							.getObjectRequest(
+    								GetObjectRequest.builder()
+    									.bucket(bucket)
+    									.key(downloadKey)
+    									.build()
+    							)
+    							.destination(Paths.get(localFile))
+    							.build());
+    							*/
+    					// See:  https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/transfer-manager.html
+    	    			DownloadFileRequest downloadFileRequest =
+    	    				DownloadFileRequest.builder()
+    	    					.getObjectRequest(g -> g.bucket(bucket).key(downloadKeyFinal))
+    	    					.destination(Paths.get(downloadLocalFileFinal))
+    	    					.build();
+    	    			FileDownload download = tm .downloadFile(downloadFileRequest);
+    	    			CompletedFileDownload downloadResult = download.completionFuture().join();
+    	    			if ( downloadResult.response().sdkHttpResponse().statusCode() == HttpURLConnection.HTTP_OK ) {
+				 	    	// Successful.
+				 	    	++downloadCount;
+			 	    	}
+			 	    	else {
+				 			message = "Download object returned HTTP status "
+				 				+ downloadResult.response().sdkHttpResponse().statusCode()
+				 				+ " for key \"" + downloadKey + "\" - object download failed.";
+				 			Message.printWarning(logLevel,
+					  			MessageUtil.formatMessageTag( commandTag, ++warningCount),
+					   			routine, message );
+				 			status.addToLog ( CommandPhaseType.RUN,
+					   			new CommandLogRecord(CommandStatusType.FAILURE,
+					    			message, "Check that the original object exists." ) );
+			 	    	}
     	    		}
     	    	}
     	    	catch ( Exception e ) {
-    	    		message = "Error downloading S3 key \"" + downloadKey + "\" to file \"" + localFile + "\" (" + e + ")";
+    	    		message = "Error downloading S3 file \"" + downloadKey + "\" to file \"" + localFile + "\" (" + e + ")";
     	    		Message.printWarning ( warningLevel,
     	    			MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
     	    		Message.printWarning ( 3, routine, e );
@@ -1301,82 +1411,6 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	    	}
     		}
       	}
-      	if ( downloadFoldersDirectories.size() > 0 ) {
-    		// Process each folder in the list.
-    		boolean error = false;
-    		int iDir = -1;
-    		for ( String downloadKey : downloadFoldersKeys ) {
-    			++iDir;
-    			error = false;
-    			String localFolder = null;
-    			try {
-    				downloadKey = downloadKey.trim();
-    				localFolder = downloadFoldersDirectories.get(iDir);
-    				if ( (localFolder == null) || localFolder.trim().isEmpty() ) {
-    					// Use the same name as the key, but only the folder name.
-    					int pos = localFolder.lastIndexOf("/");
-    					if ( pos >= 0 ) {
-    						if ( pos < (localFolder.length() - 1) ) {
-    							localFolder = localFolder.substring(pos + 1).trim();
-    						}
-    						else {
-    							// Error because / at the end of the key.
-    							message = "No local folder given and key (" + downloadKey + ") ends in / - cannot default folder name to copy.";
-    							Message.printWarning ( warningLevel,
-    								MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
-    							status.addToLog(CommandPhaseType.RUN,
-    								new CommandLogRecord(CommandStatusType.FAILURE,
-    									message, "Fix the local folder name."));
-    							error = true;
-    						}
-    					}
-    				}
-    				if ( !error ) {
-    					localFolder = localFolder.trim();
-    					String localFolderFull = IOUtil.verifyPathForOS(
-  							IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
-   	    				TSCommandProcessorUtil.expandParameterValue(processor,this,localFolder)));
-    					DirectoryDownload download = tm.downloadDirectory(DownloadDirectoryRequest.builder()
-							.destinationDirectory(Paths.get(localFolderFull))
-							.bucket(bucket)
-							.prefix(downloadKey)
-							.build());
-    					// Wait for the transfer to complete.
-    					CompletedDirectoryDownload completed = download.completionFuture().join();
-    					// Log failed downloads, up to 50 messages.
-    					int maxMessage = 50, count = 0;
-    					for ( FailedFileDownload fail : completed.failedTransfers() ) {
-    						++count;
-    						if ( count > maxMessage ) {
-    							// Limit messages.
-    							message = "Only listing " + maxMessage + " download errors.";
-   								Message.printWarning ( warningLevel,
-   									MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
-   								status.addToLog(CommandPhaseType.RUN,
-   									new CommandLogRecord(CommandStatusType.FAILURE,
-   										message, "Check command parameters."));
-    							break;
-    						}
-   							message = "Error downloading folder \"" + downloadKey + "\" to folder \"" + localFolderFull + "\"(" + fail + ").";
-   							Message.printWarning ( warningLevel,
-   								MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
-   							status.addToLog(CommandPhaseType.RUN,
-   								new CommandLogRecord(CommandStatusType.FAILURE,
-   									message, "Check command parameters."));
-    					}
-    				}
-    			}
-    			catch ( Exception e ) {
-    				message = "Error downloading S3 key \"" + downloadKey + "\" to folder \"" + localFolder + "\" (" + e + ")";
-    				Message.printWarning ( warningLevel,
-    					MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
-    				Message.printWarning ( 3, routine, e );
-    				status.addToLog(CommandPhaseType.RUN,
-    					new CommandLogRecord(CommandStatusType.FAILURE,
-    						message, "See the log file for details."));
-    			}
-    		}
-    	}
     	if ( tm != null ) {
     		tm.close();
     	}
@@ -1771,7 +1805,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     		// Process each file in the list:
     		// - don't allow null or empty key or name
     		boolean error = false;
- 				int iFile = -1;
+			int iFile = -1;
     		for ( String localFile : uploadFilesFileList ) {
     			++iFile;
     			error = false;
@@ -1838,6 +1872,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     			}
     		}
     	}
+
     	Message.printStatus(2, routine, "Have " + uploadFoldersDirectoryList.size() + " folders to upload.");
     	if ( uploadFoldersDirectoryList.size() > 0 ) {
     		// Process each folder in the list.
@@ -2408,20 +2443,108 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		// Can't use a hashtable because sometimes download the same folders to multiple S3 locations.
     	List<String> downloadFoldersKeys = new ArrayList<>();
     	List<String> downloadFoldersDirectories = new ArrayList<>();
+       	String localFolder = null;
+       	String remoteFolder = null;
     	if ( (DownloadFolders != null) && (DownloadFolders.length() > 0) && (DownloadFolders.indexOf(":") > 0) ) {
         	// First break map pairs by comma.
         	List<String>pairs = StringUtil.breakStringList(DownloadFolders, ",", 0 );
         	// Now break pairs and put in lists.
+       		int downloadFoldersCount = 0;
         	for ( String pair : pairs ) {
+        		++downloadFoldersCount;
             	String [] parts = pair.split(":");
             	if ( parts.length == 2 ) {
-            		downloadFoldersKeys.add(parts[0].trim());
-            		downloadFoldersDirectories.add(parts[1].trim());
+            		// Download into a specific folder.
+            		remoteFolder = parts[0].trim();
+            		localFolder = parts[1].trim();
+            		if ( commandPhase == CommandPhaseType.RUN ) {
+           				// Convert the command parameter folder to absolute path.
+		   				String localFolderFull = IOUtil.verifyPathForOS(
+		      				IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
+		        				TSCommandProcessorUtil.expandParameterValue(processor,this,localFolder)));
+            			if ( localFolder.isEmpty() ) {
+       			   			message = "Local folder " + downloadFoldersCount + " is empty - skipping to avoid download error.";
+	        	   			Message.printWarning(warningLevel,
+		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+		    		   			message, "Confirm that the local folder is specified." ) );
+        		   			continue;
+        	   			}
+            			if ( remoteFolder.isEmpty() ) {
+       			   			message = "Remote folder " + downloadFoldersCount + " is empty - skipping to avoid download error.";
+	        	   			Message.printWarning(warningLevel,
+		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+		    		   			message, "Confirm that the remote folder is specified." ) );
+        		   			continue;
+        	   			}
+			   			// Make sure that the local folder does not contain wildcard or ${ for properties. // } To match bracket.
+            			if ( localFolderFull.indexOf("${") >= 0 ) { // } To match bracket.
+       						message = "Local folder " + downloadFoldersCount + " (" + localFolder +
+       							") contains ${ due to unknown processor property - skipping to avoid download error."; // } To match bracket.
+	        				Message.printWarning(warningLevel,
+		    	   				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+	        				status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+		    	   				message, "Confirm that the property is defined." ) );
+        					continue;
+        	   			}
+            			if ( localFolderFull.indexOf("*") >= 0 ) {
+       						message = "Local folder " + downloadFoldersCount + " (" + localFolder +
+       							") contains wildcard * in name, which is not allowed - skipping folder.";
+	        				Message.printWarning(warningLevel,
+		    	  				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+	        				status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+		    	   				message, "Check the local folder name." ) );
+        					continue;
+        	   			}
+           				if ( remoteFolder.indexOf("${") >= 0 ) { // } To match bracket.
+      			   				message = "Remote folder (object key) for folder " + downloadFoldersCount + " (" + remoteFolder +
+      			   					") contains ${ due to unknown processor property - skipping to avoid download error."; // } To match bracket.
+        	   				Message.printWarning(warningLevel,
+	    		   				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+        	   				status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+	    		   				message, "Confirm that the property is defined." ) );
+       		   				continue;
+       	   				}
+           				if ( remoteFolder.indexOf("*") >= 0 ) {
+   			   				message = "Remote folder (object key) for folder " + downloadFoldersCount + " (" + remoteFolder +
+   			   					") contains * in name - skipping to avoid download error.";
+        	   				Message.printWarning(warningLevel,
+	    		   				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+        	   				status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+	    		   				message, "Confirm that the remote folder is correct." ) );
+       		   				continue;
+       	   				}
+           				if ( !remoteFolder.endsWith("/") ) {
+   			   				message = "Remote folder (object key) for folder " + downloadFoldersCount + " (" + remoteFolder +
+   			   					") does not end in / to indicate a folder.";
+        	   				Message.printWarning(warningLevel,
+	    		   				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+        	   				status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+	    		   			message, "Confirm that the folder ends in / to indicate a folder." ) );
+       		   				continue;
+       	   				}
+           				// Expand the local filename:
+            			// - this will expand the leading folder(s) for properties
+			   			localFolderFull = IOUtil.verifyPathForOS(
+			      			IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
+			        			TSCommandProcessorUtil.expandParameterValue(processor,this,localFolder)), true);
+            			downloadFoldersKeys.add(remoteFolder);
+            			downloadFoldersDirectories.add(localFolderFull);
+            			if ( Message.isDebugOn ) {
+           					Message.printStatus(2, routine, "             Remote folder: " + remoteFolder );
+            				Message.printStatus(2, routine, "              Local folder: " + localFolderFull );
+            			}
+            		}
             	}
-            	else {
-            		downloadFoldersKeys.add(parts[0].trim());
-            		downloadFoldersDirectories.add("");
-            	}
+           		else {
+   			   		message = "Folder data \"" + pair + "\" contains " + parts.length
+   			   			+ " parts, expecting 2 parts S3Folder:LocalFolder.";
+        	   		Message.printWarning(warningLevel,
+	    				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+        	   		status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+	    				message, "Check the folder data." ) );
+           		}
         	}
     	}
     	String DownloadFiles = parameters.getValue ( "DownloadFiles" );
@@ -2433,15 +2556,108 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         	// First break map pairs by comma.
         	List<String>pairs = StringUtil.breakStringList(DownloadFiles, ",", 0 );
         	// Now break pairs and put in lists.
+        	int downloadFilesCount = 0;
         	for ( String pair : pairs ) {
+        		++downloadFilesCount;
             	String [] parts = pair.split(":");
             	if ( parts.length == 2 ) {
-            		downloadFilesKeys.add(parts[0].trim());
-            		downloadFilesFiles.add(parts[1].trim());
+            		String remoteFile = parts[0].trim();
+            		String localFile = parts[1].trim();
+            		if ( commandPhase == CommandPhaseType.RUN ) {
+            			if ( localFile.isEmpty() ) {
+       			   			message = "Local file " + downloadFilesCount + " is empty - skipping to avoid download error.";
+	        	   			Message.printWarning(warningLevel,
+		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+		    		   			message, "Confirm that the local file is specified." ) );
+        		   			continue;
+        	   			}
+            			if ( remoteFile.isEmpty() ) {
+       			   			message = "Remote file " + downloadFilesCount + " is empty - skipping to avoid download error.";
+	        	   			Message.printWarning(warningLevel,
+		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+		    		   			message, "Confirm that the remote file is specified." ) );
+        		   			continue;
+        	   			}
+            			if ( localFile.indexOf("${") >= 0 ) { // } To match bracket.
+       			   			message = "Local file " + downloadFilesCount + " (" + localFile +
+       			   				") contains ${ due to unknown processor property - skipping to avoid download error."; // } To match bracket.
+	        	   			Message.printWarning(warningLevel,
+		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+		    		   			message, "Confirm that the property is defined." ) );
+        		   			continue;
+        	   			}
+            			if ( remoteFile.indexOf("${") >= 0 ) { // } To match bracket.
+       			   			message = "Remote file (object key) for file " + downloadFilesCount + " (" + remoteFile +
+       			   				") contains ${ due to unknown processor property - skipping to avoid download error."; // } To match bracket.
+	        	   			Message.printWarning(warningLevel,
+		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+		    		   			message, "Confirm that the property is defined." ) );
+        		   			continue;
+        	   			}
+            			if ( remoteFile.endsWith("/") ) {
+       			   			message = "Remote file (object key) " + downloadFilesCount + " (" + remoteFile +
+       			   				") ends with /, which indicates a folder.";
+	        	   			Message.printWarning(warningLevel,
+		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+		    		   			message, "Confirm that the S3 file does not end in /." ) );
+        		   			continue;
+        	   			}
+            		}
+            		boolean localHadWildcard = false;
+            		if ( localFile.indexOf("*") >= 0 ) {
+            			// Remote file has a wildcard so it should be a folder with wildcard for the file:
+            			// - this does not handle * in the folder as in: folder/*/folder/file.*
+            			if ( Message.isDebugOn ) {
+            				Message.printStatus(2, routine, "Local file has a wildcard.");
+            			}
+            			localHadWildcard = true;
+            			// Handle Linux and Windows paths.
+            			if ( !localFile.endsWith("/*") && !localFile.endsWith("\\*") ) {
+            				// Remote file must end with /* so that local file can also be used on S3.
+            				// This limits wildcards in the root folder but that is unlikely.
+            				message = "Local file uses * wildcard but does not end in /* - skipping.";
+			        		Message.printWarning(warningLevel,
+				    			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+			        		status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+				    			message, "Specify the local file with /* at the end." ) );
+			        		continue;
+            			}
+            			// Replace the wildcard with the remote file name without trailing /.
+            			String remoteName = getKeyName ( remoteFile, false );
+            			if ( (remoteName != null) && !remoteName.isEmpty() ) {
+            				localFile = localFile.replace("*", remoteName);
+            			}
+            		}
+            		// Expand the local filename:
+            		// - this will expand the leading folder(s) for properties
+			   		String localFileFull = IOUtil.verifyPathForOS(
+			      		IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
+			        		TSCommandProcessorUtil.expandParameterValue(processor,this,localFile)), true);
+            		//downloadFilesOrig.add(localFile);
+            		downloadFilesFiles.add(localFileFull);
+            		downloadFilesKeys.add(remoteFile);
+            		if ( Message.isDebugOn ) {
+           				Message.printStatus(2, routine, "             Remote file: " + remoteFile );
+            			if ( localHadWildcard ) {
+            				Message.printStatus(2, routine, "Local file from wildcard: " + localFileFull );
+            			}
+            			else {
+            				Message.printStatus(2, routine, "              Local file: " + localFileFull );
+            			}
+            		}
             	}
             	else {
-            		downloadFilesKeys.add(parts[0].trim());
-            		downloadFilesFiles.add("");
+       				message = "File data \"" + pair + "\" contains " + parts.length
+       					+ " parts, expecting 2 parts S3File:LocalFile.";
+	        		Message.printWarning(warningLevel,
+		    			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+	        		status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+		    			message, "Check the folder data." ) );
             	}
         	}
     	}
@@ -2544,17 +2760,17 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         		++uploadFoldersCount;
             	String [] parts = pair.split(":");
             	if ( parts.length == 2 ) {
-            		String localFolder = parts[0].trim();
-            		String remoteFolder = parts[1].trim();
+            		localFolder = parts[0].trim();
+            		remoteFolder = parts[1].trim();
             		if ( commandPhase == CommandPhaseType.RUN ) {
             			// Convert the command parameter folder to absolute path.
 			   			String localFolderFull = IOUtil.verifyPathForOS(
 			      			IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
 			        			TSCommandProcessorUtil.expandParameterValue(processor,this,parts[0].trim())));
-			   			// Make sure that the local folder does not contain wildcard or ${ for properties. // } to match bracket
+			   			// Make sure that the local folder does not contain wildcard or ${ for properties. // } To match bracket.
             			if ( localFolderFull.indexOf("${") >= 0 ) { // } to match bracket
        			   			message = "Local folder " + uploadFoldersCount + " (" + localFolder +
-       			   				") contains ${ due to unknown processor property - skipping to avoid upload error."; // } to match bracket
+       			   				") contains ${ due to unknown processor property - skipping to avoid upload error."; // } To match bracket.
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
@@ -2581,24 +2797,23 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         		   			continue;
         	   			}
             			if ( !f.isDirectory() ) {
-       			   			message = "Local folder " + uploadFoldersCount + " (" + localFolder +
-       			   				") is not a folder - skipping.";
+       			   			message = "Local folder " + uploadFoldersCount + " (" + localFolder + ") is not a folder - skipping.";
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
 		    		   			message, "Confirm that the folder exists." ) );
         		   			continue;
         	   			}
-            			if ( remoteFolder.indexOf("${") >= 0 ) { // } to match bracket
+            			if ( remoteFolder.indexOf("${") >= 0 ) { // } To match bracket.
        			   			message = "Remote folder (object key) for folder " + uploadFoldersCount + " (" + remoteFolder +
-       			   				") contains ${ due to unknown processor property - skipping to avoid unexpected file on S3."; // } to match bracket
+       			   				") contains ${ due to unknown processor property - skipping to avoid unexpected file on S3."; // } To match bracket.
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
 		    		   			message, "Confirm that the property is defined." ) );
         		   			continue;
         	   			}
-            			if ( remoteFolder.indexOf("*") >= 0 ) { // } to match bracket
+            			if ( remoteFolder.indexOf("*") >= 0 ) {
        			   			message = "Remote folder (object key) for folder " + uploadFoldersCount + " (" + remoteFolder +
        			   				") contains * in name - skipping to avoid unexpected file on S3.";
 	        	   			Message.printWarning(warningLevel,
@@ -2622,6 +2837,14 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
                			uploadFoldersKeyList.add(remoteFolder);
             		}
             	}
+           		else {
+   			   		message = "Folder data \"" + pair + "\" contains " + parts.length +
+   			   			" parts, expecting 2 parts LocalFolder:S3Folder.";
+        	   		Message.printWarning(warningLevel,
+	    				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+        	   		status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+	    				message, "Check the folder data." ) );
+           		}
         	}
     	}
     	String UploadFiles = parameters.getValue ( "UploadFiles" );
@@ -2667,7 +2890,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
-		    		   			message, "Confirm that the S3 file does not ends in /." ) );
+		    		   			message, "Confirm that the S3 file does not end in /." ) );
         		   			continue;
         	   			}
             		}
