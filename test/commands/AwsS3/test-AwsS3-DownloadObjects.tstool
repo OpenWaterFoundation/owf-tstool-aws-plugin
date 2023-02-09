@@ -1,0 +1,41 @@
+StartLog(LogFile="results/test-AwsS3-DownloadObjects.tstool.log")
+# Test downloading file and folder objects:
+# - use the test.openwaterfoundation.org bucket
+# - use the bucket folder tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-DownloadObjects
+# - this test first uploads the objects and then downloads
+# - the downloaded files are saved to the results folder and should match the original data files
+#
+# Configuration data.
+SetProperty(PropertyName="TestS3Folder",PropertyType=String,PropertyValue="tstool-aws-plugin/test/commands/AwsS3/test-AwsS3-DownloadObjects")
+SetProperty(PropertyName="TestLocalFolder",PropertyType=String,PropertyValue="results/test-AwsS3-DownloadObjects")
+#
+# Delete the bucket files first:
+# - list the folder to make sure the files were deleted before uploading and copying
+AwsS3(S3Command="DeleteObjects",Bucket="test.openwaterfoundation.org",DeleteFolders="${TestS3Folder}/",DeleteFoldersScope="AllFilesAndFolders")
+AwsS3(S3Command="ListObjects",Bucket="test.openwaterfoundation.org",ListObjectsScope=All,Prefix="${TestS3Folder}/",ListObjectsCountProperty="TestSetupListCount",OutputTableID="TestSetupList")
+If(Name="IfDeleteCheck",Condition="${TestSetupListCount} != 0")
+Message(Message="The upload test files were not deleted for setup.  Expecting 0 but have ${TestSetupListCount} files remaining.",CommandStatus=FAILURE)
+EndIf(Name="IfDeleteCheck")
+#
+# Upload the files for the test that will be the source of the download:
+# - confirm that the files were uploaded, in order to ensure that the delete will work
+AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",UploadFolders="data/testfolder2:${TestS3Folder}/testfolder2/",UploadFiles="data/root-testfile1.txt:${TestS3Folder}/*,data/root-testfile2.txt:${TestS3Folder}/*,data/testfolder1/testfolder1-testfile1.txt:${TestS3Folder}/testfolder1/*,data/testfolder1/testfolder1-testfile2.txt:${TestS3Folder}/testfolder1/*")
+AwsS3(S3Command="ListObjects",Bucket="test.openwaterfoundation.org",ListObjectsScope=All,Prefix="${TestS3Folder}/",ListObjectsCountProperty="TestUploadListCount",OutputTableID="TestUploadList")
+If(Name="IfTestUploadListCount",Condition="${TestUploadListCount} != 6")
+Message(Message="Error - should be 6 if the objects are correctly uploaded (have ${TestUploadListCount}).",CommandStatus=FAILURE)
+EndIf(Name="IfTestUploadListCount")
+#
+# Download the files into a results folder:
+# - remove results folder first
+# Wait(WaitTime="1")
+SetDebugLevel(LogFileLevel=1)
+RemoveFolder(Folder="${TestLocalFolder}",IfNotFound=Ignore)
+AwsS3(S3Command="DownloadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",DownloadFolders="${TestS3Folder}/testfolder2/:${TestLocalFolder}/testfolder2",DownloadFiles="${TestS3Folder}/root-testfile1.txt:${TestLocalFolder}/root-testfile1.txt,${TestS3Folder}/root-testfile2.txt:${TestLocalFolder}/root-testfile2.txt,${TestS3Folder}/testfolder1/testfolder1-testfile1.txt:${TestLocalFolder}/testfolder1/testfolder1-testfile1.txt,${TestS3Folder}/testfolder1/testfolder1-testfile2.txt:${TestLocalFolder}/testfolder1/testfolder1-testfile2.txt")
+SetDebugLevel(ScreenLevel=0,LogFileLevel=0)
+# Compare the downloaded files with the original data files that were uploaded.
+CompareFiles(InputFile1="data/root-testfile1.txt",InputFile2="${TestLocalFolder}/root-testfile1.txt",IfDifferent=Warn)
+CompareFiles(InputFile1="data/root-testfile2.txt",InputFile2="${TestLocalFolder}/root-testfile2.txt",IfDifferent=Warn)
+CompareFiles(InputFile1="data/testfolder1/testfolder1-testfile1.txt",InputFile2="${TestLocalFolder}/testfolder1/testfolder1-testfile1.txt",IfDifferent=Warn)
+CompareFiles(InputFile1="data/testfolder1/testfolder1-testfile2.txt",InputFile2="${TestLocalFolder}/testfolder1/testfolder1-testfile2.txt",IfDifferent=Warn)
+CompareFiles(InputFile1="data/testfolder2/testfolder2-testfile1.txt",InputFile2="${TestLocalFolder}/testfolder2/testfolder2-testfile1.txt",IfDifferent=Warn)
+CompareFiles(InputFile1="data/testfolder2/testfolder2-testfile2.txt",InputFile2="${TestLocalFolder}/testfolder2/testfolder2-testfile2.txt",IfDifferent=Warn)

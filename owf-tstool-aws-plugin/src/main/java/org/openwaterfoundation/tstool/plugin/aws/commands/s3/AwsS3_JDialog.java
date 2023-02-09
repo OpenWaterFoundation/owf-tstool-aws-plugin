@@ -300,16 +300,16 @@ public void actionPerformed( ActionEvent event ) {
         // Edit the dictionary in the dialog.  It is OK for the string to be blank.
         String DownloadFolders = __DownloadFolders_JTextArea.getText().trim();
         String [] notes = {
-            "Specify the S3 bucket object prefix (e.g., topfolder/childfolder/) to download a directory (folder).",
+            "Specify the S3 bucket folder path key (e.g., topfolder/childfolder/) to download.",
             "Only folders (directories) can be downloaded. Specify files to download with the 'DownloadFiles' command parameter.",
-            "A trailing / in the bucket prefix (S3 directory path) is optional (typically include to indicate a directory).",
-            "A leading / in the bucket prefix (S3 directory path) is optional (typically omit since relative to the bucket).",
+            "A leading / in the folder key should be used only if the S3 bucket uses a top-level /.",
+            "A trailing / in the bucket prefix (S3 directory path) is required to indicate a folder.",
             "The local folder is relative to the working folder:",
             "  " + this.__working_dir,
             "${Property} notation can be used for all values to expand at run time."
         };
         String dict = (new DictionaryJDialog ( __parent, true, DownloadFolders,
-            "Edit DownloadFolders Parameter", notes, "Bucket Prefix (S3 directory path)", "Local Folder",10)).response();
+            "Edit DownloadFolders Parameter", notes, "S3 Folder Path (ending in /)", "Local Folder (optionally ending in /)",10)).response();
         if ( dict != null ) {
             __DownloadFolders_JTextArea.setText ( dict );
             refresh();
@@ -319,16 +319,17 @@ public void actionPerformed( ActionEvent event ) {
         // Edit the dictionary in the dialog.  It is OK for the string to be blank.
         String DownloadFiles = __DownloadFiles_JTextArea.getText().trim();
         String [] notes = {
-            "Specify the bucket object S3 key (S3 file path) to download a file.",
-            "Only files can be downloaded.  Specify folders (directories) to download with the 'DownloadFolders' command parameter.",
-            "The key is the full path for the the bucket object.",
-            "A leading / in the S3 key is optional (typically omit since relative to the bucket).",
+            "Specify the bucket file object S3 key (e.g., topfolder/childfolder/file.ext) to download a file.",
+            "Only files can be downloaded.  Specify folders to download with the 'DownloadFolders' command parameter.",
+            "The key is the full path for the the file object.",
+            "A leading / in the folder key should be used only if the S3 bucket uses a top-level /.",
+            "The local file name can be * to use the same name as the S3 object.",
             "The local file is relative to the working folder:",
             "  " + this.__working_dir,
             "${Property} notation can be used for all values to expand at run time."
         };
         String dict = (new DictionaryJDialog ( __parent, true, DownloadFiles,
-            "Edit DownloadFiles Parameter", notes, "Bucket Key (S3 object path)", "Local File",10)).response();
+            "Edit DownloadFiles Parameter", notes, "S3 File Path", "Local File",10)).response();
         if ( dict != null ) {
             __DownloadFiles_JTextArea.setText ( dict );
             refresh();
@@ -1144,7 +1145,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 
     JGUIUtil.addComponent(download_JPanel, new JLabel ("Specify files and folders to download."),
 		0, ++yDownload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(download_JPanel, new JLabel ("Use the 'Edit' button to view information about local and S3 file and folder paths."),
+    JGUIUtil.addComponent(download_JPanel, new JLabel ("Use the 'Edit' button to view information about S3 and local file and folder paths."),
 		0, ++yDownload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(download_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yDownload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -1384,7 +1385,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(listObjects_JPanel, new JLabel ( "Optional - maximum number of object read (default=2000)."),
         3, yListObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(listObjects_JPanel, new JLabel("List bucket objects count property:"),
+    JGUIUtil.addComponent(listObjects_JPanel, new JLabel("List objects count property:"),
         0, ++yListObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __ListObjectsCountProperty_JTextField = new JTextField ( "", 30 );
     __ListObjectsCountProperty_JTextField.setToolTipText("Specify the property name for the bucket object list result size, can use ${Property} notation");

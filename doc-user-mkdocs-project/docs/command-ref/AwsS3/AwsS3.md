@@ -123,6 +123,10 @@ the parent folders for deleted objects are invalidated, using a wildcard.
 
 ### Download Objects ###
 
+Use the `S3Command=DownloadObjects` parameter to downloadload files and folders from S3 objects to local computer files and folders.
+
+Currently, wildcards cannot be used to specify S3 objects to download.
+
 **<p style="text-align: center;">
 ![AwsS3-download](AwsS3-download.png)
 </p>**
@@ -169,8 +173,7 @@ See the examples.
 
 ### Upload Objects ###
 
-Files on a local computer can be uploaded to S3 for storage as S3 objects.
-To facilitate bulk uploads, folders on the computer can also be uploaded.
+Use the `S3Command=UploadObjects` parameter to upload files and folders from a local computer to S3 for storage as S3 objects.
 The filename on the local computer will automatically match the S3 object key for folder uploads.
 File uploads can specify a different key for the S3 object.
 
@@ -270,8 +273,8 @@ Command Parameters - Download Objects
 
 |**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default** |
 |-----|-----------------|-----------------|
-|`DownloadDirectories`| List of directories (folders) to download using syntax: `key1:folder1,key2:folder2`, where the `key` identifies an S3 object and `folder` is a local folder name, can use `${Property}` syntax. | |
-|`DownloadFiles`| List of files to download using syntax: `key1:file1,key2:file2`, where the `key` identifies an S3 object and `file` is a local file name, can use `${Property}` syntax. | |
+|`DownloadFolders`| List of folders (directories) to download using syntax: `key1:folder1,key2:folder2`, where the `key` identifies an S3 object and `folder` is a local folder name.  Can use `${Property}` syntax. Currently there is no way to remap the filenames to different local folder due to how the S3 API works. | |
+|`DownloadFiles`| List of files to download using syntax: `key1:file1,key2:file2`, where the `key` identifies an S3 object and `file` is a local file name. Can use `${Property}` syntax. If the end of the local file part of the path is `*` (for root level files) or `/*` (for sub-folder files), then the local file name will be set to the S3 object name. | |
 
 ### List Buckets Command Parameters ###
 
