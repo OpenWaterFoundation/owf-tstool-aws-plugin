@@ -62,6 +62,7 @@ import RTi.Util.GUI.JFileChooserFactory;
 import RTi.Util.GUI.JGUIUtil;
 import RTi.Util.GUI.SimpleJButton;
 import RTi.Util.GUI.SimpleJComboBox;
+import RTi.Util.GUI.StringListJDialog;
 import RTi.Util.Help.HelpViewer;
 import RTi.Util.IO.CommandProcessor;
 import RTi.Util.IO.IOUtil;
@@ -95,14 +96,19 @@ private JTextField __RegionDefault_JTextField = null; // View only (not a comman
 private JLabel __RegionDefaultNote_JLabel = null; // To explain the default.
 private SimpleJComboBox __DistributionId_JComboBox = null;
 private JTextField __Comment_JTextField = null;
-private SimpleJComboBox __IfInputNotFound_JComboBox = null;
+//private SimpleJComboBox __IfInputNotFound_JComboBox = null;
 
 // Invalidate tab.
 private JTextArea __InvalidationPaths_JTextArea = null;
 private JTextField __CallerReference_JTextField = null;
 private SimpleJComboBox __WaitForCompletion_JComboBox = null;
 
-// List tab - currently no parameters.
+// List Distributions tab.
+private JTextField __ListDistributionsCountProperty_JTextField = null;
+
+// List Invalidations tab.
+private JTextField __ListInvalidationsCountProperty_JTextField = null;
+private SimpleJComboBox __InvalidationStatus_JComboBox = null;
 
 // Output tab.
 private SimpleJComboBox __OutputTableID_JComboBox = null;
@@ -115,7 +121,7 @@ private boolean __first_time = true;
 private AwsCloudFront_Command __command = null;
 private boolean __ok = false; // Whether the user has pressed OK to close the dialog.
 private boolean ignoreEvents = false; // Ignore events when initializing, to avoid infinite loop.
-//private JFrame __parent = null;
+private JFrame __parent = null;
 
 // AWS session used to interact with AWS:
 // - will be null until the profile is set, which will happen when refresh() is called once
@@ -204,6 +210,30 @@ public void actionPerformed( ActionEvent event ) {
 	else if ( o == __help_JButton ) {
 		HelpViewer.getInstance().showHelp("command", "AwsCloudFront", PluginMeta.documentationRootUrl() );
 	}
+    else if ( event.getActionCommand().equalsIgnoreCase("EditInvalidationPaths") ) {
+        // Edit the list in the dialog.  It is OK for the string to be blank.
+        String InvalidationPaths = __InvalidationPaths_JTextArea.getText().trim();
+        String [] notes = {
+            "Invalidation paths should start with / and match the S3 bucket key for the CloudFront distribution.",
+            "The top-level S3 bucket does not need to start with /.",
+            "Use * at the end of a path as a wildcard to match patterns.",
+            "   /* - invalidate all files in a distribution",
+            "   /path/* - invalidate all files in a folder, including subfolders",
+            "   /path* - invalidate all files in a folder matching a leading path part",
+            "   /path/filename.* - invalidate all files in a folder matching an extension",
+            "   /path/filename* - invalidate all files in a folder matching any extension",
+            "Use the checkboxes with Insert and Remove.",
+            "All non-blank paths will be included in the command parameter.",
+            "Paths can use ${Property} syntax."
+        };
+        String delim = ",";
+        String list = (new StringListJDialog ( this.__parent, true, InvalidationPaths,
+            "Edit InvalidationPaths Parameter", notes, "Invalidation Path", delim, 10)).response();
+        if ( list != null ) {
+            __InvalidationPaths_JTextArea.setText ( list );
+            refresh();
+        }
+    }
 	else if ( o == __ok_JButton ) {
 		refresh ();
 		checkInput();
@@ -251,9 +281,12 @@ private void checkInput () {
 	String InvalidationPaths = __InvalidationPaths_JTextArea.getText().trim().replace("\n"," ");
 	String CallerReference = __CallerReference_JTextField.getText().trim();
     String WaitForCompletion = __WaitForCompletion_JComboBox.getSelected();
+	String ListDistributionsCountProperty = __ListDistributionsCountProperty_JTextField.getText().trim();
+    String InvalidationStatus = __InvalidationStatus_JComboBox.getSelected();
+	String ListInvalidationsCountProperty = __ListInvalidationsCountProperty_JTextField.getText().trim();
 	String OutputFile = __OutputFile_JTextField.getText().trim();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
-	String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
+	//String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
 	__error_wait = false;
 	if ( CloudFrontCommand.length() > 0 ) {
 		props.set ( "CloudFrontCommand", CloudFrontCommand );
@@ -279,15 +312,26 @@ private void checkInput () {
 	if ( (WaitForCompletion != null) && !WaitForCompletion.isEmpty() ) {
 		props.set ( "WaitForCompletion", WaitForCompletion );
 	}
+	if ( (ListDistributionsCountProperty != null) && !ListDistributionsCountProperty.isEmpty() ) {
+		props.set ( "ListDistributionsCountProperty", ListDistributionsCountProperty );
+	}
+	if ( (InvalidationStatus != null) && !InvalidationStatus.isEmpty() ) {
+		props.set ( "InvalidationStatus", InvalidationStatus );
+	}
+	if ( (ListInvalidationsCountProperty != null) && !ListInvalidationsCountProperty.isEmpty() ) {
+		props.set ( "ListInvalidationsCountProperty", ListInvalidationsCountProperty );
+	}
     if ( OutputFile.length() > 0 ) {
         props.set ( "OutputFile", OutputFile );
     }
     if ( OutputTableID.length() > 0 ) {
         props.set ( "OutputTableID", OutputTableID );
     }
+    /*
 	if ( IfInputNotFound.length() > 0 ) {
 		props.set ( "IfInputNotFound", IfInputNotFound );
 	}
+	*/
 	try {
 		// This will warn the user.
 		__command.checkCommandParameters ( props, null, 1 );
@@ -311,9 +355,12 @@ private void commitEdits () {
 	String InvalidationPaths = __InvalidationPaths_JTextArea.getText().trim().replace("\n"," ");
 	String CallerReference = __CallerReference_JTextField.getText().trim();
     String WaitForCompletion = __WaitForCompletion_JComboBox.getSelected();
+	String ListDistributionsCountProperty = __ListDistributionsCountProperty_JTextField.getText().trim();
+    String InvalidationStatus = __InvalidationStatus_JComboBox.getSelected();
+	String ListInvalidationsCountProperty = __ListInvalidationsCountProperty_JTextField.getText().trim();
     String OutputFile = __OutputFile_JTextField.getText().trim();
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
-	String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
+	//String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
 	__command.setCommandParameter ( "CloudFrontCommand", CloudFrontCommand );
 	__command.setCommandParameter ( "Profile", Profile );
 	__command.setCommandParameter ( "Region", Region );
@@ -322,9 +369,12 @@ private void commitEdits () {
 	__command.setCommandParameter ( "InvalidationPaths", InvalidationPaths );
 	__command.setCommandParameter ( "CallerReference", CallerReference );
 	__command.setCommandParameter ( "WaitForCompletion", WaitForCompletion );
+	__command.setCommandParameter ( "ListDistributionsCountProperty", ListDistributionsCountProperty );
+	__command.setCommandParameter ( "InvalidationStatus", InvalidationStatus );
+	__command.setCommandParameter ( "ListInvalidationsCountProperty", ListInvalidationsCountProperty );
 	__command.setCommandParameter ( "OutputFile", OutputFile );
 	__command.setCommandParameter ( "OutputTableID", OutputTableID );
-	__command.setCommandParameter ( "IfInputNotFound", IfInputNotFound );
+	//__command.setCommandParameter ( "IfInputNotFound", IfInputNotFound );
 }
 
 /**
@@ -428,9 +478,9 @@ Instantiates the GUI components.
 */
 private void initialize ( JFrame parent, AwsCloudFront_Command command, List<String> tableIDChoices ) {
 	this.__command = command;
-	//this.__parent = parent;
+	this.__parent = parent;
 	CommandProcessor processor =__command.getCommandProcessor();
-	
+
 	__working_dir = TSCommandProcessorUtil.getWorkingDirForCommand ( processor, __command );
 
 	addWindowListener( this );
@@ -444,20 +494,24 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 	getContentPane().add ( "North", main_JPanel );
 	int y = -1;
 
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("Execute Amazon CloudFront commands." ),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("Execute Amazon Web Services (AWS) CloudFront commands." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel ("CloudFront uses 'distributions' to manage files in a content delivery network (CDN)." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("CloudFront distributions are often associated with files stored in an S3 bucket." ),
+    JGUIUtil.addComponent(main_JPanel, new JLabel (
+    	"CloudFront distributions are often associated with files stored in an S3 bucket, for example to publish https://sub.organization.org content." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("The 'aws-global' region may need to be used to find a distribution." ),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("The 'aws-global' region may need to be used for CloudFront distributions (not the S3 region)." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel (
-        "It is recommended to specify a distribution by matching a comment rather than identifier for readability."),
+        "It is recommended to specify a distribution by matching a comment (description) rather than identifier for readability,"),
+        0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(main_JPanel, new JLabel (
+        "for exmaple if the comment includes the website domain name."),
         0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     if ( __working_dir != null ) {
     	JGUIUtil.addComponent(main_JPanel, new JLabel (
-		"It is recommended that the file names are relative to the working directory, which is:"),
+		"It is recommended that output file names are relative to the working directory, which is:"),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     	JGUIUtil.addComponent(main_JPanel, new JLabel ("    " + __working_dir),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -595,20 +649,13 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
     invalidate_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "Invalidate", invalidate_JPanel );
 
-    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("Specify paths to invalidate, separated by commas."),
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel (
+    	"Files that are part of a CloudFront distribution need to be \"invalidated\" to be visible in CloudFront-served websites."),
 		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("Paths should start with / and match the S3 bucket key for the CloudFront distribution." +
-    	"Use * for a wildcard to match patterns."),
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel (
+    	"Otherwise, uploaded files will not be visible until a later time, which is often unpredictable."),
 		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("   /* - invalidate all files in a distribution"),
-		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("   /path/* - invalidate all files in a directory"),
-		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("   /path* - invalidate all files in a directory and subdirectories, recursively"),
-		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("   /path/filename.* - invalidate all files in a directory matching an extension"),
-		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("   /path/filename* - invalidate all files in a directory matching any extension"),
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("Specify CloudFront paths to invalidate, separated by commas."),
 		0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(invalidate_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yInvalidate, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -618,12 +665,14 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
     __InvalidationPaths_JTextArea = new JTextArea (6,35);
     __InvalidationPaths_JTextArea.setLineWrap ( true );
     __InvalidationPaths_JTextArea.setWrapStyleWord ( true );
-    __InvalidationPaths_JTextArea.setToolTipText("Key1:Folder1,Key2:Folder2,...");
+    __InvalidationPaths_JTextArea.setToolTipText("Invalidation paths, separated by commas.");
     __InvalidationPaths_JTextArea.addKeyListener (this);
     JGUIUtil.addComponent(invalidate_JPanel, new JScrollPane(__InvalidationPaths_JTextArea),
         1, yInvalidate, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("Cloudfront paths, separated by commas."),
+    JGUIUtil.addComponent(invalidate_JPanel, new JLabel ("CloudFront paths, separated by commas."),
         3, yInvalidate, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+    JGUIUtil.addComponent(invalidate_JPanel, new SimpleJButton ("Edit","EditInvalidationPaths",this),
+        3, ++yInvalidate, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
     yInvalidate += 6;
     JGUIUtil.addComponent(invalidate_JPanel, new JLabel ( "Caller reference:"),
@@ -657,12 +706,20 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
     listDist_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "List Distributions", listDist_JPanel );
 
-    JGUIUtil.addComponent(listDist_JPanel, new JLabel ("Use an AWS CloudFront command to list distributions."),
-		0, ++yListDist, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(listDist_JPanel, new JLabel ("No additional input is needed."),
+    JGUIUtil.addComponent(listDist_JPanel, new JLabel ("List CloudFront distributions."),
 		0, ++yListDist, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(listDist_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yListDist, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(listDist_JPanel, new JLabel("List distributions count property:"),
+        0, ++yListDist, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __ListDistributionsCountProperty_JTextField = new JTextField ( "", 30 );
+    __ListDistributionsCountProperty_JTextField.setToolTipText("Specify the property name for the list result size, can use ${Property} notation");
+    __ListDistributionsCountProperty_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(listDist_JPanel, __ListDistributionsCountProperty_JTextField,
+        1, yListDist, 1, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(listDist_JPanel, new JLabel ( "Optional - processor property to set as list count." ),
+        3, yListDist, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     // Panel for 'List Invalidations' parameters:
     // - this includes filtering
@@ -671,12 +728,35 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
     listInv_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "List Invalidations", listInv_JPanel );
 
-    JGUIUtil.addComponent(listInv_JPanel, new JLabel ("Use an AWS CloudFront command to list invalidations."),
-		0, ++yListInv, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(listInv_JPanel, new JLabel ("No additional input is needed."),
+    JGUIUtil.addComponent(listInv_JPanel, new JLabel ("List CloudFront invalidations."),
 		0, ++yListInv, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(listInv_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yListInv, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(listInv_JPanel, new JLabel ("Invalidation status:"),
+        0, ++yListInv, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __InvalidationStatus_JComboBox = new SimpleJComboBox ( false );
+    __InvalidationStatus_JComboBox.add ( "" );
+    __InvalidationStatus_JComboBox.add ( __command._All );
+    __InvalidationStatus_JComboBox.add ( __command._Completed );
+    __InvalidationStatus_JComboBox.add ( __command._InProcess );
+    __InvalidationStatus_JComboBox.addItemListener ( this );
+    __InvalidationStatus_JComboBox.addKeyListener ( this );
+        JGUIUtil.addComponent(listInv_JPanel, __InvalidationStatus_JComboBox,
+        1, yListInv, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(listInv_JPanel, new JLabel (
+        "Optional - invalidation status to list (default=" + __command._InProcess + ")."),
+        3, yListInv, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+    JGUIUtil.addComponent(listInv_JPanel, new JLabel("List invalidations count property:"),
+        0, ++yListInv, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __ListInvalidationsCountProperty_JTextField = new JTextField ( "", 30 );
+    __ListInvalidationsCountProperty_JTextField.setToolTipText("Specify the property name for the list result size, can use ${Property} notation");
+    __ListInvalidationsCountProperty_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(listInv_JPanel, __ListInvalidationsCountProperty_JTextField,
+        1, yListInv, 1, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(listInv_JPanel, new JLabel ( "Optional - processor property to set as list count." ),
+        3, yListInv, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     // Panel for output.
     int yOutput = -1;
@@ -684,12 +764,27 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
     output_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "Output", output_JPanel );
 
-    JGUIUtil.addComponent(output_JPanel, new JLabel ("The following are used for commands that generate CloudFront distribution lists."),
+    JGUIUtil.addComponent(output_JPanel, new JLabel (
+    	"The following are used with the ListDistributions and ListInvalidations CloudFront commands, which generate output lists."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JLabel ("Specify the output file name with extension to indicate the format: csv"),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Output table ID:" ),
+        0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __OutputTableID_JComboBox = new SimpleJComboBox ( 12, true ); // Allow edit.
+    __OutputTableID_JComboBox.setToolTipText("Table for output, available for some commands");
+    tableIDChoices.add(0,""); // Add blank to ignore table.
+    __OutputTableID_JComboBox.setData ( tableIDChoices );
+    __OutputTableID_JComboBox.addItemListener ( this );
+    __OutputTableID_JComboBox.getJTextComponent().addKeyListener ( this );
+    //__OutputTableID_JComboBox.setMaximumRowCount(tableIDChoices.size());
+    JGUIUtil.addComponent(output_JPanel, __OutputTableID_JComboBox,
+        1, yOutput, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(output_JPanel, new JLabel( "Optional - table for output."),
+        3, yOutput, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     JGUIUtil.addComponent(output_JPanel, new JLabel ("Output file:" ),
         0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
@@ -714,20 +809,7 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 	JGUIUtil.addComponent(output_JPanel, OutputFile_JPanel,
 		1, yOutput, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Output Table ID:" ),
-        0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __OutputTableID_JComboBox = new SimpleJComboBox ( 12, true ); // Allow edit.
-    __OutputTableID_JComboBox.setToolTipText("Table for output, available for some commands");
-    tableIDChoices.add(0,""); // Add blank to ignore table.
-    __OutputTableID_JComboBox.setData ( tableIDChoices );
-    __OutputTableID_JComboBox.addItemListener ( this );
-    __OutputTableID_JComboBox.getJTextComponent().addKeyListener ( this );
-    //__OutputTableID_JComboBox.setMaximumRowCount(tableIDChoices.size());
-    JGUIUtil.addComponent(output_JPanel, __OutputTableID_JComboBox,
-        1, yOutput, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel( "Optional - table for output."),
-        3, yOutput, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
+    /*
     JGUIUtil.addComponent(main_JPanel, new JLabel ( "If input not found?:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__IfInputNotFound_JComboBox = new SimpleJComboBox ( false );
@@ -744,6 +826,7 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
     JGUIUtil.addComponent(main_JPanel, new JLabel(
 		"Optional - action if input file is not found (default=" + __command._Warn + ")."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+		*/
 
     JGUIUtil.addComponent(main_JPanel, new JLabel ( "Command:" ),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
@@ -771,7 +854,7 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 	__browseS3_JButton.setToolTipText("Browse S3 files.  A separate application is started (may be a startup delay).");
 
 	setTitle ( "Edit " + __command.getCommandName() + "() command" );
-	
+
     this.ignoreEvents = false; // After initialization of components let events happen to dynamically cause cascade.
 
 	// Refresh the contents.
@@ -860,7 +943,7 @@ private void populateDistributionIdChoices() {
 			// Have a region.
 			if ( debug ) {
 				Message.printStatus(2, routine, "Region is \"" + region + "\" - populating the list of distributions." );
-			}	
+			}
 			List<DistributionSummary> distributions = AwsToolkit.getInstance().getCloudFrontDistributions(awsSession, region);
 			List<String> distributionIdChoices = new ArrayList<>();
 			for ( DistributionSummary distribution : distributions ) {
@@ -894,9 +977,12 @@ private void refresh () {
 	String InvalidationPaths = "";
 	String CallerReference = "";
 	String WaitForCompletion = "";
+	String ListDistributionsCountProperty = "";
+	String InvalidationStatus = "";
+	String ListInvalidationsCountProperty = "";
 	String OutputTableID = "";
 	String OutputFile = "";
-	String IfInputNotFound = "";
+	//String IfInputNotFound = "";
     PropList parameters = null;
 	if ( __first_time ) {
 		__first_time = false;
@@ -909,9 +995,12 @@ private void refresh () {
 		InvalidationPaths = parameters.getValue ( "InvalidationPaths" );
 		CallerReference = parameters.getValue ( "CallerReference" );
 		WaitForCompletion = parameters.getValue ( "WaitForCompletion" );
+		ListDistributionsCountProperty = parameters.getValue ( "ListDistributionsCountProperty" );
+		InvalidationStatus = parameters.getValue ( "InvalidationStatus" );
+		ListInvalidationsCountProperty = parameters.getValue ( "ListInvalidationsCountProperty" );
 		OutputTableID = parameters.getValue ( "OutputTableID" );
 		OutputFile = parameters.getValue ( "OutputFile" );
-		IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
+		//IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
 		if ( JGUIUtil.isSimpleJComboBoxItem(__CloudFrontCommand_JComboBox, CloudFrontCommand,JGUIUtil.NONE, null, null ) ) {
 			__CloudFrontCommand_JComboBox.select ( CloudFrontCommand );
 		}
@@ -1038,8 +1127,28 @@ private void refresh () {
                 __error_wait = true;
             }
         }
-        if ( OutputFile != null ) {
-            __OutputFile_JTextField.setText ( OutputFile );
+        if ( ListDistributionsCountProperty != null ) {
+            __ListDistributionsCountProperty_JTextField.setText ( ListDistributionsCountProperty );
+        }
+        if ( InvalidationStatus == null ) {
+            // Select default.
+            if ( __InvalidationStatus_JComboBox.getItemCount() > 0 ) {
+                __InvalidationStatus_JComboBox.select ( 0 );
+            }
+        }
+        else {
+            if ( JGUIUtil.isSimpleJComboBoxItem( __InvalidationStatus_JComboBox,InvalidationStatus, JGUIUtil.NONE, null, null ) ) {
+                __InvalidationStatus_JComboBox.select ( InvalidationStatus );
+            }
+            else {
+                Message.printWarning ( 1, routine,
+                "Existing command references an invalid InvalidationStatus value \"" + InvalidationStatus +
+                "\".  Select a different value or Cancel.");
+                __error_wait = true;
+            }
+        }
+        if ( ListInvalidationsCountProperty != null ) {
+            __ListInvalidationsCountProperty_JTextField.setText ( ListInvalidationsCountProperty );
         }
         if ( OutputTableID == null ) {
             // Select default.
@@ -1060,6 +1169,10 @@ private void refresh () {
                 __OutputTableID_JComboBox.select(0);
             }
         }
+        if ( OutputFile != null ) {
+            __OutputFile_JTextField.setText ( OutputFile );
+        }
+        /*
 		if ( JGUIUtil.isSimpleJComboBoxItem(__IfInputNotFound_JComboBox, IfInputNotFound,JGUIUtil.NONE, null, null ) ) {
 			__IfInputNotFound_JComboBox.select ( IfInputNotFound );
 		}
@@ -1075,6 +1188,7 @@ private void refresh () {
 				"IfInputNotFound parameter \"" + IfInputNotFound + "\".  Select a value or Cancel." );
 			}
 		}
+		*/
 		// Set the tab to the input.
 		AwsCloudFrontCommandType command = AwsCloudFrontCommandType.valueOfIgnoreCase(CloudFrontCommand);
 		if ( command == AwsCloudFrontCommandType.INVALIDATE_DISTRIBUTION ) {
@@ -1103,9 +1217,12 @@ private void refresh () {
 	InvalidationPaths = __InvalidationPaths_JTextArea.getText().trim().replace("\n","");
 	CallerReference = __CallerReference_JTextField.getText().trim();
 	WaitForCompletion = __WaitForCompletion_JComboBox.getSelected();
+	ListDistributionsCountProperty = __ListDistributionsCountProperty_JTextField.getText().trim();
+	InvalidationStatus = __InvalidationStatus_JComboBox.getSelected();
+	ListInvalidationsCountProperty = __ListInvalidationsCountProperty_JTextField.getText().trim();
 	OutputFile = __OutputFile_JTextField.getText().trim();
 	OutputTableID = __OutputTableID_JComboBox.getSelected();
-	IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
+	//IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
 	PropList props = new PropList ( __command.getCommandName() );
 	props.add ( "CloudFrontCommand=" + CloudFrontCommand );
 	props.add ( "Profile=" + Profile );
@@ -1115,9 +1232,12 @@ private void refresh () {
 	props.add ( "InvalidationPaths=" + InvalidationPaths );
 	props.add ( "CallerReference=" + CallerReference );
 	props.add ( "WaitForCompletion=" + WaitForCompletion );
+	props.add ( "ListDistributionsCountProperty=" + ListDistributionsCountProperty );
+	props.add ( "InvalidationStatus=" + InvalidationStatus );
+	props.add ( "ListInvalidationsCountProperty=" + ListInvalidationsCountProperty );
 	props.add ( "OutputFile=" + OutputFile );
 	props.add ( "OutputTableID=" + OutputTableID );
-	props.add ( "IfInputNotFound=" + IfInputNotFound );
+	//props.add ( "IfInputNotFound=" + IfInputNotFound );
 	__command_JTextArea.setText( __command.toString(props) );
 	// Set the default values as FYI.
 	AwsToolkit.getInstance().uiPopulateProfileDefault(__ProfileDefault_JTextField, __ProfileDefaultNote_JLabel);

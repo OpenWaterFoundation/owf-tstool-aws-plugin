@@ -1,0 +1,16 @@
+StartLog(LogFile="results/test-AwsCloudFront-ListInvalidations-Complete.tstool.log")
+# Test CloudFront commands:
+# - use the 'test.openwaterfoundation.org' distribution
+# - AWS permissions are required to run the tests
+# - the default profile is used
+# - list invalidations that have Complete status
+#
+# List invalidations.
+AwsCloudFront(CloudFrontCommand="ListInvalidations",Region="aws-global",Comment="*test.openwaterfoundation.org*",InvalidationStatus="Completed",ListInvalidationsCountProperty="TestListInvalidationsCount",OutputTableID="TestInvalidationsTable")
+#
+# Test getting status=InProcess invalidations are listed:
+# - should be > 5 for the Completed invalidations
+# - assumes that TSTool runs quickly and invalidation takes a little time
+If(Name="IfCheck",Condition="${TestListInvalidationsCount} < 5")
+Message(Message="There should be at least 5 Completed invalidations (have ${TestListInvalidationsCount}).",CommandStatus=FAILURE)
+EndIf(Name="IfCheck")

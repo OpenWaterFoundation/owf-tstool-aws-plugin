@@ -1,0 +1,16 @@
+StartLog(LogFile="results/test-AwsCloudFront-ListDistributions.tstool.log")
+# Test CloudFront commands:
+# - use the 'test.openwaterfoundation.org' distribution
+# - AWS permissions are required to run the tests
+# - the default profile is used
+# - list distributions
+#
+# List distributions.
+SetDebugLevel(LogFileLevel=1)
+AwsCloudFront(CloudFrontCommand="ListDistributions",Region="aws-global",Comment="*test.openwaterfoundation.org*",ListDistributionsCountProperty="TestListDistributionsCount",OutputTableID="TestDistributionsTable")
+SetDebugLevel(ScreenLevel=0,LogFileLevel=0)
+#
+# Test that 1 distribution is listed.
+If(Name="IfCheck",Condition="${TestListDistributionsCount} != 1")
+Message(Message="There should be 1 distribtion (have ${TestListDistributionsCount}).",CommandStatus=FAILURE)
+EndIf(Name="IfCheck")

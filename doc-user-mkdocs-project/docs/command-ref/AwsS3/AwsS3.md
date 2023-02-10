@@ -64,9 +64,8 @@ The above complexities are handled by this command so that S3 technical constrai
 ## Command Editor ##
 
 The following dialog is used to edit the command and illustrates the syntax for the command.
-Each `AwsS3` command has a tab for parameters specific to that command,
-as well as the ***Output*** and ***CloudFront*** tabs,
-which are used with multiple AWS S3 commands.
+Each `AwsS3` command has a tab for parameters specific to that command.
+The ***Output*** and ***CloudFront*** tabs are used with multiple AWS S3 commands, as noted.
 
 Command parameters are provided to help with automated tests and error checks.
 For example the `ListBucketsCountProperty` parameter can be used to set a processor property
@@ -83,7 +82,7 @@ Use the [`If`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/I
 
 ### Copy Objects ###
 
-Use the `AwsCommand=CopyObjects` parameter to copy one or more S3 objects from a source to destination,
+Use the `S3Command=CopyObjects` parameter to copy one or more S3 objects from a source to destination,
 using keys to identify objects.  Currently, copying folders is not supported.
 
 If `InvalidateCloudFront=True` in the ***CloudFront*** tab,
@@ -99,7 +98,7 @@ each copied object will be invalidated.
 
 ### Delete Objects ###
 
-Use the `AwsCommand=DeleteObjects` parameter to delete one or more S3 file or folder objects
+Use the `S3Command=DeleteObjects` parameter to delete one or more S3 file or folder objects
 using keys to identify objects.
 The S3 API does not provide a service to delete folders.
 Therefore folder contents are listed first and then the corresponding files are deleted.
@@ -229,7 +228,7 @@ Note that because these parameters are used to provide information in the editor
 the `${Property}` notation is not supported for some parameters and will cause issues for interactive command editing.
 
 **<p style="text-align: center;">
-Command Parameters - General Parameters
+Command Parameters - General
 </p>**
 
 |**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|
@@ -290,7 +289,7 @@ Command Parameters - List Buckets
 
 ### List Objects Command Parameters ###
 
-Use the following combination of parameters to list the desired objects:
+Use the following combination of parameters to list the desired objects.
 
 **<p style="text-align: center;">
 Parameter Combinations to List Objects
@@ -339,7 +338,7 @@ If a table is output with an output file, the table is used to create the output
 If outputting to a file only, a temporary table is used internally and then the file is created from the table.
 
 **<p style="text-align: center;">
-Command Parameters - General Parameters
+Command Parameters - Output
 </p>**
 
 |**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|

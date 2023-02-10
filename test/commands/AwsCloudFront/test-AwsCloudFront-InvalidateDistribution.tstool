@@ -1,0 +1,16 @@
+StartLog(LogFile="results/test-AwsCloudFront-InvalidateDistribution.tstool.log")
+# Test CloudFront commands:
+# - use the 'test.openwaterfoundation.org' distribution
+# - AWS permissions are required to run the tests
+# - the default profile is used
+# - invalidate all files in the /test/commands/AwsCloudFront folder
+#
+# Set configuration properties.
+SetProperty(PropertyName="TestCloudFrontFolder",PropertyType=String,PropertyValue="/tstool-aws-plugin/test/commands/AwsCloudFront/test-AwsCloudFront-InvalidateDistribution")
+#
+# Upload files for the invalidation:
+# - OK if they overwrite existing S3 objects
+AwsS3(S3Command="UploadObjects",Bucket="test.openwaterfoundation.org",UploadFiles="../AwsS3/data/root-testfile1.txt:${TestCloudFrontFolder}/*")
+#
+# Invalidate the files.
+AwsCloudFront(CloudFrontCommand="InvalidateDistribution",Region="aws-global",Comment="*test.openwaterfoundation.org*",InvalidationPaths="${TestCloudFrontFolder}/*",CallerReference="test-AwsCloudFront-InvalidateDistribution")

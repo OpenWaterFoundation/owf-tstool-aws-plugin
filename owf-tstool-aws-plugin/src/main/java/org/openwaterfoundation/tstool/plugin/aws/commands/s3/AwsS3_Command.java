@@ -2273,18 +2273,18 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
             		String sourceKey = parts[0].trim();
             		String destKey = parts[1].trim();
             		if ( commandPhase == CommandPhaseType.RUN ) {
-            			if ( sourceKey.indexOf("${") >= 0 ) { // } to match bracket
+            			if ( sourceKey.indexOf("${") >= 0 ) { // } To match bracket.
        			   			message = "File source key " + copyFilesCount + " (" + sourceKey +
-       			   				") contains ${ due to unknown processor property - skipping to avoid copy error."; // } to match bracket
+       			   				") contains ${ due to unknown processor property - skipping to avoid copy error."; // } To match bracket.
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
 		    		   			message, "Confirm that the property is defined." ) );
         		   			continue;
         	   			}
-            			if ( destKey.indexOf("${") >= 0 ) { // } to match bracket
+            			if ( destKey.indexOf("${") >= 0 ) { // } To match bracket.
        			   			message = "File destination key " + copyFilesCount + " (" + destKey +
-       			   				") contains ${ due to unknown processor property - skipping to avoid copy error."; // } to match bracket
+       			   				") contains ${ due to unknown processor property - skipping to avoid copy error."; // } To match bracket.
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
@@ -2768,7 +2768,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			      			IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
 			        			TSCommandProcessorUtil.expandParameterValue(processor,this,parts[0].trim())));
 			   			// Make sure that the local folder does not contain wildcard or ${ for properties. // } To match bracket.
-            			if ( localFolderFull.indexOf("${") >= 0 ) { // } to match bracket
+            			if ( localFolderFull.indexOf("${") >= 0 ) { // } To match bracket.
        			   			message = "Local folder " + uploadFoldersCount + " (" + localFolder +
        			   				") contains ${ due to unknown processor property - skipping to avoid upload error."; // } To match bracket.
 	        	   			Message.printWarning(warningLevel,
@@ -2866,18 +2866,18 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
             		String localFile = parts[0].trim();
             		String remoteFile = parts[1].trim();
             		if ( commandPhase == CommandPhaseType.RUN ) {
-            			if ( localFile.indexOf("${") >= 0 ) { // } to match bracket
+            			if ( localFile.indexOf("${") >= 0 ) { // } To match bracket.
        			   			message = "Local file " + uploadFilesCount + " (" + localFile +
-       			   				") contains ${ due to unknown processor property - skipping to avoid upload error."; // } to match bracket
+       			   				") contains ${ due to unknown processor property - skipping to avoid upload error."; // } To match bracket.
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
 		    		   			message, "Confirm that the property is defined." ) );
         		   			continue;
         	   			}
-            			if ( remoteFile.indexOf("${") >= 0 ) { // } to match bracket
+            			if ( remoteFile.indexOf("${") >= 0 ) { // } To match bracket.
        			   			message = "Remote file (object key) for file " + uploadFilesCount + " (" + remoteFile +
-       			   				") contains ${ due to unknown processor property - skipping to avoid unexpected file on S3."; // } to match bracket
+       			   				") contains ${ due to unknown processor property - skipping to avoid unexpected file on S3."; // } To match bracket.
 	        	   			Message.printWarning(warningLevel,
 		    		   			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 	        	   			status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
@@ -3322,6 +3322,14 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		  	    		invalidateCloudFront, cloudFrontPaths,
    	        			status, logLevel, warningLevel, warningCount, commandTag );
     	    	}
+   	        	else {
+					message = "Unknown S3 command: " + S3Command;
+					Message.printWarning(warningLevel,
+						MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+					status.addToLog ( commandPhase,
+						new CommandLogRecord(CommandStatusType.FAILURE,
+							message, "Use the command editor to select an S3 command." ) );
+   	        	}
 
     	    	// If any files were copied, deleted, or uploaded and CloudFront invalidation is requested, do it.
 	        	if ( invalidateCloudFront && (cloudFrontPaths.size() > 0) ) {

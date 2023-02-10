@@ -1,7 +1,7 @@
 StartLog(LogFile="results/test-AwsCloudFront.tstool.log")
 # Test CloudFront commands:
 # - use the 'test.openwaterfoundation.org' distribution
-# - AWS permissiosn are required to run the tests
+# - AWS permissions are required to run the tests
 # - the default profile is used
 #
 # List all CloudFront distributions.
