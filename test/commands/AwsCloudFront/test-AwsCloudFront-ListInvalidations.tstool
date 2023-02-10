@@ -1,0 +1,30 @@
+StartLog(LogFile="results/test-AwsCloudFront-ListInvalidations.tstool.log")
+# Test CloudFront commands:
+# - use the 'test.openwaterfoundation.org' distribution
+# - AWS permissions are required to run the tests
+# - the default profile is used
+# - list invalidations
+#
+# Create an invalidation and don't wait to finish so that it should list below:
+#
+# Set configuration properties.
+SetProperty(PropertyName="TestCloudFrontFolder",PropertyType=String,PropertyValue="/tstool-aws-plugin/test/commands/AwsCloudFront/test-AwsCloudFront-ListInvalidations")
+#
+# Upload files for the invalidation:
+# - OK if they overwrite existing S3 objects
+AwsS3(S3Command="UploadObjects",Bucket="test.openwaterfoundation.org",UploadFiles="../AwsS3/data/root-testfile1.txt:${TestCloudFrontFolder}/*")
+#
+# Invalidate the files:
+# - do not wait to finish so that hopefully the invalidation is in process for below
+AwsCloudFront(CloudFrontCommand="InvalidateDistribution",Region="aws-global",Comment="*test.openwaterfoundation.org*",InvalidationPaths="${TestCloudFrontFolder}/*",CallerReference="test-AwsCloudFront-InvalidateDistribution",WaitForCompletion=False)
+#
+# List invalidations.
+AwsCloudFront(CloudFrontCommand="ListInvalidations",Region="aws-global",Comment="*test.openwaterfoundation.org*",ListInvalidationsCountProperty="TestListInvalidationsCount",OutputTableID="TestInvalidationsTable")
+#
+# Test getting status=InProcess invalidations are listed:
+# - should be 1 for the current invalidation
+# - assumes that TSTool runs quickly and invalidation takes a little time
+# - TODO smalers 2023-02-09 this does not work because the invalidation finishes before check?
+If(Name="IfCheck",Condition="${TestListInvalidationsCount} > 1")
+Message(Message="There should be 1 InProcess invalidations (have ${TestListInvalidationsCount}).",CommandStatus=FAILURE)
+EndIf(Name="IfCheck")

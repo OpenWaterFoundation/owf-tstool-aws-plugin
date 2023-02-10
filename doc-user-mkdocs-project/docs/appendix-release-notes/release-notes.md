@@ -15,9 +15,8 @@ Plugin release notes:
 
 ## Version 1.2.0 ##
 
-**Feature release to add the S3 Browser application, various cleanup.**
+**Feature release to add the S3 Browser application, significant cleanup of all commands for consistency.**
 
-*   ![bug](bug.png) [1.2.0] Update the [`AwsCloudFront`](../command-ref/AwsCloudFront/AwsCloudFront.md) command:
 *   ![change](change.png) [1.2.0] Update the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command with the following general changes:
     +  ** Significant changes to command parameters have been made.
         Old command files will need to be updated to use the new syntax.**
@@ -75,6 +74,14 @@ Plugin release notes:
         which is useful for error checks and automated tests.
 *   ![change](change.png) [1.2.0] Update the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) `UploadObjects` command:
     +   The `UploadDirectories` parameter has been changed to `UploadFolders`.
+*   ![change](change.png) [1.2.0] Update the [`AwsCloudFront`](../command-ref/AwsCloudFront/AwsCloudFront.md) command:
+    +   Enhance the documentation to be more detailed.
+    +   Implement automated tests for all CloudFront commands to verify functionality and link to the automated tests for examples.
+    +   Add the form for editing the invalidation paths.
+    +   Add the `ListDistributionsCountProperty` and `ListInvalidationsCountProperty` parameters to set
+        to the count of the output list.
+    +   Add the `InvalidationStatus` parameter when listing invalidations to allow filtering on the status.
+    +   Enable output to a file.
 *   ![new](new.png) [1.2.0] Add the ***Browse S3*** button to command editors,
     which starts a separate [S3 Browser application](../app-ref/S3Browser/S3Browser.md) to browse S3 objects.
     This application will be enhanced over time to improve integration of the plugin with S3

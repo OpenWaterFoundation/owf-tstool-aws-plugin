@@ -203,13 +203,30 @@ public class AwsToolkit {
 	}
 
 	/**
- 	 * Get the list of CloudFront invalidations with status=InProgress.
+ 	 * Get the list of CloudFront invalidations with any status.
  	 * @param awsSession the AWS session, containing profile
  	 * @param region the AWS region
  	 * @param distribtionId CloudFront distribution ID to list invalidations
  	 * @return a list of InvalidationSummary or an empty list if no invalidations
  	 */
 	public List<InvalidationSummary> getCloudFrontInvalidations ( AwsSession awsSession, String region, String distributionId ) {
+		return getCloudFrontInvalidations ( awsSession, region, distributionId, null );
+	}
+
+	/**
+ 	 * Get the list of CloudFront invalidations with status=InProgress.
+ 	 * @param awsSession the AWS session, containing profile
+ 	 * @param region the AWS region
+ 	 * @param distributionId CloudFront distribution ID to list invalidations
+ 	 * @param status the invalidation status ("InProcess", "Complete") or special "All" for all.
+ 	 * The default if not specified is "InProcess".
+ 	 * @return a list of InvalidationSummary or an empty list if no invalidations
+ 	 */
+	public List<InvalidationSummary> getCloudFrontInvalidations ( AwsSession awsSession, String region, String distributionId,
+		String status ) {
+		String routine = getClass().getSimpleName() + ".getCloudFrontInvalidations";
+
+		Message.printStatus(2, routine, "Getting CloudFront invalidation for distributionId=" + distributionId + " status=" + status);
 		ProfileCredentialsProvider credentialsProvider = null;
 		String profile = awsSession.getProfile();
 		// If the region is not specified, use the default.
@@ -235,7 +252,18 @@ public class AwsToolkit {
     		// Only return invalidations that are not complete.
     		List<InvalidationSummary> activeList = new ArrayList<>();
 			for ( InvalidationSummary summary : response.invalidationList().items() ) {
-				if ( summary.status().equals("InProgress") ) {
+				if ( (status == null) || status.isEmpty() || status.equalsIgnoreCase("InProcess") ) {
+					// Default is InProcess, which are invalidations that are currently being pushed.
+					if ( summary.status().equalsIgnoreCase("InProcess") ) {
+						activeList.add(summary);
+					}
+				}
+				else if ( (status != null) && summary.status().equalsIgnoreCase(status) ) {
+					// Add for the requested status, for example "Completed".
+					activeList.add(summary);
+				}
+				else if ( (status != null) && status.equalsIgnoreCase("All") ) {
+					// Always add.
 					activeList.add(summary);
 				}
 			}
@@ -244,7 +272,6 @@ public class AwsToolkit {
 		catch ( Exception e ) {
 			// Log the error and return an empty list:
 			// - may have requested an invalid region
-			String routine = getClass().getSimpleName() + ".getCloudFrontInvalidations";
 			Message.printWarning(3, routine, "Error getting list of invalidations (" + e + ").");
 		}
 		return new ArrayList<InvalidationSummary>();
