@@ -1597,7 +1597,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 
     JGUIUtil.addComponent(cf_JPanel, new JLabel ( "CloudFront comment (description):"),
         0, ++yCloudFront, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __CloudFrontComment_JTextField = new JTextField ( "", 20 );
+    __CloudFrontComment_JTextField = new JTextField ( "", 30 );
     __CloudFrontComment_JTextField.setToolTipText("Distribution comment (description) to match, use * for wildcard, ${Property} can be used.");
     __CloudFrontComment_JTextField.addKeyListener ( this );
     JGUIUtil.addComponent(cf_JPanel, __CloudFrontComment_JTextField,
@@ -1831,7 +1831,7 @@ private void refresh () {
 	String OutputTableID = "";
 	String OutputFile = "";
 	String AppendOutput = "";
-	// Cloudfront.
+	// CloudFront.
 	String InvalidateCloudFront = "";
 	String CloudFrontRegion = "";
 	String CloudFrontDistributionId = "";

@@ -1,4 +1,4 @@
-StartLog(LogFile="results/test-AwsS3Catalog.tstool.log")
+StartLog(LogFile="results/test-AwsS3LandingPage.tstool.log")
 # Test AwsS3Catalog command:
 # - use the 'test.openwaterfoundation.org' bucket
 # - AWS permissions are required to run the tests

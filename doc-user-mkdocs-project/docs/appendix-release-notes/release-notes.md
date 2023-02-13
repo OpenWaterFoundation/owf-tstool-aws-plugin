@@ -15,7 +15,7 @@ Plugin release notes:
 
 ## Version 1.2.0 ##
 
-**Feature release to add the S3 Browser application, significant cleanup of all commands for consistency.**
+**Feature release to add the S3 Browser application and significant cleanup of all commands for consistency and to simplify use.**
 
 *   ![change](change.png) [1.2.0] Update the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command with the following general changes:
     +  ** Significant changes to command parameters have been made.
@@ -82,10 +82,33 @@ Plugin release notes:
         to the count of the output list.
     +   Add the `InvalidationStatus` parameter when listing invalidations to allow filtering on the status.
     +   Enable output to a file.
+*   ![change](change.png) [1.2.0] Split the previous [`AwsS3Catalog`](../command-ref/AwsS3Catalog/AwsS3Catalog.md) command
+    to add the new 
+    [`AwsS3LandingPage`](../command-ref/AwsS3LandingPage/AwsS3LandingPage.md) command
+    to simplify the functionality of each command.
+    Previous command files that used the
+    [`AwsS3Catalog`](../command-ref/AwsS3Catalog/AwsS3Catalog.md) command need to be updated to use the
+    [`AwsS3LandingPage`](../command-ref/AwsS3LandingPage/AwsS3LandingPage.md) command.
+    The [`AwsS3LandingPage`](../command-ref/AwsS3LandingPage/AwsS3LandingPage.md) command has been modified
+    from the previoius as follows:
+    +   The command editor dialog has been updated to provide more information explaining the parameters.
+    +   The ***AWS S3*** tab has been added to the editor and includes parameters related to the AWS S3 connection.
+    +   The command now focuses only on creating dataset landing pages and features to create
+        a dataset catalog (list of datasets) have been removed.
+    +   The `StartingPrefix` parameter has been renamed to `StartingFolder`.
+    +   The `ProcessSubdirectories` parameter has been renamed to `ProcessSubfolders`.
+    +   The `UploadDatasetFiles` parameter has been renamed to `UploadFiles`.
+    +   The ***HTML Inserts*** tab has been added to the command editor for HTML-related landing page insert files.
+    +   The ***Markdown Inserts*** tab has been added to the command editor for Markdown-related landing page insert files.
+    +   The ***Output*** tab has been removed from the command editor since these features were used with the catalog landing page.
+    +   The ***CloudFront*** tab has been added to the command editor with parameters similar to the
+        [`AwsS3`](../AwsS3/AwsS3.md) command to automate CloudFront invalidations.
+        The previous `DistributionId` has been renamed to `CloudFrontDistributionId` for consistency.
 *   ![new](new.png) [1.2.0] Add the ***Browse S3*** button to command editors,
     which starts a separate [S3 Browser application](../app-ref/S3Browser/S3Browser.md) to browse S3 objects.
     This application will be enhanced over time to improve integration of the plugin with S3
     and to minimize the need to use the AWS console.
+    For example, use the S3 Browser to determine the keys to use for file and folder objects to use in command parameters.
 
 ## Version 1.1.1 ##
 

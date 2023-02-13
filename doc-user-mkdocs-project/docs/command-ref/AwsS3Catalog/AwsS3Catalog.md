@@ -1,5 +1,8 @@
 # TSTool / Command / AwsS3Catalog #
 
+**This command is under development.
+This documentation is currently not accurate and the command is not enabled.**
+
 *   [Overview](#overview)
     +   [DCAT Background](#dcat-background)
     +   [Dataset Metadata](#dataset-metadata)

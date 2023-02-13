@@ -62,7 +62,7 @@ See the [Appendix - Install Plugin](../appendix-install/install.md) documentatio
 
 ## Using the AWS Plugin Commands ##
 
-TSTool AWS plugin commands are provided for commonly-used AWS features.
+TSTool AWS plugin commands are provided for commonly used AWS features.
 Additional commands will be added in the future as needed.
 The primary uses of the plugin commands are:
 
@@ -71,13 +71,15 @@ The primary uses of the plugin commands are:
 
 The following is a summary of plugin commands,
 which are listed in the ***Commmands(Plugin)*** menu.
+See also the [Reference - Commands / Overview](../command-ref/overview.md) documentation.
 
 **<p style="text-align: center;">
 AWS Plugin Commands
 </p>**
 
-| **Command**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | **Description** |
+| **Command**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | **Description** |
 | -- | -- |
-| [`AwsS3`](../command-ref/AwsS3/AwsS3.md) | Perform S3 tasks: <ul><li>copy bucket objects</li><li>delete bucket objects</li><li>list buckets</li><li>list bucket directories</li><li>upload files and folders</li><li>download files and folders</li></ul>|
-| [`AwsS3Catalog`](../command-ref/AwsS3Catalog/AwsS3Catalog.md) | Create a catalog (listing) of datasets or other products as a landing page to access the products. The command is envisioned to create landing pages for single products (e.g., dataset with multiple versiosn) and multiple products (e.g., a catalog of all datasets). |
-| [`CloudFront`](../command-ref/AwsCloudFront/AwsCloudFront.md) | Perform CloudFront tasks: <ul><li>list distributions</li><li>invalidate distribution files</li><li>list invalidations</li></ul> |
+| [`AwsS3`](../command-ref/AwsS3/AwsS3.md) | Perform AWS S3 tasks: <ul><li>list buckets</li><li>upload files and folders</li><li>download files and folders</li><li>copy objects</li><li>delete objects</li><li>list objects</li></ul>|
+| [`AwsS3LandingPage`](../command-ref/AwsS3LandingPage/AwsS3LandingPage.md) | Create a landing page for a single dataset.  Multiple datasets can be listed in a catalog using the [`AwsS3Catalog`](../command-ref/AwsS3Catalog/AwsS3Catalog.md) command. |
+| [`AwsS3Catalog`](../command-ref/AwsS3Catalog/AwsS3Catalog.md) | Create a catalog (listing) of datasets or other products. |
+| [`CloudFront`](../command-ref/AwsCloudFront/AwsCloudFront.md) | Perform AWS CloudFront tasks: <ul><li>list distributions</li><li>invalidate distribution files</li><li>list invalidations</li></ul> |

@@ -55,6 +55,17 @@ echoStderr() {
   echo "$@" 1>&2
 }
 
+# Get the CloudFront distribution ID from the bucket so the ID is not hard-coded.
+# The distribution ID is echoed and can be assigned to a variable.
+# The output is similar to the following (obfuscated here):
+# ITEMS   arn:aws:cloudfront::123456789000:distribution/ABCDEFGHIJKLMN    learn.openwaterfoundation.org   123456789abcde.cloudfront.net   True    HTTP2   ABCDEFGHIJKLMN  True    2022-01-05T23:29:28.127000+00:00        PriceClass_100  Deployed
+getCloudFrontDistribution() {
+  local cloudFrontDistributionId subdomain
+  subdomain="software.openwaterfoundation.org"
+  cloudFrontDistributionId=$(${awsExe} cloudfront list-distributions --output text --profile "${awsProfile}" | grep ${subdomain} | grep "arn:" | awk '{print $2}' | cut -d ':' -f 6 | cut -d '/' -f 2)
+  echo ${cloudFrontDistributionId}
+}
+
 # Get the plugin version (e.g., 1.2.0):
 # - the version is printed to stdout so assign function output to a variable
 getPluginVersion() {
@@ -74,6 +85,44 @@ getPluginVersion() {
     echoStderr "[ERROR]   ${srcFile}"
     cat ""
   fi
+}
+
+# Invalidate a CloudFront distribution for files:
+# - first parameter is the CloudFront distribution ID
+# - second parameter is the CloudFront path (file or folder path).
+# - ${awsProfile} must be set in global data
+invalidateCloudFront() {
+  local errorCode cloudFrontDistributionId cloudFrontPath
+  if [ -z "$1" ]; then
+    logError "CloudFront distribution ID is not specified.  Script error."
+    return 1
+  fi
+  if [ -z "$2" ]; then
+    logError "CloudFront path is not specified.  Script error."
+    return 1
+  fi
+  # Check global data.
+  if [ -z "${awsProfile}" ]; then
+    logError "'awsProfile' is not set.  Script error."
+    exit 1
+  fi
+  cloudFrontDistributionId=$1
+  cloudFrontPath=$2
+
+  # Invalidate for CloudFront so that new version will be displayed:
+  # - see:  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
+  # - TODO smalers 2020-04-13 for some reason invalidating /index.html does not work, have to do /index.html*
+  echo "Invalidating files so CloudFront will make new version available..."
+  if [ "${operatingSystem}" = "mingw" ]; then
+    # The following is needed to avoid MinGW mangling the paths, just in case a path without * is used:
+    # - tried to use a variable for the prefix but that did not work
+    MSYS_NO_PATHCONV=1 ${awsExe} cloudfront create-invalidation --distribution-id "${cloudFrontDistributionId}" --paths "${cloudFrontPath}" --output json --profile "${awsProfile}"
+  else
+    ${awsExe} cloudfront create-invalidation --distribution-id "${cloudFrontDistributionId}" --paths "${cloudFrontPath}" --output json --profile "${awsProfile}"
+  fi
+  errorCode=$?
+
+  return ${errorCode}
 }
 
 # Print a DEBUG message, currently prints to stderr.
@@ -365,12 +414,22 @@ uploadInstaller() {
           logError "              Use --include-win=no to ignore Windows installer for upload."
         else
           installerUploadCount=$(( ${installerUploadCount} + 1 ))
+
+          # Invalidate the CloudFront distribution.
+          cloudFrontDistributionId=$(getCloudFrontDistribution)
+          if [ -z "${cloudFrontDistributionId}" ]; then
+            echo "Error getting the CloudFront distribution."
+            exit 1
+          fi
+          # Use a wildcard to invalidate subfolders.
+          cloudFrontFile="/tstool-aws-plugin/${pluginVersion}/software/*"
+          invalidateCloudFront ${cloudFrontDistributionId} ${cloudFrontFile}
         fi
       else
         logError "  Windows zip file does not exist: ${latestZipFile}"
       fi
     else
-      logInfo "  Skip uploading the plugin installation file for Windows because Window omitted."
+      logInfo "  Skip uploading the plugin installation file for Windows because Windows is omitted."
       sleep 1
     fi
 }
