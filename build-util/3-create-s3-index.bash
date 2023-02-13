@@ -118,6 +118,7 @@ echo '<style>
    }
 </style>
 <title>TSTool AWS Plugin Downloads</title>
+<link rel="icon" type="image/x-icon" href="/images/OWF-Logo-Favicon-32x32.png">
 </head>
 <body>
 <h1>Open Water Foundation TSTool AWS Plugin Software Downloads</h1>
@@ -231,8 +232,8 @@ createIndexHtmlFile_Table() {
         # Documentation URLs are based on the software version.
         # Documentation links for development and user documentation are only shown if exist
         # - the file returned by curl is actually the index.html file
-        docDevUrl=sprintf("https://software.openwaterfoundation.org/tstool-aws-plugin/%s/doc-dev",downloadFileVersion)
-        docDevCurl=sprintf("curl --output /dev/null --silent --head --fail \"%s\"",docDevUrl)
+        docDevUrl=sprintf("https://software.openwaterfoundation.org/tstool-aws-plugin/%s/doc-dev/",downloadFileVersion)
+        docDevCurl=sprintf("curl --insecure --output /dev/null --silent --head --fail \"%s\"",docDevUrl)
         returnStatus=system(docDevCurl)
         if ( returnStatus == 0 ) {
           docDevHtml=sprintf("<a href=\"%s\">View</a>",docDevUrl)
@@ -240,8 +241,8 @@ createIndexHtmlFile_Table() {
         else {
           docDevHtml=""
         }
-        docUserUrl=sprintf("https://software.openwaterfoundation.org/tstool-aws-plugin/%s/doc-user",downloadFileVersion)
-        docDevCurl=sprintf("curl --output /dev/null --silent --head --fail \"%s\"",docUserUrl)
+        docUserUrl=sprintf("https://software.openwaterfoundation.org/tstool-aws-plugin/%s/doc-user/",downloadFileVersion)
+        docDevCurl=sprintf("curl --insecure --output /dev/null --silent --head --fail \"%s\"",docUserUrl)
         returnStatus=system(docDevCurl)
         if ( returnStatus == 0 ) {
           docUserHtml=sprintf("<a href=\"%s\">View</a>",docUserUrl)
@@ -558,10 +559,19 @@ uploadIndexFiles() {
   tmpFile=$(mktemp)
   logInfo "Invalidating files so that CloudFront will make new files available..."
   logInfo "  Save output to: ${tmpFile}"
+  # Invalidate for CloudFront so that new version will be displayed:
+  # - see:  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
+  # - TODO smalers 2020-04-13 for some reason invalidating /index.html does not work, have to do /index.html*
   # TODO smalers 2022-06-08 for some reason index.html does not work so have to use index.html*
   #${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/index.html*" "/tstool-aws-plugin/" "/tstool-aws-plugin" --profile "${awsProfile}"
   #${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/index.html*" --profile "${awsProfile}"
-  ${awsExe} cloudfront create-invalidation --distribution-id "${cloudFrontDistributionId}" --paths '/tstool-aws-plugin/index*' --output json --profile "${awsProfile}" | tee ${tmpFile}
+  if [ "${operatingSystem}" = "mingw" ]; then
+    # The following is needed to avoid MinGW mangling the paths, just in case a path without * is used:
+    # - tried to use a variable for the prefix but that did not work
+    MSYS_NO_PATHCONV=1 ${awsExe} cloudfront create-invalidation --distribution-id "${cloudFrontDistributionId}" --paths '/tstool-aws-plugin/index.html' '/tstool-aws-plugin' '/tstool-aws-plugin/' --output json --profile "${awsProfile}" | tee ${tmpFile}
+  else
+    ${awsExe} cloudfront create-invalidation --distribution-id "${cloudFrontDistributionId}" --paths '/tstool-aws-plugin/index*' '/tstool-aws-plugin' '/tstool-aws-plugin/' --output json --profile "${awsProfile}" | tee ${tmpFile}
+  fi
   #${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin" --profile "${awsProfile}"
   invalidationId=$(cat ${tmpFile} | grep '"Id":' | cut -d ':' -f 2 | tr -d ' ' | tr -d '"' | tr -d ',')
   errorCode=${PIPESTATUS[0]}

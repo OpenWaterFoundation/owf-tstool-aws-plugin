@@ -792,6 +792,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		validList.add ( "CloudFrontComment" );
 		validList.add ( "CloudFrontCallerReference" );
 		validList.add ( "CloudFrontWaitForCompletion" );
+		//
 		validList.add ( "IfInputNotFound" );
 		warning = TSCommandProcessorUtil.validateParameterNames ( validList, this, warning );
 

@@ -1239,6 +1239,12 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	
 	// Handle credentials.
 
+	message = "The AwsCatalog command is disabled.";
+	Message.printWarning(warning_level,
+		MessageUtil.formatMessageTag( command_tag, ++warning_count), routine, message );
+	status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.FAILURE,
+		message, "Use the AwsS3LandingPage command to create dataset landing pages." ) );
+	
   	// Create a session with the credentials:
 	// - this works for S3 with the default region
    	AwsSession awsSession = new AwsSession(profile);
@@ -1302,7 +1308,10 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
    	// List of files to invalidate.
    	List<String> invalidationPathList = new ArrayList<>();
 
+   	// TODO smalers 2023-02-10 enable the command when have time to do it right.
+	boolean isEnabled = false;
 	try {
+		if ( isEnabled ) {
 
 		// Create the table if it does not exist.
 
@@ -1708,6 +1717,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	       	}
 	      	setDiscoveryTable ( table );
 	    }
+		} // End isEnabled
 	}
     catch ( Exception e ) {
 		message = "Unexpected error creating catalog (" + e + ").";
@@ -1798,7 +1808,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
         		}
         	}
         }
-    }
+    } 
 	
     if ( warning_count > 0 ) {
         message = "There were " + warning_count + " warnings processing the command.";

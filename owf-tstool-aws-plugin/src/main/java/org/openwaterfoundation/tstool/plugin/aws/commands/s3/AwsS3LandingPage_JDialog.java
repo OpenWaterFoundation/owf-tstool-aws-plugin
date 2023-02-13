@@ -1,9 +1,9 @@
-// AwsS3Catalog_JDialog - editor for AwsS3Catalog command
+// AwsS3LandingPage_JDialog - editor for AwsS3LandingPage command
 
 /* NoticeStart
 
 OWF AWS TSTool Plugin
-Copyright (C) 2022 - 2023 Open Water Foundation
+Copyright (C) 2022-2023 Open Water Foundation
 
 OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -70,22 +70,15 @@ import RTi.Util.Message.Message;
 import rti.tscommandprocessor.core.TSCommandProcessorUtil;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.RegionMetadata;
+import software.amazon.awssdk.services.cloudfront.model.DistributionSummary;
 
 @SuppressWarnings("serial")
-public class AwsS3Catalog_JDialog extends JDialog
+public class AwsS3LandingPage_JDialog extends JDialog
 implements ActionListener, ChangeListener, ItemListener, KeyListener, WindowListener
 {
 private final String __AddWorkingDirectory = "Abs";
 private final String __RemoveWorkingDirectory = "Rel";
 
-private SimpleJButton __browseCatalogIndexFile_JButton = null;
-private SimpleJButton __pathCatalogIndexFile_JButton = null;
-private SimpleJButton __browseCatalogFile_JButton = null;
-private SimpleJButton __pathCatalogFile_JButton = null;
-private SimpleJButton __browseDatasetIndexFile_JButton = null;
-private SimpleJButton __browseDatasetIndexHeadFile_JButton = null;
-private SimpleJButton __browseDatasetIndexBodyFile_JButton = null;
-private SimpleJButton __browseDatasetIndexFooterFile_JButton = null;
 private SimpleJButton __pathDatasetIndexFile_JButton = null;
 private SimpleJButton __pathDatasetIndexHeadFile_JButton = null;
 private SimpleJButton __pathDatasetIndexBodyFile_JButton = null;
@@ -95,6 +88,9 @@ private SimpleJButton __ok_JButton = null;
 private SimpleJButton __help_JButton = null;
 private SimpleJButton __browseS3_JButton = null;
 private JTabbedPane __main_JTabbedPane = null;
+//private SimpleJComboBox __IfInputNotFound_JComboBox = null;
+
+// AWS S3 tab.
 private SimpleJComboBox __Profile_JComboBox = null;
 private JTextField __ProfileDefault_JTextField = null; // View only (not a command parameter).
 private JLabel __ProfileDefaultNote_JLabel = null; // To explain the default.
@@ -102,38 +98,45 @@ private SimpleJComboBox __Region_JComboBox = null;
 private JTextField __RegionDefault_JTextField = null; // View only (not a command parameter).
 private JLabel __RegionDefaultNote_JLabel = null; // To explain the default.
 private SimpleJComboBox __Bucket_JComboBox = null;
-private SimpleJComboBox __IfInputNotFound_JComboBox = null;
 
 // Catalog tab.
-private JTextField __StartingPrefix_JTextField = null;
-private SimpleJComboBox __ProcessSubdirectories_JComboBox = null;
-private JTextField __CatalogIndexFile_JTextField = null;
-private JTextField __CatalogFile_JTextField = null;
-private SimpleJComboBox __UploadCatalogFiles_JComboBox = null;
-
-// CloudFront tab.
-private JTextField __DistributionId_JTextField = null;
+//private JTextField __CatalogIndexFile_JTextField = null;
+//private JTextField __CatalogFile_JTextField = null;
+//private SimpleJComboBox __UploadCatalogFiles_JComboBox = null;
 
 // Dataset tab.
 private JTextField __DatasetIndexFile_JTextField = null;
+private JTextField __StartingFolder_JTextField = null;
+private SimpleJComboBox __ProcessSubfolders_JComboBox = null;
+private SimpleJComboBox __UploadFiles_JComboBox = null;
+private SimpleJComboBox __KeepFiles_JComboBox = null;
+private SimpleJButton __browseDatasetIndexFile_JButton = null;
+private SimpleJButton __browseDatasetIndexHeadFile_JButton = null;
+private SimpleJButton __browseDatasetIndexBodyFile_JButton = null;
+private SimpleJButton __browseDatasetIndexFooterFile_JButton = null;
+
+// HTML Inserts tab.
 private JTextField __DatasetIndexHeadFile_JTextField = null;
 private JTextField __DatasetIndexBodyFile_JTextField = null;
 private JTextField __DatasetIndexFooterFile_JTextField = null;
-private SimpleJComboBox __UploadDatasetFiles_JComboBox = null;
-
-// List tab.
-//private JTextField __MaxKeys_JTextField = null;
-//private JTextField __MaxObjects_JTextField = null;
 
 // Output tab.
-private SimpleJComboBox __OutputTableID_JComboBox = null;
-private SimpleJComboBox __KeepFiles_JComboBox = null;
+//private SimpleJComboBox __OutputTableID_JComboBox = null;
+
+// CloudFront tab:
+// - this match the AwsS3 command
+private SimpleJComboBox __InvalidateCloudFront_JComboBox = null;
+private SimpleJComboBox __CloudFrontRegion_JComboBox = null;
+private SimpleJComboBox __CloudFrontDistributionId_JComboBox = null;
+private JTextField __CloudFrontComment_JTextField = null;
+private JTextField __CloudFrontCallerReference_JTextField = null;
+private SimpleJComboBox __CloudFrontWaitForCompletion_JComboBox = null;
 
 private JTextArea __command_JTextArea = null;
 private String __working_dir = null;
 private boolean __error_wait = false;
 private boolean __first_time = true;
-private AwsS3Catalog_Command __command = null;
+private AwsS3LandingPage_Command __command = null;
 private boolean __ok = false; // Whether the user has pressed OK to close the dialog.
 private boolean ignoreEvents = false; // Ignore events when initializing, to avoid infinite loop.
 //private JFrame __parent = null;
@@ -148,7 +151,7 @@ Command editor constructor.
 @param command Command to edit.
 @param tableIDChoices list of tables to choose from, used if appending
 */
-public AwsS3Catalog_JDialog ( JFrame parent, AwsS3Catalog_Command command, List<String> tableIDChoices ) {
+public AwsS3LandingPage_JDialog ( JFrame parent, AwsS3LandingPage_Command command, List<String> tableIDChoices ) {
 	super(parent, true);
 	initialize ( parent, command, tableIDChoices );
 }
@@ -165,73 +168,7 @@ public void actionPerformed( ActionEvent event ) {
 
 	Object o = event.getSource();
 
-	if ( o == __browseCatalogFile_JButton ) {
-        String last_directory_selected = JGUIUtil.getLastFileDialogDirectory();
-        JFileChooser fc = null;
-        if ( last_directory_selected != null ) {
-            fc = JFileChooserFactory.createJFileChooser(last_directory_selected );
-        }
-        else {
-            fc = JFileChooserFactory.createJFileChooser(__working_dir );
-        }
-        fc.setDialogTitle( "Select Catalog File");
-
-        if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            String directory = fc.getSelectedFile().getParent();
-            String filename = fc.getSelectedFile().getName();
-            String path = fc.getSelectedFile().getPath();
-
-            if (filename == null || filename.equals("")) {
-                return;
-            }
-
-            if (path != null) {
-				// Convert path to relative path by default.
-				try {
-					__CatalogFile_JTextField.setText(IOUtil.toRelativePath(__working_dir, path));
-				}
-				catch ( Exception e ) {
-					Message.printWarning ( 1, routine, "Error converting file to relative path." );
-				}
-                JGUIUtil.setLastFileDialogDirectory(directory);
-                refresh();
-            }
-        }
-    }
-	else if ( o == __browseCatalogIndexFile_JButton ) {
-        String last_directory_selected = JGUIUtil.getLastFileDialogDirectory();
-        JFileChooser fc = null;
-        if ( last_directory_selected != null ) {
-            fc = JFileChooserFactory.createJFileChooser(last_directory_selected );
-        }
-        else {
-            fc = JFileChooserFactory.createJFileChooser(__working_dir );
-        }
-        fc.setDialogTitle( "Select Catalog Index File");
-
-        if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            String directory = fc.getSelectedFile().getParent();
-            String filename = fc.getSelectedFile().getName();
-            String path = fc.getSelectedFile().getPath();
-
-            if (filename == null || filename.equals("")) {
-                return;
-            }
-
-            if (path != null) {
-				// Convert path to relative path by default.
-				try {
-					__CatalogIndexFile_JTextField.setText(IOUtil.toRelativePath(__working_dir, path));
-				}
-				catch ( Exception e ) {
-					Message.printWarning ( 1, routine, "Error converting file to relative path." );
-				}
-                JGUIUtil.setLastFileDialogDirectory(directory);
-                refresh();
-            }
-        }
-    }
-	else if ( o == __browseDatasetIndexFile_JButton ) {
+	if ( o == __browseDatasetIndexFile_JButton ) {
         String last_directory_selected = JGUIUtil.getLastFileDialogDirectory();
         JFileChooser fc = null;
         if ( last_directory_selected != null ) {
@@ -361,38 +298,6 @@ public void actionPerformed( ActionEvent event ) {
 			response ( true );
 		}
 	}
-    else if ( o == __pathCatalogFile_JButton ) {
-        if ( __pathCatalogFile_JButton.getText().equals(__AddWorkingDirectory) ) {
-            __CatalogFile_JTextField.setText (IOUtil.toAbsolutePath(__working_dir,__CatalogFile_JTextField.getText() ) );
-        }
-        else if ( __pathCatalogFile_JButton.getText().equals(__RemoveWorkingDirectory) ) {
-            try {
-                __CatalogFile_JTextField.setText ( IOUtil.toRelativePath ( __working_dir,
-                        __CatalogFile_JTextField.getText() ) );
-            }
-            catch ( Exception e ) {
-                Message.printWarning ( 1, routine,
-                "Error converting output file name to relative path." );
-            }
-        }
-        refresh ();
-    }
-    else if ( o == __pathCatalogIndexFile_JButton ) {
-        if ( __pathCatalogIndexFile_JButton.getText().equals(__AddWorkingDirectory) ) {
-            __CatalogIndexFile_JTextField.setText (IOUtil.toAbsolutePath(__working_dir,__CatalogIndexFile_JTextField.getText() ) );
-        }
-        else if ( __pathCatalogIndexFile_JButton.getText().equals(__RemoveWorkingDirectory) ) {
-            try {
-                __CatalogIndexFile_JTextField.setText ( IOUtil.toRelativePath ( __working_dir,
-                        __CatalogIndexFile_JTextField.getText() ) );
-            }
-            catch ( Exception e ) {
-                Message.printWarning ( 1, routine,
-                "Error converting index file name to relative path." );
-            }
-        }
-        refresh ();
-    }
     else if ( o == __pathDatasetIndexFile_JButton ) {
         if ( __pathDatasetIndexFile_JButton.getText().equals(__AddWorkingDirectory) ) {
             __DatasetIndexFile_JTextField.setText (IOUtil.toAbsolutePath(__working_dir,__DatasetIndexFile_JTextField.getText() ) );
@@ -476,20 +381,23 @@ private void checkInput () {
 	String Profile = __Profile_JComboBox.getSelected();
 	String Region = getSelectedRegion();
 	String Bucket = __Bucket_JComboBox.getSelected();
-	String StartingPrefix = __StartingPrefix_JTextField.getText().trim();
-	String ProcessSubdirectories = __ProcessSubdirectories_JComboBox.getSelected();
-	String CatalogFile = __CatalogFile_JTextField.getText().trim();
-	String CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
-	String UploadCatalogFiles = __UploadCatalogFiles_JComboBox.getSelected();
-	String DistributionId = __DistributionId_JTextField.getText().trim();
+	String StartingFolder = __StartingFolder_JTextField.getText().trim();
+	String ProcessSubfolders = __ProcessSubfolders_JComboBox.getSelected();
 	String DatasetIndexFile = __DatasetIndexFile_JTextField.getText().trim();
 	String DatasetIndexHeadFile = __DatasetIndexHeadFile_JTextField.getText().trim();
 	String DatasetIndexBodyFile = __DatasetIndexBodyFile_JTextField.getText().trim();
 	String DatasetIndexFooterFile = __DatasetIndexFooterFile_JTextField.getText().trim();
-	String UploadDatasetFiles = __UploadDatasetFiles_JComboBox.getSelected();
-	String OutputTableID = __OutputTableID_JComboBox.getSelected();
+	String UploadFiles = __UploadFiles_JComboBox.getSelected();
+	//String OutputTableID = __OutputTableID_JComboBox.getSelected();
 	String KeepFiles = __KeepFiles_JComboBox.getSelected();
-	String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
+	//String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
+	// CloudFront.
+    String InvalidateCloudFront = __InvalidateCloudFront_JComboBox.getSelected();
+	String CloudFrontRegion = getSelectedCloudFrontRegion();
+	String CloudFrontDistributionId = __CloudFrontDistributionId_JComboBox.getSelected();
+	String CloudFrontComment = __CloudFrontComment_JTextField.getText().trim();
+	String CloudFrontCallerReference = __CloudFrontCallerReference_JTextField.getText().trim();
+    String CloudFrontWaitForCompletion = __CloudFrontWaitForCompletion_JComboBox.getSelected();
 	__error_wait = false;
 	if ( Profile.length() > 0 ) {
 		props.set ( "Profile", Profile );
@@ -500,24 +408,12 @@ private void checkInput () {
 	if ( (Bucket != null) && !Bucket.isEmpty() ) {
 		props.set ( "Bucket", Bucket );
 	}
-	if ( (StartingPrefix != null) && !StartingPrefix.isEmpty() ) {
-		props.set ( "StartingPrefix", StartingPrefix );
+	if ( (StartingFolder != null) && !StartingFolder.isEmpty() ) {
+		props.set ( "StartingFolder", StartingFolder );
 	}
-	if ( (ProcessSubdirectories != null) && !ProcessSubdirectories.isEmpty() ) {
-		props.set ( "ProcessSubdirectories", ProcessSubdirectories );
+	if ( (ProcessSubfolders != null) && !ProcessSubfolders.isEmpty() ) {
+		props.set ( "ProcessSubfolders", ProcessSubfolders );
 	}
-    if ( CatalogFile.length() > 0 ) {
-        props.set ( "CatalogFile", CatalogFile );
-    }
-    if ( CatalogIndexFile.length() > 0 ) {
-        props.set ( "CatalogIndexFile", CatalogIndexFile );
-    }
-	if ( UploadCatalogFiles.length() > 0 ) {
-		props.set ( "UploadCatalogFiles", UploadCatalogFiles );
-	}
-    if ( DistributionId.length() > 0 ) {
-        props.set ( "DistributionId", DistributionId );
-    }
     if ( DatasetIndexFile.length() > 0 ) {
         props.set ( "DatasetIndexFile", DatasetIndexFile );
     }
@@ -530,17 +426,40 @@ private void checkInput () {
     if ( DatasetIndexFooterFile.length() > 0 ) {
         props.set ( "DatasetIndexFooterFile", DatasetIndexFooterFile );
     }
+    /*
     if ( OutputTableID.length() > 0 ) {
         props.set ( "OutputTableID", OutputTableID );
     }
+    */
 	if ( KeepFiles.length() > 0 ) {
 		props.set ( "KeepFiles", KeepFiles );
 	}
-	if ( UploadDatasetFiles.length() > 0 ) {
-		props.set ( "UploadDatasetFiles", UploadDatasetFiles );
+	if ( UploadFiles.length() > 0 ) {
+		props.set ( "UploadFiles", UploadFiles );
 	}
+	/*
 	if ( IfInputNotFound.length() > 0 ) {
 		props.set ( "IfInputNotFound", IfInputNotFound );
+	}
+	*/
+    // CloudFront.
+	if ( (InvalidateCloudFront != null) && !InvalidateCloudFront.isEmpty() ) {
+		props.set ( "InvalidateCloudFront", InvalidateCloudFront );
+	}
+	if ( (CloudFrontRegion != null) && !CloudFrontRegion.isEmpty() ) {
+		props.set ( "CloudFrontRegion", CloudFrontRegion );
+	}
+	if ( (CloudFrontDistributionId != null) && !CloudFrontDistributionId.isEmpty() ) {
+		props.set ( "CloudFrontDistributionId", CloudFrontDistributionId );
+	}
+	if ( (CloudFrontComment != null) && !CloudFrontComment.isEmpty() ) {
+		props.set ( "CloudFrontComment", CloudFrontComment );
+	}
+	if ( (CloudFrontCallerReference != null) && !CloudFrontCallerReference.isEmpty() ) {
+		props.set ( "CloudFrontCallerReference", CloudFrontCallerReference );
+	}
+	if ( (CloudFrontWaitForCompletion != null) && !CloudFrontWaitForCompletion.isEmpty() ) {
+		props.set ( "CloudFrontWaitForCompletion", CloudFrontWaitForCompletion );
 	}
 	try {
 		// This will warn the user.
@@ -560,37 +479,98 @@ private void commitEdits () {
 	String Profile = __Profile_JComboBox.getSelected();
 	String Region = getSelectedRegion();
 	String Bucket = __Bucket_JComboBox.getSelected();
-	String StartingPrefix = __StartingPrefix_JTextField.getText().trim();
-	String ProcessSubdirectories = __ProcessSubdirectories_JComboBox.getSelected();
-	String CatalogFile = __CatalogFile_JTextField.getText().trim();
-	String CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
-	String UploadCatalogFiles = __UploadCatalogFiles_JComboBox.getSelected();
-	String DistributionId = __DistributionId_JTextField.getText().trim();
+	String StartingFolder = __StartingFolder_JTextField.getText().trim();
+	String ProcessSubfolders = __ProcessSubfolders_JComboBox.getSelected();
 	String DatasetIndexFile = __DatasetIndexFile_JTextField.getText().trim();
 	String DatasetIndexHeadFile = __DatasetIndexHeadFile_JTextField.getText().trim();
 	String DatasetIndexBodyFile = __DatasetIndexBodyFile_JTextField.getText().trim();
 	String DatasetIndexFooterFile = __DatasetIndexFooterFile_JTextField.getText().trim();
-	String UploadDatasetFiles = __UploadDatasetFiles_JComboBox.getSelected();
-	String OutputTableID = __OutputTableID_JComboBox.getSelected();
+	String UploadFiles = __UploadFiles_JComboBox.getSelected();
+	//String OutputTableID = __OutputTableID_JComboBox.getSelected();
 	String KeepFiles = __KeepFiles_JComboBox.getSelected();
-	String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
+	//String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
+	// CloudFront
+    String InvalidateCloudFront = __InvalidateCloudFront_JComboBox.getSelected();
+	String CloudFrontRegion = getSelectedCloudFrontRegion();
+	String CloudFrontDistributionId = __CloudFrontDistributionId_JComboBox.getSelected();
+	String CloudFrontComment = __CloudFrontComment_JTextField.getText().trim();
+	String CloudFrontCallerReference = __CloudFrontCallerReference_JTextField.getText().trim();
+    String CloudFrontWaitForCompletion = __CloudFrontWaitForCompletion_JComboBox.getSelected();
 	__command.setCommandParameter ( "Profile", Profile );
 	__command.setCommandParameter ( "Region", Region );
 	__command.setCommandParameter ( "Bucket", Bucket );
-	__command.setCommandParameter ( "StartingPrefix", StartingPrefix );
-	__command.setCommandParameter ( "ProcessSubdirectories", ProcessSubdirectories );
-	__command.setCommandParameter ( "CatalogFile", CatalogFile );
-	__command.setCommandParameter ( "CatalogIndexFile", CatalogIndexFile );
-	__command.setCommandParameter ( "UploadCatalogFiles", UploadCatalogFiles );
-	__command.setCommandParameter ( "DistributionId", DistributionId );
+	__command.setCommandParameter ( "StartingFolder", StartingFolder );
+	__command.setCommandParameter ( "ProcessSubfolders", ProcessSubfolders );
 	__command.setCommandParameter ( "DatasetIndexFile", DatasetIndexFile );
 	__command.setCommandParameter ( "DatasetIndexHeadFile", DatasetIndexHeadFile );
 	__command.setCommandParameter ( "DatasetIndexBodyFile", DatasetIndexBodyFile );
 	__command.setCommandParameter ( "DatasetIndexFooterFile", DatasetIndexFooterFile );
-	__command.setCommandParameter ( "UploadDatasetFiles", UploadDatasetFiles );
-	__command.setCommandParameter ( "OutputTableID", OutputTableID );
+	__command.setCommandParameter ( "UploadFiles", UploadFiles );
+	//__command.setCommandParameter ( "OutputTableID", OutputTableID );
 	__command.setCommandParameter ( "KeepFiles", KeepFiles );
-	__command.setCommandParameter ( "IfInputNotFound", IfInputNotFound );
+	//__command.setCommandParameter ( "IfInputNotFound", IfInputNotFound );
+	// CloudFront.
+	__command.setCommandParameter ( "InvalidateCloudFront", InvalidateCloudFront );
+	__command.setCommandParameter ( "CloudFrontRegion", CloudFrontRegion );
+	__command.setCommandParameter ( "CloudFrontDistributionId", CloudFrontDistributionId );
+	__command.setCommandParameter ( "CloudFrontComment", CloudFrontComment );
+	__command.setCommandParameter ( "CloudFrontCallerReference", CloudFrontCallerReference );
+	__command.setCommandParameter ( "CloudFrontWaitForCompletion", CloudFrontWaitForCompletion );
+}
+
+/**
+Return the selected CloudFront region, omitting the trailing description.
+The default is NOT returned if messing.
+@return the selected region, omitting the trailing description.
+*/
+private String getSelectedCloudFrontRegion() {
+	// Do not return the default if region is missing.
+	return getSelectedCloudFrontRegion ( false );
+}
+
+/**
+Return the selected CloudFront region, omitting the trailing description.
+@param returnDefault if true, return the default region if the UI has blank
+@return the selected region, omitting the trailing description.
+*/
+private String getSelectedCloudFrontRegion( boolean returnDefault ) {
+    if ( __CloudFrontRegion_JComboBox == null ) {
+    	// Region combobox is null, typically at UI startup.
+    	if ( returnDefault ) {
+    		// Return the (default) S3 region.
+    		return getSelectedRegion(true);
+    	}
+    	else {
+    		// Can only return null.
+    		return null;
+    	}
+    }
+    // The combo box is not null so can get the value, but may be null or an empty string.
+    String region = __CloudFrontRegion_JComboBox.getSelected();
+    if ( (region == null) || region.isEmpty() ) {
+    	// No region is selected.
+    	if ( returnDefault ) {
+    		// Return the (default) S3 region.
+    		return getSelectedRegion(true);
+    	}
+    	else {
+    		// Return the selection even if null or blank.
+    		return region;
+    	}
+    }
+    // Have selected region:
+	// - parse the ID, ignoring the description.
+   	int pos = region.indexOf(" -");
+   	String id = "";
+   	if ( pos > 0 ) {
+   		// Have a description.
+   		id = region.substring(0,pos).trim();
+   	}
+   	else {
+   		// No description.
+       	id = region.trim();
+   	}
+   	return id;
 }
 
 /**
@@ -692,7 +672,7 @@ Instantiates the GUI components.
 @param command Command to edit.
 @param tableIDChoices list of tables to choose from, used if appending
 */
-private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<String> tableIDChoices ) {
+private void initialize ( JFrame parent, AwsS3LandingPage_Command command, List<String> tableIDChoices ) {
 	this.__command = command;
 	//this.__parent = parent;
 	CommandProcessor processor =__command.getCommandProcessor();
@@ -710,19 +690,13 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	getContentPane().add ( "North", main_JPanel );
 	int y = -1;
 
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("<html><b>This command is disabled.  Use the AwsS3LandingPage command.</b></html>"),
-		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("This command does one or both of the following by searching for datasets in an S3 directory:"),
-		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("  1. Create a landing page for each found dataset (see Dataset tab)." ),
-		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("  2. Create a landing page and catalog of all found datasets (see Catalog tab)." ),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("This command creates a landing page for one or more datasets published using AWS S3." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel ("Use multiple commands as appropriate to process a single or multiple datasets." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("The output files can have .html or .md (Markdown) extension." ),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("The output landing page can be an 'index.html' (HTML) or 'index.md' (Markdown) file." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel ("Datasets must each have a DCAT dataset.json file to be included in the catalog." ),
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("Datasets must each have a 'dataset.json' file to provide dataset metadata." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel (
         "Filenames can use the notation ${Property} to use global processor properties." ),
@@ -738,9 +712,31 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
     	0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
    	this.ignoreEvents = true; // So that a full pass of initialization can occur.
+   
+   	// Tabbed pane for the tabbed panels.
+    __main_JTabbedPane = new JTabbedPane ();
+    __main_JTabbedPane.addChangeListener(this);
+    JGUIUtil.addComponent(main_JPanel, __main_JTabbedPane,
+        0, ++y, 7, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Profile:"),
-		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    // Panel for 'AWS S3' parameters:
+    // - parameters to specify S3 information
+    int yS3 = -1;
+    JPanel s3_JPanel = new JPanel();
+    s3_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "AWS S3", s3_JPanel );
+
+    JGUIUtil.addComponent(s3_JPanel, new JLabel (
+    	"These parameters control how the AWS session is authenticated using AWS the command line interface (CLI) configuration." ),
+		0, ++yS3, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(s3_JPanel, new JLabel (
+    	"The AWS region and S3 bucket indicate where S3 files are stored."),
+		0, ++yS3, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(s3_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yS3, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+   JGUIUtil.addComponent(s3_JPanel, new JLabel ( "Profile:"),
+		0, ++yS3, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__Profile_JComboBox = new SimpleJComboBox ( false );
 	__Profile_JComboBox.setToolTipText("AWS user profile to use for authentication (see user's .aws/config file).");
 	List<String> profileChoices = AwsToolkit.getInstance().getProfiles();
@@ -752,25 +748,25 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	// Set the the AWS session here so other choices can display something.
 	this.awsSession = new AwsSession(__Profile_JComboBox.getSelected());
 	__Profile_JComboBox.addItemListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __Profile_JComboBox,
-		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel("Optional - profile for authentication (default=see below)."),
-		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+   JGUIUtil.addComponent(s3_JPanel, __Profile_JComboBox,
+		1, yS3, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(s3_JPanel, new JLabel("Optional - profile for authentication (default=see below)."),
+		3, yS3, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Profile (default):"),
-		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+   JGUIUtil.addComponent(s3_JPanel, new JLabel ( "Profile (default):"),
+		0, ++yS3, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__ProfileDefault_JTextField = new JTextField ( 20 );
 	__ProfileDefault_JTextField.setToolTipText("Default profile determined from user's .aws/config file).");
 	__ProfileDefault_JTextField.addKeyListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __ProfileDefault_JTextField,
-		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+   JGUIUtil.addComponent(s3_JPanel, __ProfileDefault_JTextField,
+		1, yS3, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
    __ProfileDefaultNote_JLabel = new JLabel("From: " + AwsToolkit.getInstance().getAwsUserConfigFile());
-    JGUIUtil.addComponent(main_JPanel, __ProfileDefaultNote_JLabel,
-		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(s3_JPanel, __ProfileDefaultNote_JLabel,
+		3, yS3, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 	__ProfileDefault_JTextField.setEditable(false);
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Region:"),
-		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+   JGUIUtil.addComponent(s3_JPanel, new JLabel ( "Region:"),
+		0, ++yS3, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__Region_JComboBox = new SimpleJComboBox ( false );
 	__Region_JComboBox.setToolTipText("AWS region to run service.");
 	List<Region> regions = Region.regions();
@@ -789,64 +785,33 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	__Region_JComboBox.setData(regionChoices);
 	__Region_JComboBox.select ( 0 );
 	__Region_JComboBox.addItemListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __Region_JComboBox,
-		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel("Optional - AWS region (default=see below)."),
-		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+   JGUIUtil.addComponent(s3_JPanel, __Region_JComboBox,
+		1, yS3, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(s3_JPanel, new JLabel("Optional - AWS region (default=see below)."),
+		3, yS3, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Region (default):"),
-		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+   JGUIUtil.addComponent(s3_JPanel, new JLabel ( "Region (default):"),
+		0, ++yS3, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__RegionDefault_JTextField = new JTextField ( 20 );
 	__RegionDefault_JTextField.setToolTipText("Default region for profile determined from user's .aws/config file).");
 	__RegionDefault_JTextField.addKeyListener ( this );
-   JGUIUtil.addComponent(main_JPanel, __RegionDefault_JTextField,
-		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+   JGUIUtil.addComponent(s3_JPanel, __RegionDefault_JTextField,
+		1, yS3, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     __RegionDefaultNote_JLabel = new JLabel("From: " + AwsToolkit.getInstance().getAwsUserConfigFile() );
-    JGUIUtil.addComponent(main_JPanel, __RegionDefaultNote_JLabel,
-		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(s3_JPanel, __RegionDefaultNote_JLabel,
+		3, yS3, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 	__RegionDefault_JTextField.setEditable(false);
 
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Bucket:"),
-		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+   JGUIUtil.addComponent(s3_JPanel, new JLabel ( "Bucket:"),
+		0, ++yS3, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__Bucket_JComboBox = new SimpleJComboBox ( false );
 	__Bucket_JComboBox.setToolTipText("AWS S3 bucket.");
 	// Choices will be populated when refreshed, based on profile.
 	__Bucket_JComboBox.addActionListener ( this );
-    JGUIUtil.addComponent(main_JPanel, __Bucket_JComboBox,
-		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel( "Required - S3 bucket."),
-		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Starting prefix (directory):"),
-        0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __StartingPrefix_JTextField = new JTextField ( "", 30 );
-    __StartingPrefix_JTextField.setToolTipText("Starting prefix (directory) to search for datasets, no / at start, ending with /");
-    __StartingPrefix_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(main_JPanel, __StartingPrefix_JTextField,
-        1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Optional - starting object key prefix (default=/)."),
-        3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "Process subdirectories?:"),
-		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-	__ProcessSubdirectories_JComboBox = new SimpleJComboBox ( false );
-	__ProcessSubdirectories_JComboBox.setToolTipText("Whether to process all datasets in a directory (folder) and subdirectories.");
-	List<String> subChoices = new ArrayList<>();
-	subChoices.add("");
-	subChoices.add(__command._False);
-	subChoices.add(__command._True);
-	__ProcessSubdirectories_JComboBox.setData(subChoices);
-	__ProcessSubdirectories_JComboBox.select ( 0 );
-	__ProcessSubdirectories_JComboBox.addItemListener ( this );
-    JGUIUtil.addComponent(main_JPanel, __ProcessSubdirectories_JComboBox,
-		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel("Optional - process subdirectories (default=" + __command._False + ")."),
-		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
-    __main_JTabbedPane = new JTabbedPane ();
-    __main_JTabbedPane.addChangeListener(this);
-    JGUIUtil.addComponent(main_JPanel, __main_JTabbedPane,
-        0, ++y, 7, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(s3_JPanel, __Bucket_JComboBox,
+		1, yS3, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(s3_JPanel, new JLabel( "Required - S3 bucket."),
+		3, yS3, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     // Panel for 'Dataset' parameters:
     // - controls the index file created for the dataset
@@ -855,18 +820,19 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
     dataset_JPanel.setLayout( new GridBagLayout() );
     __main_JTabbedPane.addTab ( "Dataset", dataset_JPanel );
 
-    JGUIUtil.addComponent(dataset_JPanel, new JLabel (
-    	"Dataset index (landing) pages will be created for all found dataset.json files, but only if the dataset index file is specified."),
-		0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(dataset_JPanel, new JLabel (
-    	"The index file typically is 'index.html' for HTML or 'index.md' for markdown, optionally with a leading path to the local file."),
-		0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(dataset_JPanel, new JLabel ("Use the following parameters to control creation of the dataset index (landing) page."),
 		0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(dataset_JPanel, new JLabel ("A dataset index file with .html extension can use optional <head>, <body>, and <footer> HTML files as input."),
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel (
+    	"Dataset index (landing) pages will be created for all found S3 'dataset.json' files."),
 		0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(dataset_JPanel, new JLabel (
-    	"Use the parameters in the 'Output' tab to specify the dataset table and whether to keep temporary files."),
+    	"The index file is 'index.html' for HTML or 'index.md' for markdown, optionally with a leading path to the local file."),
+		0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel (
+    	"A dataset index file with '.html' extension can use optional <head>, <body>, and <footer> HTML files as input (see the 'HTML Inserts' tab)."),
+		0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel (
+    	"If subfolders are being processed, the index file can be specified as 'Temp.html' or 'Temp.md' to automatically generate multiple landing pages."),
 		0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(dataset_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yDataset, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -874,7 +840,8 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
     JGUIUtil.addComponent(dataset_JPanel, new JLabel ("Dataset index file:" ),
         0, ++yDataset, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __DatasetIndexFile_JTextField = new JTextField ( 50 );
-    __DatasetIndexFile_JTextField.setToolTipText("Dataset index file to create, Temp to automatically use temporary file, can use ${Property} notation.");
+    __DatasetIndexFile_JTextField.setToolTipText(
+    	"Dataset 'index.html' or 'index.md' file to create. Use 'temp' to automatically use a temporary file. Can use ${Property} notation.");
     __DatasetIndexFile_JTextField.addKeyListener ( this );
     // Output file layout fights back with other rows so put in its own panel.
 	JPanel DatasetIndexFile_JPanel = new JPanel();
@@ -894,8 +861,93 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	JGUIUtil.addComponent(dataset_JPanel, DatasetIndexFile_JPanel,
 		1, yDataset, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(dataset_JPanel, new JLabel ("Dataset index <head> file:" ),
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel ( "Starting S3 folder:"),
         0, ++yDataset, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __StartingFolder_JTextField = new JTextField ( "", 30 );
+    __StartingFolder_JTextField.setToolTipText("Starting S3 folder to search for 'dataset.json', ending with /");
+    __StartingFolder_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(dataset_JPanel, __StartingFolder_JTextField,
+        1, yDataset, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel ( "Optional - starting S3 folder (default=/)."),
+        3, yDataset, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+   JGUIUtil.addComponent(dataset_JPanel, new JLabel ( "Process subfolders?:"),
+		0, ++yDataset, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__ProcessSubfolders_JComboBox = new SimpleJComboBox ( false );
+	__ProcessSubfolders_JComboBox.setToolTipText("Whether to process all datasets in a directory (folder) and subdirectories.");
+	List<String> subChoices = new ArrayList<>();
+	subChoices.add("");
+	subChoices.add(__command._False);
+	subChoices.add(__command._True);
+	__ProcessSubfolders_JComboBox.setData(subChoices);
+	__ProcessSubfolders_JComboBox.select ( 0 );
+	__ProcessSubfolders_JComboBox.addItemListener ( this );
+    JGUIUtil.addComponent(dataset_JPanel, __ProcessSubfolders_JComboBox,
+		1, yDataset, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel("Optional - process subfolders (default=" + __command._False + ")."),
+		3, yDataset, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+   JGUIUtil.addComponent(dataset_JPanel, new JLabel ( "Keep files?:"),
+		0, ++yDataset, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__KeepFiles_JComboBox = new SimpleJComboBox ( false );
+	__KeepFiles_JComboBox.setToolTipText("Indicate whether to keep temporary files, useful for troubleshooting.");
+	List<String> keepFilesChoices = new ArrayList<>();
+	keepFilesChoices.add ( "" );	// Default.
+	keepFilesChoices.add ( __command._False );
+	keepFilesChoices.add ( __command._True );
+	__KeepFiles_JComboBox.setData(keepFilesChoices);
+	__KeepFiles_JComboBox.select ( 0 );
+	__KeepFiles_JComboBox.addActionListener ( this );
+    JGUIUtil.addComponent(dataset_JPanel, __KeepFiles_JComboBox,
+		1, yDataset, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel(
+		"Optional - keep temporary files? (default=" + __command._False + ")."),
+		3, yDataset, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+   JGUIUtil.addComponent(dataset_JPanel, new JLabel ( "Upload dataset files?:"),
+		0, ++yDataset, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__UploadFiles_JComboBox = new SimpleJComboBox ( false );
+	__UploadFiles_JComboBox.setToolTipText("Indicate whether to upload dataset index files, to review before publishing.");
+	List<String> uploadFilesChoices = new ArrayList<>();
+	uploadFilesChoices.add ( "" );	// Default.
+	uploadFilesChoices.add ( __command._False );
+	uploadFilesChoices.add ( __command._True );
+	__UploadFiles_JComboBox.setData(uploadFilesChoices);
+	__UploadFiles_JComboBox.select ( 0 );
+	__UploadFiles_JComboBox.addActionListener ( this );
+    JGUIUtil.addComponent(dataset_JPanel, __UploadFiles_JComboBox,
+		1, yDataset, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(dataset_JPanel, new JLabel(
+		"Optional - upload dataset files? (default=" + __command._False + ")."),
+		3, yDataset, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    // Panel for 'HTML Inserts' parameters:
+    // - indicates inserts if an index.html file is being created
+    int yHtml = -1;
+    JPanel html_JPanel = new JPanel();
+    html_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "HTML Inserts", html_JPanel );
+
+    JGUIUtil.addComponent(html_JPanel, new JLabel (
+    	"These parameters can be used when creating an 'index.html' (HTML) landing page."),
+		0, ++yHtml, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(html_JPanel, new JLabel (
+    	"HTML inserts are local files that are merged into the 'index.html' file to provide standard content such as web page \"skin\"."),
+		0, ++yHtml, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(html_JPanel, new JLabel (
+    	"If a 'dataset.png' file is found in the same S3 location as 'dataset.json', the image will be used in the landing page."),
+		0, ++yHtml, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(html_JPanel, new JLabel (
+    	"The index file is automatically generated from inserts and metadata."),
+		0, ++yHtml, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(html_JPanel, new JLabel (
+    	"See the command documenation for additional information and examples."),
+		0, ++yHtml, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(html_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yHtml, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(html_JPanel, new JLabel ("Dataset index <head> file:" ),
+        0, ++yHtml, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __DatasetIndexHeadFile_JTextField = new JTextField ( 50 );
     __DatasetIndexHeadFile_JTextField.setToolTipText("HTML file to insert as the page header at the top of <head>.");
     __DatasetIndexHeadFile_JTextField.addKeyListener ( this );
@@ -914,11 +966,11 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 		JGUIUtil.addComponent(DatasetIndexHeadFile_JPanel, __pathDatasetIndexHeadFile_JButton,
 			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 	}
-	JGUIUtil.addComponent(dataset_JPanel, DatasetIndexHeadFile_JPanel,
-		1, yDataset, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+	JGUIUtil.addComponent(html_JPanel, DatasetIndexHeadFile_JPanel,
+		1, yHtml, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(dataset_JPanel, new JLabel ("Dataset index <body> file:" ),
-        0, ++yDataset, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    JGUIUtil.addComponent(html_JPanel, new JLabel ("Dataset index <body> file:" ),
+        0, ++yHtml, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __DatasetIndexBodyFile_JTextField = new JTextField ( 50 );
     __DatasetIndexBodyFile_JTextField.setToolTipText("HTML file to insert as the page header at the top of <body>.");
     __DatasetIndexBodyFile_JTextField.addKeyListener ( this );
@@ -937,11 +989,11 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 		JGUIUtil.addComponent(DatasetIndexBodyFile_JPanel, __pathDatasetIndexBodyFile_JButton,
 			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 	}
-	JGUIUtil.addComponent(dataset_JPanel, DatasetIndexBodyFile_JPanel,
-		1, yDataset, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+	JGUIUtil.addComponent(html_JPanel, DatasetIndexBodyFile_JPanel,
+		1, yHtml, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(dataset_JPanel, new JLabel ("Dataset index <footer> file:" ),
-        0, ++yDataset, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    JGUIUtil.addComponent(html_JPanel, new JLabel ("Dataset index <footer> file:" ),
+        0, ++yHtml, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __DatasetIndexFooterFile_JTextField = new JTextField ( 50 );
     __DatasetIndexFooterFile_JTextField.setToolTipText("HTML file to insert as the page footer after </body>.");
     __DatasetIndexFooterFile_JTextField.addKeyListener ( this );
@@ -960,142 +1012,36 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 		JGUIUtil.addComponent(DatasetIndexFooterFile_JPanel, __pathDatasetIndexFooterFile_JButton,
 			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 	}
-	JGUIUtil.addComponent(dataset_JPanel, DatasetIndexFooterFile_JPanel,
-		1, yDataset, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+	JGUIUtil.addComponent(html_JPanel, DatasetIndexFooterFile_JPanel,
+		1, yHtml, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-   JGUIUtil.addComponent(dataset_JPanel, new JLabel ( "Upload dataset files?:"),
-		0, ++yDataset, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-	__UploadDatasetFiles_JComboBox = new SimpleJComboBox ( false );
-	__UploadDatasetFiles_JComboBox.setToolTipText("Indicate whether to upload dataset index files?");
-	List<String> uploadFilesChoices = new ArrayList<>();
-	uploadFilesChoices.add ( "" );	// Default.
-	uploadFilesChoices.add ( __command._False );
-	uploadFilesChoices.add ( __command._True );
-	__UploadDatasetFiles_JComboBox.setData(uploadFilesChoices);
-	__UploadDatasetFiles_JComboBox.select ( 0 );
-	__UploadDatasetFiles_JComboBox.addActionListener ( this );
-    JGUIUtil.addComponent(dataset_JPanel, __UploadDatasetFiles_JComboBox,
-		1, yDataset, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(dataset_JPanel, new JLabel(
-		"Optional - upload dataset files? (default=" + __command._False + ")."),
-		3, yDataset, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    // Panel for 'Markdown Inserts' parameters:
+    // - indicates inserts if an index.md file is being created
+    int yMarkdown = -1;
+    JPanel markdown_JPanel = new JPanel();
+    markdown_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "Markdown Inserts", markdown_JPanel );
 
-    // Panel for 'Catalog' parameters:
-    // - this includes filtering by starting prefix
-    int yCatalog = -1;
-    JPanel catalog_JPanel = new JPanel();
-    catalog_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "Catalog", catalog_JPanel );
-
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("<html><b>Under development.</b></html>"),
-		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Use the following parameters to control creation of the catalog (list of datasets)."),
-		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Creating the catalog is optional (use the Dataset tab to process only dataset landing pages)."),
-		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("The catalog file contains a merged list of individual dataset.json files."),
-		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("The catalog index file is a landing page for all the datasets.  Specify with .html or .md (Markdown) extension."),
-		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Use the parameters in the 'Output' tab to specify whether to keep temporary files."),
-		0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(catalog_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
-    	0, ++yCatalog, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Catalog file:" ),
-        0, ++yCatalog, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __CatalogFile_JTextField = new JTextField ( 50 );
-    __CatalogFile_JTextField.setToolTipText(
-    	"Specify the catalog file (list of datasets) to create with .html or .md extension, can use ${Property} notation.");
-    __CatalogFile_JTextField.addKeyListener ( this );
-    // Output file layout fights back with other rows so put in its own panel.
-	JPanel CatalogFile_JPanel = new JPanel();
-	CatalogFile_JPanel.setLayout(new GridBagLayout());
-    JGUIUtil.addComponent(CatalogFile_JPanel, __CatalogFile_JTextField,
-		0, 0, 1, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-	__browseCatalogFile_JButton = new SimpleJButton ( "...", this );
-	__browseCatalogFile_JButton.setToolTipText("Browse for file");
-    JGUIUtil.addComponent(CatalogFile_JPanel, __browseCatalogFile_JButton,
-		1, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.CENTER);
-	if ( __working_dir != null ) {
-		// Add the button to allow conversion to/from relative path.
-		__pathCatalogFile_JButton = new SimpleJButton( __RemoveWorkingDirectory,this);
-		JGUIUtil.addComponent(CatalogFile_JPanel, __pathCatalogFile_JButton,
-			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-	}
-	JGUIUtil.addComponent(catalog_JPanel, CatalogFile_JPanel,
-		1, yCatalog, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel ("Catalog index file:" ),
-        0, ++yCatalog, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __CatalogIndexFile_JTextField = new JTextField ( 50 );
-    __CatalogIndexFile_JTextField.setToolTipText(
-    	"Specify the catalog index (dataset landing page) file to create with .html or .md extension, can use ${Property} notation.");
-    __CatalogIndexFile_JTextField.addKeyListener ( this );
-    // Output file layout fights back with other rows so put in its own panel.
-	JPanel CatalogIndexFile_JPanel = new JPanel();
-	CatalogIndexFile_JPanel.setLayout(new GridBagLayout());
-    JGUIUtil.addComponent(CatalogIndexFile_JPanel, __CatalogIndexFile_JTextField,
-		0, 0, 1, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-	__browseCatalogIndexFile_JButton = new SimpleJButton ( "...", this );
-	__browseCatalogIndexFile_JButton.setToolTipText("Browse for file");
-    JGUIUtil.addComponent(CatalogIndexFile_JPanel, __browseCatalogIndexFile_JButton,
-		1, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.CENTER);
-	if ( __working_dir != null ) {
-		// Add the button to allow conversion to/from relative path.
-		__pathCatalogIndexFile_JButton = new SimpleJButton( __RemoveWorkingDirectory,this);
-		JGUIUtil.addComponent(CatalogIndexFile_JPanel, __pathCatalogIndexFile_JButton,
-			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-	}
-	JGUIUtil.addComponent(catalog_JPanel, CatalogIndexFile_JPanel,
-		1, yCatalog, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-   JGUIUtil.addComponent(catalog_JPanel, new JLabel ( "Upload catalog files?:"),
-		0, ++yCatalog, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-	__UploadCatalogFiles_JComboBox = new SimpleJComboBox ( false );
-	__UploadCatalogFiles_JComboBox.setToolTipText("Indicate whether to upload catalog index and datasets.json files?");
-	List<String> uploadCatalogChoices = new ArrayList<>();
-	uploadCatalogChoices.add ( "" );	// Default.
-	uploadCatalogChoices.add ( __command._False );
-	uploadCatalogChoices.add ( __command._True );
-	__UploadCatalogFiles_JComboBox.setData(uploadCatalogChoices);
-	__UploadCatalogFiles_JComboBox.select ( 0 );
-	__UploadCatalogFiles_JComboBox.addActionListener ( this );
-    JGUIUtil.addComponent(catalog_JPanel, __UploadCatalogFiles_JComboBox,
-		1, yCatalog, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(catalog_JPanel, new JLabel(
-		"Optional - upload catalog files? (default=" + __command._False + ")."),
-		3, yCatalog, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
-    // Panel for 'CloudFront' parameters:
-    // - controls the index file created for the dataset
-    int yCloudFront = -1;
-    JPanel cloudfront_JPanel = new JPanel();
-    cloudfront_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "CloudFront", cloudfront_JPanel );
-
-    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("Use the following parameters to control CloudFront invalidations."),
-		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("Files must be invalidated to be visible with small latency on the CloudFront-fronted website."),
-		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("All uploaded files will be included in the invalidation path list."),
-		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ("Specify the distribution ID using a *comment pattern* (e.g., the sub.domain or S3 bucket)."),
-		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(cloudfront_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
-    	0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ( "Distribution ID:"),
-        0, ++yCloudFront, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __DistributionId_JTextField = new JTextField ( "", 30 );
-    __DistributionId_JTextField.setToolTipText("CloudFront distribution ID or comment pattern surrounded by *.");
-    __DistributionId_JTextField.addKeyListener ( this );
-    JGUIUtil.addComponent(cloudfront_JPanel, __DistributionId_JTextField,
-        1, yCloudFront, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(cloudfront_JPanel, new JLabel ( "Optional - CloudFront distribution ID (default=no invalidation)."),
-        3, yCloudFront, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(markdown_JPanel, new JLabel (
+    	"These parameters can be used when creating an 'index.md' (Markdown) landing page (currently no additional parameters are implemented)."),
+		0, ++yMarkdown, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(markdown_JPanel, new JLabel (
+    	"If a 'dataset-details.md' file is found in the same S3 location as 'dataset.json', the file will automatically be inserted."),
+		0, ++yMarkdown, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(markdown_JPanel, new JLabel (
+    	"If a 'dataset.png' file is found in the same S3 location as 'dataset.json', the image will be used in the landing page."),
+		0, ++yMarkdown, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(markdown_JPanel, new JLabel (
+    	"The index file is automatically generated from inserts and metadata."),
+		0, ++yMarkdown, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(markdown_JPanel, new JLabel (
+    	"See the command documenation for additional information and examples."),
+		0, ++yMarkdown, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(markdown_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yMarkdown, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
     // Panel for output.
+    /*
     int yOutput = -1;
     JPanel output_JPanel = new JPanel();
     output_JPanel.setLayout( new GridBagLayout() );
@@ -1111,7 +1057,9 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
 	//	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    	*/
 
+    /*
     JGUIUtil.addComponent(output_JPanel, new JLabel ( "Output Table ID:" ),
         0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __OutputTableID_JComboBox = new SimpleJComboBox ( 12, true ); // Allow edit.
@@ -1125,25 +1073,10 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
         1, yOutput, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JLabel( "Optional - table for output."),
         3, yOutput, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+        */
 
-   JGUIUtil.addComponent(output_JPanel, new JLabel ( "Keep files?:"),
-		0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-	__KeepFiles_JComboBox = new SimpleJComboBox ( false );
-	__KeepFiles_JComboBox.setToolTipText("Indicate whether to keep temporary files?");
-	List<String> keepFilesChoices = new ArrayList<>();
-	keepFilesChoices.add ( "" );	// Default.
-	keepFilesChoices.add ( __command._False );
-	keepFilesChoices.add ( __command._True );
-	__KeepFiles_JComboBox.setData(keepFilesChoices);
-	__KeepFiles_JComboBox.select ( 0 );
-	__KeepFiles_JComboBox.addActionListener ( this );
-    JGUIUtil.addComponent(output_JPanel, __KeepFiles_JComboBox,
-		1, yOutput, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel(
-		"Optional - keep temporary files? (default=" + __command._False + ")."),
-		3, yOutput, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
-   JGUIUtil.addComponent(main_JPanel, new JLabel ( "If input not found?:"),
+    /*
+    JGUIUtil.addComponent(main_JPanel, new JLabel ( "If input not found?:"),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__IfInputNotFound_JComboBox = new SimpleJComboBox ( false );
 	List<String> notFoundChoices = new ArrayList<>();
@@ -1159,6 +1092,116 @@ private void initialize ( JFrame parent, AwsS3Catalog_Command command, List<Stri
     JGUIUtil.addComponent(main_JPanel, new JLabel(
 		"Optional - action if input file is not found (default=" + __command._Warn + ")."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+		*/
+
+    // Panel for 'CloudFront' parameters:
+    // - controls the index file created for the dataset
+    int yCloudFront = -1;
+    JPanel cf_JPanel = new JPanel();
+    cf_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "CloudFront", cf_JPanel );
+
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ("Use the following parameters to control CloudFront invalidations."),
+		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ("Files must be invalidated to be visible with small latency on the CloudFront-fronted website."),
+		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ("All uploaded files will be included in the invalidation path list."),
+		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ("The 'aws-global' region may be required for CloudFront distributions."),
+		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cf_JPanel, new JLabel (
+    	"Specify a CloudFront distribution using the distribution ID or comment (description) pattern (e.g., *some.domain.org*)."),
+		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cf_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ( "Invalidate CloudFront paths?:"),
+		0, ++yCloudFront, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__InvalidateCloudFront_JComboBox = new SimpleJComboBox ( false );
+	__InvalidateCloudFront_JComboBox.setToolTipText("Invalidate CloudFront paths?");
+	List<String> invalidateChoices = new ArrayList<>();
+	invalidateChoices.add ( "" );	// Default.
+	invalidateChoices.add ( __command._False );
+	invalidateChoices.add ( __command._True );
+	__InvalidateCloudFront_JComboBox.setData(invalidateChoices);
+	__InvalidateCloudFront_JComboBox.select ( 0 );
+	__InvalidateCloudFront_JComboBox.addActionListener ( this );
+    JGUIUtil.addComponent(cf_JPanel, __InvalidateCloudFront_JComboBox,
+		1, yCloudFront, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cf_JPanel, new JLabel(
+		"Optional - invalidate CloudFront paths? (default=" + __command._False + ")."),
+		3, yCloudFront, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ( "CloudFront region:"),
+		0, ++yCloudFront, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__CloudFrontRegion_JComboBox = new SimpleJComboBox ( false );
+	__CloudFrontRegion_JComboBox.setToolTipText("AWS region that CloudFront server requests should be sent to.");
+	List<Region> cfRegions = Region.regions();
+	List<String> cfRegionChoices = new ArrayList<>();
+	for ( Region cfRegion : cfRegions ) {
+		RegionMetadata meta = cfRegion.metadata();
+		if ( meta == null ) {
+			cfRegionChoices.add ( cfRegion.id() );
+		}
+		else {
+			cfRegionChoices.add ( cfRegion.id() + " - " + cfRegion.metadata().description());
+		}
+	}
+	Collections.sort(cfRegionChoices);
+	cfRegionChoices.add(0,""); // Default - region is not specified (get from user's ~/.aws/config file)
+	__CloudFrontRegion_JComboBox.setData(cfRegionChoices);
+	__CloudFrontRegion_JComboBox.select ( 0 );
+	__CloudFrontRegion_JComboBox.addItemListener ( this );
+    JGUIUtil.addComponent(cf_JPanel, __CloudFrontRegion_JComboBox,
+		1, yCloudFront, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cf_JPanel, new JLabel("Optional - CloudFront AWS region (default=same as S3 region)."),
+		3, yCloudFront, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ( "CloudFront distribution ID:"),
+		0, ++yCloudFront, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__CloudFrontDistributionId_JComboBox = new SimpleJComboBox ( false );
+	__CloudFrontDistributionId_JComboBox.setToolTipText("AWS CloudFront distribution ID.");
+	// Choices will be populated when refreshed, based on profile.
+	__CloudFrontDistributionId_JComboBox.addActionListener ( this );
+    JGUIUtil.addComponent(cf_JPanel, __CloudFrontDistributionId_JComboBox,
+		1, yCloudFront, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cf_JPanel, new JLabel(
+		"Optional - distribution ID (specify the distribution using ID)."),
+		3, yCloudFront, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ( "CloudFront comment (description):"),
+        0, ++yCloudFront, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __CloudFrontComment_JTextField = new JTextField ( "", 30 );
+    __CloudFrontComment_JTextField.setToolTipText("Distribution comment (description) to match, use * for wildcard, ${Property} can be used.");
+    __CloudFrontComment_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(cf_JPanel, __CloudFrontComment_JTextField,
+        1, yCloudFront, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ( "Optional - comment to match (specify the distribution comment, e.g., *sub.domain*)."),
+        3, yCloudFront, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ( "Caller reference:"),
+        0, ++yCloudFront, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __CloudFrontCallerReference_JTextField = new JTextField ( "", 30 );
+    __CloudFrontCallerReference_JTextField.setToolTipText("Unique identifier for invalidation, to avoid duplicates, ${Property} can be used.");
+    __CloudFrontCallerReference_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(cf_JPanel, __CloudFrontCallerReference_JTextField,
+        1, yCloudFront, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ( "Optional - caller reference (default=user and current time)."),
+        3, yCloudFront, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ("Wait for completion?:"),
+        0, ++yCloudFront, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __CloudFrontWaitForCompletion_JComboBox = new SimpleJComboBox ( false );
+    __CloudFrontWaitForCompletion_JComboBox.add ( "" );
+    __CloudFrontWaitForCompletion_JComboBox.add ( __command._False );
+    __CloudFrontWaitForCompletion_JComboBox.add ( __command._True );
+    __CloudFrontWaitForCompletion_JComboBox.addItemListener ( this );
+    __CloudFrontWaitForCompletion_JComboBox.addKeyListener ( this );
+        JGUIUtil.addComponent(cf_JPanel, __CloudFrontWaitForCompletion_JComboBox,
+        1, yCloudFront, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cf_JPanel, new JLabel (
+        "Optional - wait for invalidation to complete (default=" + __command._True + ")."),
+        3, yCloudFront, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
     JGUIUtil.addComponent(main_JPanel, new JLabel ( "Command:" ),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
@@ -1214,6 +1257,9 @@ public void itemStateChanged ( ItemEvent e ) {
 	else if ( o == this.__Region_JComboBox ) {
         AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Bucket_JComboBox, true );
 	}
+	else if ( o == this.__CloudFrontRegion_JComboBox ) {
+		populateCloudFrontDistributionIdChoices();
+	}
 	refresh();
 }
 
@@ -1243,6 +1289,57 @@ public boolean ok () {
 }
 
 /**
+ * Populate the CloudFront distribution ID choices based no other selections.
+ */
+private void populateCloudFrontDistributionIdChoices() {
+	String routine = getClass().getSimpleName() + ".populateCloudFrontDistributionIdChoices";
+	boolean debug = true;
+	if ( awsSession == null ) {
+		// Startup - can't populate the buckets.
+		if ( debug ) {
+			Message.printStatus(2, routine, "Startup - not populating the list of distributions." );
+		}
+		return;
+	}
+	else {
+		if ( debug ) {
+			Message.printStatus(2, routine, "Getting the list of distributions." );
+		}
+		// Get the list of regions.
+		String region = getSelectedCloudFrontRegion();
+		if ( (region == null) || region.isEmpty() ) {
+			// Startup - can't populate the buckets.
+			if ( debug ) {
+				Message.printStatus(2, routine, "Region is null - can't populate the list of distributions." );
+			}
+			return;
+		}
+		else {
+			// Have a region.
+			if ( debug ) {
+				Message.printStatus(2, routine, "Region is \"" + region + "\" - populating the list of CloudFront distributions." );
+			}
+			List<DistributionSummary> distributions = AwsToolkit.getInstance().getCloudFrontDistributions(awsSession, region);
+			List<String> distributionIdChoices = new ArrayList<>();
+			for ( DistributionSummary distribution : distributions ) {
+				distributionIdChoices.add ( distribution.id() );
+				if ( debug ) {
+					Message.printStatus(2, routine, "Populated CloudFront distributions: " + distribution.comment() );
+				}
+			}
+			Collections.sort(distributionIdChoices);
+			// Add a blank because may specify using a comment or may not use invalidations with the command.
+			distributionIdChoices.add(0,"");
+			__CloudFrontDistributionId_JComboBox.setData(distributionIdChoices);
+			if ( __CloudFrontDistributionId_JComboBox.getItemCount() > 0 ) {
+				// Select the first bucket by default.
+				__CloudFrontDistributionId_JComboBox.select ( 0 );
+			}
+		}
+	}
+}
+
+/**
 Refresh the command from the other text field contents.
 */
 private void refresh () {
@@ -1250,20 +1347,24 @@ private void refresh () {
 	String Profile = "";
 	String Region = "";
 	String Bucket = "";
-	String StartingPrefix = "";
-	String ProcessSubdirectories = "";
-	String CatalogFile = "";
-	String CatalogIndexFile = "";
-	String UploadCatalogFiles = "";
+	String StartingFolder = "";
+	String ProcessSubfolders = "";
 	String DistributionId = "";
 	String DatasetIndexFile = "";
 	String DatasetIndexHeadFile = "";
 	String DatasetIndexBodyFile = "";
 	String DatasetIndexFooterFile = "";
-	String UploadDatasetFiles = "";
-	String OutputTableID = "";
+	String UploadFiles = "";
+	//String OutputTableID = "";
 	String KeepFiles = "";
-	String IfInputNotFound = "";
+	//String IfInputNotFound = "";
+	// CloudFront.
+	String InvalidateCloudFront = "";
+	String CloudFrontRegion = "";
+	String CloudFrontDistributionId = "";
+	String CloudFrontComment = "";
+	String CloudFrontCallerReference = "";
+    String CloudFrontWaitForCompletion = "";
     PropList parameters = null;
 	if ( __first_time ) {
 		__first_time = false;
@@ -1271,20 +1372,24 @@ private void refresh () {
 		Profile = parameters.getValue ( "Profile" );
 		Region = parameters.getValue ( "Region" );
 		Bucket = parameters.getValue ( "Bucket" );
-		StartingPrefix = parameters.getValue ( "StartingPrefix" );
-		ProcessSubdirectories = parameters.getValue ( "ProcessSubdirectories" );
-		CatalogFile = parameters.getValue ( "CatalogFile" );
-		CatalogIndexFile = parameters.getValue ( "CatalogIndexFile" );
-		UploadCatalogFiles = parameters.getValue ( "UploadCatalogFiles" );
+		StartingFolder = parameters.getValue ( "StartingFolder" );
+		ProcessSubfolders = parameters.getValue ( "ProcessSubfolders" );
 		DistributionId = parameters.getValue ( "DistributionId" );
 		DatasetIndexFile = parameters.getValue ( "DatasetIndexFile" );
 		DatasetIndexHeadFile = parameters.getValue ( "DatasetIndexHeadFile" );
 		DatasetIndexBodyFile = parameters.getValue ( "DatasetIndexBodyFile" );
 		DatasetIndexFooterFile = parameters.getValue ( "DatasetIndexFooterFile" );
-		UploadDatasetFiles = parameters.getValue ( "UploadDatasetFiles" );
-		OutputTableID = parameters.getValue ( "OutputTableID" );
+		UploadFiles = parameters.getValue ( "UploadFiles" );
+		//OutputTableID = parameters.getValue ( "OutputTableID" );
 		KeepFiles = parameters.getValue ( "KeepFiles" );
-		IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
+		//IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
+		// CloudFront
+		InvalidateCloudFront = parameters.getValue ( "InvalidateCloudFront" );
+		CloudFrontRegion = parameters.getValue ( "CloudFrontRegion" );
+		CloudFrontDistributionId = parameters.getValue ( "CloudFrontDistributionId" );
+		CloudFrontComment = parameters.getValue ( "CloudFrontComment" );
+		CloudFrontCallerReference = parameters.getValue ( "CloudFrontCallerReference" );
+    	CloudFrontWaitForCompletion = parameters.getValue ( "CloudFrontWaitForCompletion" );
 		if ( JGUIUtil.isSimpleJComboBoxItem(__Profile_JComboBox, Profile,JGUIUtil.NONE, null, null ) ) {
 			__Profile_JComboBox.select ( Profile );
 		}
@@ -1370,48 +1475,24 @@ private void refresh () {
 				"Bucket parameter \"" + Bucket + "\".  Select a value or Cancel." );
 			}
 		}
-        if ( StartingPrefix != null ) {
-            __StartingPrefix_JTextField.setText ( StartingPrefix );
+        if ( StartingFolder != null ) {
+            __StartingFolder_JTextField.setText ( StartingFolder );
         }
-		if ( JGUIUtil.isSimpleJComboBoxItem(__ProcessSubdirectories_JComboBox, ProcessSubdirectories,JGUIUtil.NONE, null, null ) ) {
-			__ProcessSubdirectories_JComboBox.select ( ProcessSubdirectories );
+		if ( JGUIUtil.isSimpleJComboBoxItem(__ProcessSubfolders_JComboBox, ProcessSubfolders,JGUIUtil.NONE, null, null ) ) {
+			__ProcessSubfolders_JComboBox.select ( ProcessSubfolders );
 		}
 		else {
-            if ( (ProcessSubdirectories == null) ||	ProcessSubdirectories.equals("") ) {
+            if ( (ProcessSubfolders == null) ||	ProcessSubfolders.equals("") ) {
 				// New command...select the default.
-				__ProcessSubdirectories_JComboBox.select ( 0 );
+				__ProcessSubfolders_JComboBox.select ( 0 );
 			}
 			else {
 				// Bad user command.
 				Message.printWarning ( 1, routine,
 				"Existing command references an invalid\n"+
-				"ProcessSubdirectories parameter \"" + ProcessSubdirectories + "\".  Select a value or Cancel." );
+				"ProcessSubfolders parameter \"" + ProcessSubfolders + "\".  Select a value or Cancel." );
 			}
 		}
-        if ( CatalogFile != null ) {
-            __CatalogFile_JTextField.setText ( CatalogFile );
-        }
-        if ( CatalogIndexFile != null ) {
-            __CatalogIndexFile_JTextField.setText ( CatalogIndexFile );
-        }
-		if ( JGUIUtil.isSimpleJComboBoxItem(__UploadCatalogFiles_JComboBox, UploadCatalogFiles,JGUIUtil.NONE, null, null ) ) {
-			__UploadCatalogFiles_JComboBox.select ( UploadCatalogFiles );
-		}
-		else {
-            if ( (UploadCatalogFiles == null) ||	UploadCatalogFiles.equals("") ) {
-				// New command...select the default.
-				__UploadCatalogFiles_JComboBox.select ( 0 );
-			}
-			else {
-				// Bad user command.
-				Message.printWarning ( 1, routine,
-				"Existing command references an invalid\n"+
-				"UploadCatalogFiles parameter \"" + UploadCatalogFiles + "\".  Select a value or Cancel." );
-			}
-		}
-        if ( DistributionId != null ) {
-            __DistributionId_JTextField.setText ( DistributionId );
-        }
         if ( DatasetIndexFile != null ) {
             __DatasetIndexFile_JTextField.setText ( DatasetIndexFile );
         }
@@ -1424,21 +1505,22 @@ private void refresh () {
         if ( DatasetIndexFooterFile != null ) {
             __DatasetIndexFooterFile_JTextField.setText ( DatasetIndexFooterFile );
         }
-		if ( JGUIUtil.isSimpleJComboBoxItem(__UploadDatasetFiles_JComboBox, UploadDatasetFiles,JGUIUtil.NONE, null, null ) ) {
-			__UploadDatasetFiles_JComboBox.select ( UploadDatasetFiles );
+		if ( JGUIUtil.isSimpleJComboBoxItem(__UploadFiles_JComboBox, UploadFiles,JGUIUtil.NONE, null, null ) ) {
+			__UploadFiles_JComboBox.select ( UploadFiles );
 		}
 		else {
-            if ( (UploadDatasetFiles == null) ||	UploadDatasetFiles.equals("") ) {
+            if ( (UploadFiles == null) || UploadFiles.equals("") ) {
 				// New command...select the default.
-				__UploadDatasetFiles_JComboBox.select ( 0 );
+				__UploadFiles_JComboBox.select ( 0 );
 			}
 			else {
 				// Bad user command.
 				Message.printWarning ( 1, routine,
 				"Existing command references an invalid\n"+
-				"UploadDatasetFiles parameter \"" + UploadDatasetFiles + "\".  Select a value or Cancel." );
+				"UploadFiles parameter \"" + UploadFiles + "\".  Select a value or Cancel." );
 			}
 		}
+		/*
         if ( OutputTableID == null ) {
             // Select default.
             __OutputTableID_JComboBox.select ( 0 );
@@ -1458,6 +1540,7 @@ private void refresh () {
                 __OutputTableID_JComboBox.select(0);
             }
         }
+        */
 		if ( JGUIUtil.isSimpleJComboBoxItem(__KeepFiles_JComboBox, KeepFiles,JGUIUtil.NONE, null, null ) ) {
 			__KeepFiles_JComboBox.select ( KeepFiles );
 		}
@@ -1473,6 +1556,7 @@ private void refresh () {
 				"KeepFiles parameter \"" + KeepFiles + "\".  Select a value or Cancel." );
 			}
 		}
+		/*
 		if ( JGUIUtil.isSimpleJComboBoxItem(__IfInputNotFound_JComboBox, IfInputNotFound,JGUIUtil.NONE, null, null ) ) {
 			__IfInputNotFound_JComboBox.select ( IfInputNotFound );
 		}
@@ -1488,8 +1572,112 @@ private void refresh () {
 				"IfInputNotFound parameter \"" + IfInputNotFound + "\".  Select a value or Cancel." );
 			}
 		}
+		*/
 		// Set the tab to the input.
 		__main_JTabbedPane.setSelectedIndex(0);
+		if ( JGUIUtil.isSimpleJComboBoxItem(__InvalidateCloudFront_JComboBox, InvalidateCloudFront,JGUIUtil.NONE, null, null ) ) {
+			__InvalidateCloudFront_JComboBox.select ( InvalidateCloudFront );
+		}
+		else {
+            if ( (InvalidateCloudFront == null) ||	InvalidateCloudFront.equals("") ) {
+				// New command...select the default.
+				__InvalidateCloudFront_JComboBox.select ( 0 );
+			}
+			else {
+				// Bad user command.
+				Message.printWarning ( 1, routine,
+				"Existing command references an invalid\n"+
+				"InvalidateCloudFront parameter \"" + InvalidateCloudFront + "\".  Select a value or Cancel." );
+			}
+		}
+		// The CloudFrontRegion may or may not include a note following " - " so try to match with or without the note.
+        //int [] index = new int[1];
+        //Message.printStatus(2,routine,"Checking to see if CloudFrontRegion=\"" + CloudFrontRegion + "\" is a choice.");
+        // Choice values are similar to the following so need to parse by " - ", not just "-":
+        // - assume no match and try to match with and without note
+        inputOk = false;
+        if ( JGUIUtil.isSimpleJComboBoxItem(__CloudFrontRegion_JComboBox, CloudFrontRegion, JGUIUtil.CHECK_SUBSTRINGS, "seq: - ", 0, index, true ) ) {
+            // Existing command so select the matching choice.
+            //Message.printStatus(2,routine,"CloudFrontRegion=\"" + CloudFrontRegion + "\" was a choice, selecting index " + index[0] + "...");
+            __CloudFrontRegion_JComboBox.select(index[0]);
+           	inputOk = true;
+        }
+        else {
+            Message.printStatus(2,routine,"CloudFrontRegion=\"" + CloudFrontRegion + "\" was not a choice.");
+            if ( (CloudFrontRegion == null) || CloudFrontRegion.equals("") ) {
+                // New command...select the default.
+                // Populating the list above selects the default that is appropriate so no need to do here.
+            	inputOk = true;
+            }
+            else {
+                // Bad user command.
+            	inputOk = false;
+            }
+        }
+        if ( !inputOk ) {
+        	// Try matching without the note.
+			if ( JGUIUtil.isSimpleJComboBoxItem(__CloudFrontRegion_JComboBox, CloudFrontRegion,JGUIUtil.NONE, null, null ) ) {
+				__CloudFrontRegion_JComboBox.select ( CloudFrontRegion );
+				inputOk = true;
+			}
+			else {
+            	if ( (CloudFrontRegion == null) || CloudFrontRegion.equals("") ) {
+					// New command...select the default.
+            		if ( __CloudFrontRegion_JComboBox.getItemCount() > 0 ) {
+            			__CloudFrontRegion_JComboBox.select ( 0 );
+            			inputOk = true;
+            		}
+				}
+				else {
+					// Bad user command.
+            		inputOk = false;
+				}
+			}
+        }
+        if ( !inputOk ) {
+            Message.printWarning ( 1, routine, "Existing command references an invalid\n"+
+                "CloudFrontRegion parameter \"" + CloudFrontRegion + "\".  Select a\ndifferent value or Cancel." );
+        }
+		if ( JGUIUtil.isSimpleJComboBoxItem(__CloudFrontDistributionId_JComboBox, CloudFrontDistributionId,JGUIUtil.NONE, null, null ) ) {
+			__CloudFrontDistributionId_JComboBox.select ( CloudFrontDistributionId );
+		}
+		else {
+            if ( (CloudFrontDistributionId == null) || CloudFrontDistributionId.equals("") ) {
+				// New command...select the default.
+            	if ( __CloudFrontDistributionId_JComboBox.getItemCount() > 0 ) {
+            		__CloudFrontDistributionId_JComboBox.select ( 0 );
+            	}
+			}
+			else {
+				// Bad user command.
+				Message.printWarning ( 1, routine,
+				"Existing command references an invalid\n"+
+				"CloudFrontDistributionId parameter \"" + CloudFrontDistributionId + "\".  Select a value or Cancel." );
+			}
+		}
+        if ( CloudFrontComment != null ) {
+            __CloudFrontComment_JTextField.setText ( CloudFrontComment );
+        }
+        if ( CloudFrontCallerReference != null ) {
+            __CloudFrontCallerReference_JTextField.setText ( CloudFrontCallerReference );
+        }
+        if ( CloudFrontWaitForCompletion == null ) {
+            // Select default.
+            if ( __CloudFrontWaitForCompletion_JComboBox.getItemCount() > 0 ) {
+                __CloudFrontWaitForCompletion_JComboBox.select ( 0 );
+            }
+        }
+        else {
+            if ( JGUIUtil.isSimpleJComboBoxItem( __CloudFrontWaitForCompletion_JComboBox,CloudFrontWaitForCompletion, JGUIUtil.NONE, null, null ) ) {
+                __CloudFrontWaitForCompletion_JComboBox.select ( CloudFrontWaitForCompletion );
+            }
+            else {
+                Message.printWarning ( 1, routine,
+                "Existing command references an invalid CloudFrontWaitForCompletion value \"" + CloudFrontWaitForCompletion +
+                "\".  Select a different value or Cancel.");
+                __error_wait = true;
+            }
+        }
 	}
 	// Regardless, reset the command from the fields.
 	// This is only  visible information that has not been committed in the command.
@@ -1502,77 +1690,53 @@ private void refresh () {
 	if ( Bucket == null ) {
 		Bucket = "";
 	}
-	StartingPrefix = __StartingPrefix_JTextField.getText().trim();
-	ProcessSubdirectories = __ProcessSubdirectories_JComboBox.getSelected();
-	CatalogFile = __CatalogFile_JTextField.getText().trim();
-	CatalogIndexFile = __CatalogIndexFile_JTextField.getText().trim();
-	UploadCatalogFiles = __UploadCatalogFiles_JComboBox.getSelected();
-	DistributionId = __DistributionId_JTextField.getText().trim();
+	StartingFolder = __StartingFolder_JTextField.getText().trim();
+	ProcessSubfolders = __ProcessSubfolders_JComboBox.getSelected();
 	DatasetIndexFile = __DatasetIndexFile_JTextField.getText().trim();
 	DatasetIndexHeadFile = __DatasetIndexHeadFile_JTextField.getText().trim();
 	DatasetIndexBodyFile = __DatasetIndexBodyFile_JTextField.getText().trim();
 	DatasetIndexFooterFile = __DatasetIndexFooterFile_JTextField.getText().trim();
-	UploadDatasetFiles = __UploadDatasetFiles_JComboBox.getSelected();
-	OutputTableID = __OutputTableID_JComboBox.getSelected();
+	UploadFiles = __UploadFiles_JComboBox.getSelected();
+	//OutputTableID = __OutputTableID_JComboBox.getSelected();
 	KeepFiles = __KeepFiles_JComboBox.getSelected();
-	IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
+	//IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
+	// CloudFront
+    InvalidateCloudFront = __InvalidateCloudFront_JComboBox.getSelected();
+	CloudFrontRegion = getSelectedCloudFrontRegion();
+	CloudFrontDistributionId = __CloudFrontDistributionId_JComboBox.getSelected();
+	if ( CloudFrontDistributionId == null ) {
+		CloudFrontDistributionId = "";
+	}
+	CloudFrontComment = __CloudFrontComment_JTextField.getText().trim();
+	CloudFrontCallerReference = __CloudFrontCallerReference_JTextField.getText().trim();
+    CloudFrontWaitForCompletion = __CloudFrontWaitForCompletion_JComboBox.getSelected();
 	PropList props = new PropList ( __command.getCommandName() );
 	props.add ( "Profile=" + Profile );
 	props.add ( "Region=" + Region );
 	props.add ( "Bucket=" + Bucket );
-	props.add ( "StartingPrefix=" + StartingPrefix );
-	props.add ( "ProcessSubdirectories=" + ProcessSubdirectories );
-	props.add ( "CatalogFile=" + CatalogFile );
-	props.add ( "CatalogIndexFile=" + CatalogIndexFile );
-	props.add ( "UploadCatalogFiles=" + UploadCatalogFiles );
+	props.add ( "StartingFolder=" + StartingFolder );
+	props.add ( "ProcessSubfolders=" + ProcessSubfolders );
 	props.add ( "DistributionId=" + DistributionId );
 	props.add ( "DatasetIndexFile=" + DatasetIndexFile );
 	props.add ( "DatasetIndexHeadFile=" + DatasetIndexHeadFile );
 	props.add ( "DatasetIndexBodyFile=" + DatasetIndexBodyFile );
 	props.add ( "DatasetIndexFooterFile=" + DatasetIndexFooterFile );
-	props.add ( "UploadDatasetFiles=" + UploadDatasetFiles );
-	props.add ( "OutputTableID=" + OutputTableID );
+	props.add ( "UploadFiles=" + UploadFiles );
+	//props.add ( "OutputTableID=" + OutputTableID );
 	props.add ( "KeepFiles=" + KeepFiles );
-	props.add ( "IfInputNotFound=" + IfInputNotFound );
+	//props.add ( "IfInputNotFound=" + IfInputNotFound );
+	// CloudFront.
+	props.add ( "InvalidateCloudFront=" + InvalidateCloudFront);
+	props.add ( "CloudFrontRegion=" + CloudFrontRegion );
+	props.add ( "CloudFrontDistributionId=" + CloudFrontDistributionId );
+	props.add ( "CloudFrontComment=" + CloudFrontComment );
+	props.add ( "CloudFrontCallerReference=" + CloudFrontCallerReference );
+    props.add ( "CloudFrontWaitForCompletion=" + CloudFrontWaitForCompletion );
 	__command_JTextArea.setText( __command.toString(props) );
 	// Set the default values as FYI.
 	AwsToolkit.getInstance().uiPopulateProfileDefault(__ProfileDefault_JTextField, __ProfileDefaultNote_JLabel);
 	AwsToolkit.getInstance().uiPopulateRegionDefault( __Profile_JComboBox.getSelected(), __RegionDefault_JTextField, __RegionDefaultNote_JLabel);
 	// Check the path and determine what the label on the path button should be.
-    if ( __pathCatalogFile_JButton != null ) {
-		if ( (CatalogFile != null) && !CatalogFile.isEmpty() ) {
-			__pathCatalogFile_JButton.setEnabled ( true );
-			File f = new File ( CatalogFile );
-			if ( f.isAbsolute() ) {
-				__pathCatalogFile_JButton.setText ( __RemoveWorkingDirectory );
-				__pathCatalogFile_JButton.setToolTipText("Change path to relative to command file");
-			}
-			else {
-            	__pathCatalogFile_JButton.setText ( __AddWorkingDirectory );
-            	__pathCatalogFile_JButton.setToolTipText("Change path to absolute");
-			}
-		}
-		else {
-			__pathCatalogFile_JButton.setEnabled(false);
-		}
-    }
-    if ( __pathCatalogIndexFile_JButton != null ) {
-		if ( (CatalogIndexFile != null) && !CatalogIndexFile.isEmpty() ) {
-			__pathCatalogIndexFile_JButton.setEnabled ( true );
-			File f = new File ( CatalogIndexFile );
-			if ( f.isAbsolute() ) {
-				__pathCatalogIndexFile_JButton.setText ( __RemoveWorkingDirectory );
-				__pathCatalogIndexFile_JButton.setToolTipText("Change path to relative to command file");
-			}
-			else {
-            	__pathCatalogIndexFile_JButton.setText ( __AddWorkingDirectory );
-            	__pathCatalogIndexFile_JButton.setToolTipText("Change path to absolute");
-			}
-		}
-		else {
-			__pathCatalogIndexFile_JButton.setEnabled(false);
-		}
-    }
     if ( __pathDatasetIndexFile_JButton != null ) {
 		if ( (DatasetIndexFile != null) && !DatasetIndexFile.isEmpty() ) {
 			__pathDatasetIndexFile_JButton.setEnabled ( true );

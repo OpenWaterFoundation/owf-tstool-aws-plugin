@@ -408,5 +408,6 @@ Sometimes local files that are uploaded are not visible.
 
 *   [`AwsS3Catalog`](../AwsS3Catalog/AwsS3Catalog.md) command
 *   [`AwsCloudFront`](../AwsCloudFront/AwsCloudFront.md) command
+*   [`AwsS3LandingPage`](../AwsS3LandingPage/AwsS3LandingPage.md) command
 *   [`If`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/If/If/) command
 *   [`SetDebugLevel`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/SetDebugLevel/SetDebugLevel/) command

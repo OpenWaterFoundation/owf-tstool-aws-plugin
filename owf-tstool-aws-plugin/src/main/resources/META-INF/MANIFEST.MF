@@ -1,16 +1,19 @@
-Comment1: Manifest file to distribute with the
-Comment2: owf-trilynx-aws-plugin.jar file.
-Comment3: Maximum line length is 72 characters to avoid truncation.
-Comment4: Indent continued lines by a single space.
-Comment7: Command-Class1 is the path to a command class.
-Comment8: Increment the number as needed for the number of command classes.
-Comment9: Class-Path contains the dep/ folder for dependency jar files.
+Comment01: Manifest file to distribute with the
+Comment02: owf-tstool-aws-plugin.jar file.
+Comment03: Maximum line length is 72 characters to avoid truncation.
+Comment04: Indent continued lines by a single space.
+Comment05: Command-Class1 is the path to a command class.
+Comment06: Increment the number as needed for the number of command classes.
+Comment07: Class-Path contains the dep/ folder for dependency jar files.
+Comment08: For this plugin dependencies are AWS SKD jar files.
 manifest-Version: 1.0
 Command-Class1: org.openwaterfoundation.tstool.plugin.aws.
  commands.s3.AwsS3_Command
 Command-Class2: org.openwaterfoundation.tstool.plugin.aws.
  commands.s3.AwsS3Catalog_Command
 Command-Class3: org.openwaterfoundation.tstool.plugin.aws.
+ commands.s3.AwsS3LandingPage_Command
+Command-Class4: org.openwaterfoundation.tstool.plugin.aws.
  commands.cloudfront.AwsCloudFront_Command
 Class-Path: dep/
 

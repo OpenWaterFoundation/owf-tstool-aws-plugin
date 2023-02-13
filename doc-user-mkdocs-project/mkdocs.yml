@@ -15,6 +15,7 @@ nav:
   - AwsCloudFront: command-ref/AwsCloudFront/AwsCloudFront.md
   - AwsS3: command-ref/AwsS3/AwsS3.md
   - AwsS3Catalog: command-ref/AwsS3Catalog/AwsS3Catalog.md
+  - AwsS3LandingPage: command-ref/AwsS3LandingPage/AwsS3LandingPage.md
 - 'Appendix - Release Notes': appendix-release-notes/release-notes.md
 - 'Appendix - Install Plugin': appendix-install/install.md
 # ------- configuration properties ---------------

@@ -195,3 +195,5 @@ If there is an error, view the TSTool log file using the ***Tools / Diagnostics 
 ## See Also ##
 
 *   [`AwsS3`](../AwsS3/AwsS3.md) command
+*   [`AwsS3Catalog`](../AwsS3Catalog/AwsS3Catalog.md) command
+*   [`AwsS3LandingPage`](../AwsS3LandingPage/AwsS3LandingPage.md) command
