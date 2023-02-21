@@ -3479,283 +3479,58 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
 	/**
 	Return the string representation of the command.
+	@param parameters to include in the command
+	@return the string representation of the command
 	*/
 	public String toString ( PropList parameters ) {
-		if ( parameters == null ) {
-			return getCommandName() + "()";
-		}
-		// General.
-		String S3Command = parameters.getValue("S3Command");
-		String Profile = parameters.getValue("Profile");
-		String Region = parameters.getValue("Region");
-		String Bucket = parameters.getValue("Bucket");
-		// Copy.
-		String CopyFiles = parameters.getValue("CopyFiles");
-		String CopyBucket = parameters.getValue("CopyBucket");
-		String CopyObjectsCountProperty = parameters.getValue("CopyObjectsCountProperty");
-		// Delete.
-		String DeleteFiles = parameters.getValue("DeleteFiles");
-		String DeleteFolders = parameters.getValue("DeleteFolders");
-		String DeleteFoldersScope = parameters.getValue("DeleteFoldersScope");
-		String DeleteFoldersMinDepth = parameters.getValue("DeleteFoldersMinDepth");
-		// Download.
-		String DownloadFolders = parameters.getValue("DownloadFolders");
-		String DownloadFiles = parameters.getValue("DownloadFiles");
-		// List buckets.
-		String ListBucketsRegEx = parameters.getValue("ListBucketsRegEx");
-		String ListBucketsCountProperty = parameters.getValue("ListBucketsCountProperty");
-		// List bucket objects.
-		String ListObjectsScope = parameters.getValue("ListObjectsScope");
-		String Prefix = parameters.getValue("Prefix");
-		String Delimiter = parameters.getValue("Delimiter");
-		String ListObjectsRegEx = parameters.getValue("ListObjectsRegEx");
-		String ListFiles = parameters.getValue("ListFiles");
-		String ListFolders = parameters.getValue("ListFolders");
-		String MaxKeys = parameters.getValue("MaxKeys");
-		String MaxObjects = parameters.getValue("MaxObjects");
-		String ListObjectsCountProperty = parameters.getValue("ListObjectsCountProperty");
-		// Upload.
-		String UploadFolders = parameters.getValue("UploadFolders");
-		String UploadFiles = parameters.getValue("UploadFiles");
-		// Output.
-		String OutputTableID = parameters.getValue("OutputTableID");
-		String OutputFile = parameters.getValue("OutputFile");
-		String AppendOutput = parameters.getValue("AppendOutput");
-		// CloudFront.
-		String InvalidateCloudFront = parameters.getValue("InvalidateCloudFront");
-		String CloudFrontRegion = parameters.getValue("CloudFrontRegion");
-		String CloudFrontDistributionId = parameters.getValue("CloudFrontDistributionId");
-		String CloudFrontComment = parameters.getValue("CloudFrontComment");
-		String CloudFrontCallerReference = parameters.getValue("CloudFrontCallerReference");
-		String CloudFrontWaitForCompletion = parameters.getValue("CloudFrontWaitForCompletion");
-		String IfInputNotFound = parameters.getValue("IfInputNotFound");
-		StringBuffer b = new StringBuffer ();
-		// General.
-		if ( (S3Command != null) && (S3Command.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "S3Command=\"" + S3Command + "\"" );
-		}
-		if ( (Profile != null) && (Profile.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "Profile=\"" + Profile + "\"" );
-		}
-		if ( (Region != null) && (Region.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "Region=\"" + Region + "\"" );
-		}
-		if ( (Bucket != null) && (Bucket.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "Bucket=\"" + Bucket + "\"" );
-		}
-		// Copy.
-		if ( (CopyFiles != null) && (CopyFiles.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CopyFiles=\"" + CopyFiles + "\"");
-		}
-		if ( (CopyBucket != null) && (CopyBucket.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CopyBucket=\"" + CopyBucket + "\"");
-		}
-		if ( (CopyObjectsCountProperty != null) && (CopyObjectsCountProperty.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CopyObjectsCountProperty=\"" + CopyObjectsCountProperty + "\"");
-		}
-		// Delete.
-		if ( (DeleteFiles != null) && (DeleteFiles.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "DeleteFiles=\"" + DeleteFiles + "\"");
-		}
-		if ( (DeleteFolders != null) && (DeleteFolders.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "DeleteFolders=\"" + DeleteFolders + "\"");
-		}
-		if ( (DeleteFoldersScope != null) && (DeleteFoldersScope.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "DeleteFoldersScope=\"" + DeleteFoldersScope + "\"");
-		}
-		if ( (DeleteFoldersMinDepth != null) && (DeleteFoldersMinDepth.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "DeleteFoldersMinDepth=\"" + DeleteFoldersMinDepth + "\"");
-		}
-		// Download.
-		if ( (DownloadFolders != null) && (DownloadFolders.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "DownloadFolders=\"" + DownloadFolders + "\"");
-		}
-		if ( (DownloadFiles != null) && (DownloadFiles.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "DownloadFiles=\"" + DownloadFiles + "\"");
-		}
-		// List buckets.
-		if ( (ListBucketsRegEx != null) && (ListBucketsRegEx.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "ListBucketsRegEx=\"" + ListBucketsRegEx + "\"");
-		}
-		if ( (ListBucketsCountProperty != null) && (ListBucketsCountProperty.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "ListBucketsCountProperty=\"" + ListBucketsCountProperty + "\"");
-		}
-		// List bucket objects.
-		if ( (ListObjectsScope != null) && (ListObjectsScope.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "ListObjectsScope=" + ListObjectsScope );
-		}
-		if ( (Prefix != null) && (Prefix.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "Prefix=\"" + Prefix + "\"");
-		}
-		if ( (Delimiter != null) && (Delimiter.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "Delimiter=\"" + Delimiter + "\"");
-		}
-		if ( (ListObjectsRegEx != null) && (ListObjectsRegEx.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "ListObjectsRegEx=\"" + ListObjectsRegEx + "\"");
-		}
-		if ( (ListFiles != null) && (ListFiles.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "ListFiles=" + ListFiles );
-		}
-		if ( (ListFolders != null) && (ListFolders.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "ListFolders=" + ListFolders );
-		}
-		if ( (MaxKeys != null) && (MaxKeys.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "MaxKeys=" + MaxKeys );
-		}
-		if ( (MaxObjects != null) && (MaxObjects.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "MaxObjects=" + MaxObjects );
-		}
-		if ( (ListObjectsCountProperty != null) && (ListObjectsCountProperty.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "ListObjectsCountProperty=\"" + ListObjectsCountProperty + "\"");
-		}
-		// Upload.
-		if ( (UploadFolders != null) && (UploadFolders.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "UploadFolders=\"" + UploadFolders + "\"");
-		}
-		if ( (UploadFiles != null) && (UploadFiles.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "UploadFiles=\"" + UploadFiles + "\"");
-		}
-		// Output.
-    	if ( (OutputTableID != null) && (OutputTableID.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-        	b.append ( "OutputTableID=\"" + OutputTableID + "\"" );
-    	}
-    	if ( (OutputFile != null) && (OutputFile.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-        	b.append ( "OutputFile=\"" + OutputFile + "\"");
-    	}
-    	if ( (AppendOutput != null) && (AppendOutput.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-        	b.append ( "AppendOutput=\"" + AppendOutput + "\"");
-    	}
-    	// CloudFront.
-		if ( (InvalidateCloudFront!= null) && !InvalidateCloudFront.isEmpty() ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "InvalidateCloudFront=" + InvalidateCloudFront);
-		}
-		if ( (CloudFrontRegion != null) && (CloudFrontRegion.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CloudFrontRegion=\"" + CloudFrontRegion + "\"" );
-		}
-		if ( (CloudFrontDistributionId != null) && !CloudFrontDistributionId.isEmpty() ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CloudFrontDistributionId=\"" + CloudFrontDistributionId + "\"" );
-		}
-		if ( (CloudFrontComment != null) && !CloudFrontComment.isEmpty() ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CloudFrontComment=\"" + CloudFrontComment + "\"" );
-		}
-		if ( (CloudFrontCallerReference != null) && !CloudFrontCallerReference.isEmpty() ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CloudFrontCallerReference=\"" + CloudFrontCallerReference + "\"" );
-		}
-		if ( (CloudFrontWaitForCompletion != null) && !CloudFrontWaitForCompletion.isEmpty() ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CloudFrontWaitForCompletion=" + CloudFrontWaitForCompletion );
-		}
-		if ( (IfInputNotFound != null) && !IfInputNotFound.isEmpty() ) {
-			if ( b.length() > 0 ) {
-				b.append ( "," );
-			}
-			b.append ( "IfInputNotFound=" + IfInputNotFound );
-		}
-		return getCommandName() + "(" + b.toString() + ")";
+		String [] parameterOrder = {
+			// General.
+			"S3Command",
+			"Profile",
+			"Region",
+			"Bucket",
+			// Copy.
+			"CopyFiles",
+			"CopyBucket",
+			"CopyObjectsCountProperty",
+			// Delete.
+			"DeleteFiles",
+			"DeleteFolders",
+			"DeleteFoldersScope",
+			"DeleteFoldersMinDepth",
+			// Download.
+			"DownloadFolders",
+			"DownloadFiles",
+			// List buckets.
+			"ListBucketsRegEx",
+			"ListBucketsCountProperty",
+			// List bucket objects.
+			"ListObjectsScope",
+			"Prefix",
+			"Delimiter",
+			"ListObjectsRegEx",
+			"ListFiles",
+			"ListFolders",
+			"MaxKeys",
+			"MaxObjects",
+			"ListObjectsCountProperty",
+			// Upload.
+			"UploadFolders",
+			"UploadFiles",
+			// Output.
+			"OutputTableID",
+			"OutputFile",
+			"AppendOutput",
+			// CloudFront.
+			"InvalidateCloudFront",
+			"CloudFrontRegion",
+			"CloudFrontDistributionId",
+			"CloudFrontComment",
+			"CloudFrontCallerReference",
+			"CloudFrontWaitForCompletion",
+			"IfInputNotFound"
+		};
+		return this.toString(parameters, parameterOrder);
 	}
 
 }
