@@ -1934,179 +1934,43 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
 	/**
 	Return the string representation of the command.
+	@param parameters to include in the command
+	@return the string representation of the command
 	*/
 	public String toString ( PropList parameters ) {
-		if ( parameters == null ) {
-			return getCommandName() + "()";
-		}
-		// AWS S3.
-		String Profile = parameters.getValue("Profile");
-		String Region = parameters.getValue("Region");
-		String Bucket = parameters.getValue("Bucket");
-		//String MaxKeys = parameters.getValue("MaxKeys");
-		// Dataset.
-		String DatasetIndexFile = parameters.getValue("DatasetIndexFile");
-		String StartingFolder = parameters.getValue("StartingFolder");
-		String ProcessSubfolders = parameters.getValue("ProcessSubfolders");
-		String KeepFiles = parameters.getValue("KeepFiles");
-		String UploadFiles = parameters.getValue("UploadFiles");
-		//String MaxObjects = parameters.getValue("MaxObjects");
-		String DatasetIndexHeadFile = parameters.getValue("DatasetIndexHeadFile");
-		String DatasetIndexBodyFile = parameters.getValue("DatasetIndexBodyFile");
-		String DatasetIndexFooterFile = parameters.getValue("DatasetIndexFooterFile");
-		// Catalog.
-		//String CatalogFile = parameters.getValue("CatalogFile");
-		//String CatalogIndexFile = parameters.getValue("CatalogIndexFile");
-		//String UploadCatalogFiles = parameters.getValue("UploadCatalogFiles");
-		// Output.
-		//String OutputTableID = parameters.getValue("OutputTableID");
-		//String IfInputNotFound = parameters.getValue("IfInputNotFound");
-		// CloudFront.
-		String InvalidateCloudFront = parameters.getValue("InvalidateCloudFront");
-		String CloudFrontRegion = parameters.getValue("CloudFrontRegion");
-		String CloudFrontDistributionId = parameters.getValue("CloudFrontDistributionId");
-		String CloudFrontComment = parameters.getValue("CloudFrontComment");
-		String CloudFrontCallerReference = parameters.getValue("CloudFrontCallerReference");
-		String CloudFrontWaitForCompletion = parameters.getValue("CloudFrontWaitForCompletion");
-		//String IfInputNotFound = parameters.getValue("IfInputNotFound");
-
-		StringBuffer b = new StringBuffer ();
-		if ( (Profile != null) && (Profile.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "Profile=\"" + Profile + "\"" );
-		}
-		if ( (Region != null) && (Region.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "Region=\"" + Region + "\"" );
-		}
-		if ( (Bucket != null) && (Bucket.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "Bucket=\"" + Bucket + "\"" );
-		}
-		/*
-		if ( (MaxKeys != null) && (MaxKeys.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "MaxKeys=" + MaxKeys );
-		}
-		*/
-    	if ( (DatasetIndexFile != null) && (DatasetIndexFile.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-        	b.append ( "DatasetIndexFile=\"" + DatasetIndexFile + "\"");
-    	}
-		if ( (StartingFolder != null) && (StartingFolder.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "StartingFolder=\"" + StartingFolder + "\"" );
-		}
-		if ( (ProcessSubfolders != null) && (ProcessSubfolders.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "ProcessSubfolders=" + ProcessSubfolders );
-		}
-		if ( (KeepFiles != null) && (KeepFiles.length() > 0) ) {
-			if ( b.length() > 0 ) {
-				b.append ( "," );
-			}
-			b.append ( "KeepFiles=" + KeepFiles );
-		}
-		if ( (UploadFiles != null) && (UploadFiles.length() > 0) ) {
-			if ( b.length() > 0 ) {
-				b.append ( "," );
-			}
-			b.append ( "UploadFiles=" + UploadFiles );
-		}
-		/*
-		if ( (MaxObjects != null) && (MaxObjects.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "MaxObjects=" + MaxObjects );
-		}
-		*/
-    	if ( (DatasetIndexHeadFile != null) && (DatasetIndexHeadFile.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-        	b.append ( "DatasetIndexHeadFile=\"" + DatasetIndexHeadFile + "\"");
-    	}
-    	if ( (DatasetIndexBodyFile != null) && (DatasetIndexBodyFile.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-        	b.append ( "DatasetIndexBodyFile=\"" + DatasetIndexBodyFile + "\"");
-    	}
-    	if ( (DatasetIndexFooterFile != null) && (DatasetIndexFooterFile.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-        	b.append ( "DatasetIndexFooterFile=\"" + DatasetIndexFooterFile + "\"");
-    	}
-    	/*
-    	if ( (OutputTableID != null) && (OutputTableID.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-        	b.append ( "OutputTableID=\"" + OutputTableID + "\"" );
-    	}
-    	*/
-		/*
-		if ( (IfInputNotFound != null) && (IfInputNotFound.length() > 0) ) {
-			if ( b.length() > 0 ) {
-				b.append ( "," );
-			}
-			b.append ( "IfInputNotFound=" + IfInputNotFound );
-		}
-		*/
-    	// CloudFront.
-		if ( (InvalidateCloudFront!= null) && !InvalidateCloudFront.isEmpty() ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "InvalidateCloudFront=" + InvalidateCloudFront);
-		}
-		if ( (CloudFrontRegion != null) && (CloudFrontRegion.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CloudFrontRegion=\"" + CloudFrontRegion + "\"" );
-		}
-		if ( (CloudFrontDistributionId != null) && !CloudFrontDistributionId.isEmpty() ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CloudFrontDistributionId=\"" + CloudFrontDistributionId + "\"" );
-		}
-		if ( (CloudFrontComment != null) && !CloudFrontComment.isEmpty() ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CloudFrontComment=\"" + CloudFrontComment + "\"" );
-		}
-		if ( (CloudFrontCallerReference != null) && !CloudFrontCallerReference.isEmpty() ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CloudFrontCallerReference=\"" + CloudFrontCallerReference + "\"" );
-		}
-		if ( (CloudFrontWaitForCompletion != null) && !CloudFrontWaitForCompletion.isEmpty() ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CloudFrontWaitForCompletion=" + CloudFrontWaitForCompletion );
-		}
-		return getCommandName() + "(" + b.toString() + ")";
+		String [] parameterOrder = {
+			// AWS S3.
+			"Profile",
+			"Region",
+			"Bucket",
+			//"MaxKeys",
+			// Dataset.
+			"DatasetIndexFile",
+			"StartingFolder",
+			"ProcessSubfolders",
+			"KeepFiles",
+			"UploadFiles",
+			//("MaxObjects");
+			"DatasetIndexHeadFile",
+			"DatasetIndexBodyFile",
+			"DatasetIndexFooterFile",
+			// Catalog.
+			//"CatalogFile",
+			//"CatalogIndexFile",
+			//"UploadCatalogFiles",
+			// Output.
+			//"OutputTableID",
+			//"IfInputNotFound",
+			// CloudFront.
+			"InvalidateCloudFront",
+			"CloudFrontRegion",
+			"CloudFrontDistributionId",
+			"CloudFrontComment",
+			"CloudFrontCallerReference",
+			"CloudFrontWaitForCompletion",
+			//"IfInputNotFound");
+		};
+		return this.toString(parameters, parameterOrder);
 	}
 
 	/**

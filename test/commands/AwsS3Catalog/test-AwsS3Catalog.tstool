@@ -1,4 +1,6 @@
 StartLog(LogFile="results/test-AwsS3Catalog.tstool.log")
+# Disable the test until the command is enabled.
+#@enabled False
 # Test AwsS3Catalog command:
 # - use the 'test.openwaterfoundation.org' bucket
 # - AWS permissions are required to run the tests
@@ -32,7 +34,7 @@ StartLog(LogFile="results/test-AwsS3Catalog.tstool.log")
 # Use the following for local review:
 # - use Temp folder CSS
 # AwsS3Catalog(Region="us-west-2",Bucket="test.openwaterfoundation.org",StartingPrefix="data/state/co",DatasetIndexFile="Temp",OutputTableID="Datasets",KeepFiles=True)
-AwsS3LandingPage(Region="us-west-2",Bucket="test.openwaterfoundation.org",DatasetIndexFile="Temp.html",KeepFiles=True)
+AwsS3LandingPage(Region="us-west-2",Bucket="test.openwaterfoundation.org",DatasetIndexFile="Temp.html",KeepFiles="True")
 #
 # Use the following for production upload:
 # - CSS file is at the root of the server

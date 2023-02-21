@@ -1831,154 +1831,36 @@ private void setDiscoveryTable ( DataTable table ) {
 
 /**
 Return the string representation of the command.
+@param parameters to include in the command
+@return the string representation of the command
 */
 public String toString ( PropList parameters ) {
-	if ( parameters == null ) {
-		return getCommandName() + "()";
-	}
-	// General.
-	String Profile = parameters.getValue("Profile");
-	String Region = parameters.getValue("Region");
-	String Bucket = parameters.getValue("Bucket");
-	//String MaxKeys = parameters.getValue("MaxKeys");
-	String StartingPrefix = parameters.getValue("StartingPrefix");
-	String ProcessSubdirectories = parameters.getValue("ProcessSubdirectories");
-	//String MaxObjects = parameters.getValue("MaxObjects");
-	// Dataset.
-	String DatasetIndexFile = parameters.getValue("DatasetIndexFile");
-	String DatasetIndexHeadFile = parameters.getValue("DatasetIndexHeadFile");
-	String DatasetIndexBodyFile = parameters.getValue("DatasetIndexBodyFile");
-	String DatasetIndexFooterFile = parameters.getValue("DatasetIndexFooterFile");
-	String UploadDatasetFiles = parameters.getValue("UploadDatasetFiles");
-	// Catalog.
-	String CatalogFile = parameters.getValue("CatalogFile");
-	String CatalogIndexFile = parameters.getValue("CatalogIndexFile");
-	String UploadCatalogFiles = parameters.getValue("UploadCatalogFiles");
-	String DistributionId = parameters.getValue("DistributionId");
-	// Output.
-	String OutputTableID = parameters.getValue("OutputTableID");
-	String KeepFiles = parameters.getValue("KeepFiles");
-	String IfInputNotFound = parameters.getValue("IfInputNotFound");
-	StringBuffer b = new StringBuffer ();
-	if ( (Profile != null) && (Profile.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-		b.append ( "Profile=\"" + Profile + "\"" );
-	}
-	if ( (Region != null) && (Region.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-		b.append ( "Region=\"" + Region + "\"" );
-	}
-	if ( (Bucket != null) && (Bucket.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-		b.append ( "Bucket=\"" + Bucket + "\"" );
-	}
-	/*
-	if ( (MaxKeys != null) && (MaxKeys.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-		b.append ( "MaxKeys=" + MaxKeys );
-	}
-	*/
-	if ( (StartingPrefix != null) && (StartingPrefix.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-		b.append ( "StartingPrefix=\"" + StartingPrefix + "\"" );
-	}
-	if ( (ProcessSubdirectories != null) && (ProcessSubdirectories.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-		b.append ( "ProcessSubdirectories=" + ProcessSubdirectories );
-	}
-	/*
-	if ( (MaxObjects != null) && (MaxObjects.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-		b.append ( "MaxObjects=" + MaxObjects );
-	}
-	*/
-    if ( (DatasetIndexFile != null) && (DatasetIndexFile.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-        b.append ( "DatasetIndexFile=\"" + DatasetIndexFile + "\"");
-    }
-    if ( (DatasetIndexHeadFile != null) && (DatasetIndexHeadFile.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-        b.append ( "DatasetIndexHeadFile=\"" + DatasetIndexHeadFile + "\"");
-    }
-    if ( (DatasetIndexBodyFile != null) && (DatasetIndexBodyFile.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-        b.append ( "DatasetIndexBodyFile=\"" + DatasetIndexBodyFile + "\"");
-    }
-    if ( (DatasetIndexFooterFile != null) && (DatasetIndexFooterFile.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-        b.append ( "DatasetIndexFooterFile=\"" + DatasetIndexFooterFile + "\"");
-    }
-	if ( (UploadDatasetFiles != null) && (UploadDatasetFiles.length() > 0) ) {
-		if ( b.length() > 0 ) {
-			b.append ( "," );
-		}
-		b.append ( "UploadDatasetFiles=" + UploadDatasetFiles );
-	}
-    if ( (CatalogFile != null) && (CatalogFile.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-        b.append ( "CatalogFile=\"" + CatalogFile + "\"");
-    }
-    if ( (CatalogIndexFile != null) && (CatalogIndexFile.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-        b.append ( "CatalogIndexFile=\"" + CatalogIndexFile + "\"");
-    }
-	if ( (UploadCatalogFiles != null) && (UploadCatalogFiles.length() > 0) ) {
-		if ( b.length() > 0 ) {
-			b.append ( "," );
-		}
-		b.append ( "UploadCatalogFiles=" + UploadCatalogFiles );
-	}
-    if ( (DistributionId != null) && (DistributionId.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-        b.append ( "DistributionId=\"" + DistributionId + "\"");
-    }
-    if ( (OutputTableID != null) && (OutputTableID.length() > 0) ) {
-        if ( b.length() > 0 ) {
-            b.append ( "," );
-        }
-        b.append ( "OutputTableID=\"" + OutputTableID + "\"" );
-    }
-	if ( (KeepFiles != null) && (KeepFiles.length() > 0) ) {
-		if ( b.length() > 0 ) {
-			b.append ( "," );
-		}
-		b.append ( "KeepFiles=" + KeepFiles );
-	}
-	if ( (IfInputNotFound != null) && (IfInputNotFound.length() > 0) ) {
-		if ( b.length() > 0 ) {
-			b.append ( "," );
-		}
-		b.append ( "IfInputNotFound=" + IfInputNotFound );
-	}
-	return getCommandName() + "(" + b.toString() + ")";
+	String [] parameterOrder = {
+		// General.
+		"Profile",
+		"Region",
+		"Bucket",
+		//"MaxKeys",
+		"StartingPrefix",
+		"ProcessSubdirectories",
+		//"MaxObjects",
+		// Dataset.
+		"DatasetIndexFile",
+		"DatasetIndexHeadFile",
+		"DatasetIndexBodyFile",
+		"DatasetIndexFooterFile",
+		"UploadDatasetFiles",
+		// Catalog.
+		"CatalogFile",
+		"CatalogIndexFile",
+		"UploadCatalogFiles",
+		"DistributionId",
+		// Output.
+		"OutputTableID",
+		"KeepFiles",
+		"IfInputNotFound"
+	};
+	return this.toString(parameters, parameterOrder);
 }
 
 /**

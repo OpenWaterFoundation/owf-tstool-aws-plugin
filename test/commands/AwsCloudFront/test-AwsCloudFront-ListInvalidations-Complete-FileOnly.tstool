@@ -13,10 +13,11 @@ AwsCloudFront(CloudFrontCommand="ListInvalidations",Region="aws-global",Comment=
 # - should be > 5 for the Completed invalidations
 # - assumes that TSTool runs quickly and invalidation takes a little time
 If(Name="IfCheck",Condition="${TestListInvalidationsCount} < 5")
-Message(Message="There should be at least 5 Completed invalidations (have ${TestListInvalidationsCount}).",CommandStatus=FAILURE)
+Message(Message="There should be at least 5 Completed invalidations (have ${TestListInvalidationsCount}).",CommandStatus="FAILURE")
 EndIf(Name="IfCheck")
 #
 # Compare output files:
+# - the following will show warnings because new invalidations will be added over time
 # - uncomment the following command to save expected results
 # CopyFile(InputFile="results/test-AwsCloudFront-ListInvalidations-Complete-FileOnly-out.csv",OutputFile="expected-results/test-AwsCloudFront-ListInvalidations-Complete-FileOnly-out.csv")
-CompareFiles(InputFile1="expected-results/test-AwsCloudFront-ListInvalidations-Complete-FileOnly-out.csv",InputFile2="results/test-AwsCloudFront-ListInvalidations-Complete-FileOnly-out.csv",IfDifferent=Warn)
+# CompareFiles(InputFile1="expected-results/test-AwsCloudFront-ListInvalidations-Complete-FileOnly-out.csv",InputFile2="results/test-AwsCloudFront-ListInvalidations-Complete-FileOnly-out.csv",IfDifferent="Warn")

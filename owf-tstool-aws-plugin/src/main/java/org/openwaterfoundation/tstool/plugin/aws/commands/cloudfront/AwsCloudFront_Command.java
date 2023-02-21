@@ -1124,111 +1124,27 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 
 	/**
 	Return the string representation of the command.
+	@param parameters to include in the command
+	@return the string representation of the command
 	*/
 	public String toString ( PropList parameters ) {
-		if ( parameters == null ) {
-			return getCommandName() + "()";
-		}
-		String CloudFrontCommand = parameters.getValue("CloudFrontCommand");
-		String Profile = parameters.getValue("Profile");
-		String Region = parameters.getValue("Region");
-		String DistributionId = parameters.getValue("DistributionId");
-		String Comment = parameters.getValue("Comment");
-		String InvalidationPaths = parameters.getValue("InvalidationPaths");
-		String CallerReference = parameters.getValue("CallerReference");
-		String WaitForCompletion = parameters.getValue("WaitForCompletion");
-		String ListDistributionsCountProperty = parameters.getValue("ListDistributionsCountProperty");
-		String InvalidationStatus = parameters.getValue("InvalidationStatus");
-		String ListInvalidationsCountProperty = parameters.getValue("ListInvalidationsCountProperty");
-		String OutputTableID = parameters.getValue("OutputTableID");
-		String OutputFile = parameters.getValue("OutputFile");
-		String IfInputNotFound = parameters.getValue("IfInputNotFound");
-		StringBuffer b = new StringBuffer ();
-		if ( (CloudFrontCommand != null) && (CloudFrontCommand.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CloudFrontCommand=\"" + CloudFrontCommand + "\"" );
-		}
-		if ( (Profile != null) && (Profile.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "Profile=\"" + Profile + "\"" );
-		}
-		if ( (Region != null) && (Region.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "Region=\"" + Region + "\"" );
-		}
-		if ( (DistributionId != null) && (DistributionId.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "DistributionId=\"" + DistributionId + "\"" );
-		}
-		if ( (Comment != null) && (Comment.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "Comment=\"" + Comment + "\"" );
-		}
-		if ( (InvalidationPaths != null) && (InvalidationPaths.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "InvalidationPaths=\"" + InvalidationPaths + "\"");
-		}
-		if ( (CallerReference != null) && (CallerReference.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "CallerReference=\"" + CallerReference + "\"" );
-		}
-		if ( (WaitForCompletion != null) && (WaitForCompletion.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-			b.append ( "WaitForCompletion=" + WaitForCompletion );
-		}
-    	if ( (ListDistributionsCountProperty != null) && (ListDistributionsCountProperty.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-        	b.append ( "ListDistributionsCountProperty=\"" + ListDistributionsCountProperty + "\"" );
-    	}
-    	if ( (InvalidationStatus != null) && (InvalidationStatus.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-        	b.append ( "InvalidationStatus=\"" + InvalidationStatus + "\"" );
-    	}
-    	if ( (ListInvalidationsCountProperty != null) && (ListInvalidationsCountProperty.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-        	b.append ( "ListInvalidationsCountProperty=\"" + ListInvalidationsCountProperty + "\"" );
-    	}
-    	if ( (OutputTableID != null) && (OutputTableID.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-        	b.append ( "OutputTableID=\"" + OutputTableID + "\"" );
-    	}
-    	if ( (OutputFile != null) && (OutputFile.length() > 0) ) {
-        	if ( b.length() > 0 ) {
-            	b.append ( "," );
-        	}
-        	b.append ( "OutputFile=\"" + OutputFile + "\"");
-    	}
-		if ( (IfInputNotFound != null) && (IfInputNotFound.length() > 0) ) {
-			if ( b.length() > 0 ) {
-				b.append ( "," );
-			}
-			b.append ( "IfInputNotFound=" + IfInputNotFound );
-		}
-		return getCommandName() + "(" + b.toString() + ")";
+		String [] parameterOrder = {
+			"CloudFrontCommand",
+			"Profile",
+			"Region",
+			"DistributionId",
+			"Comment",
+			"InvalidationPaths",
+			"CallerReference",
+			"WaitForCompletion",
+			"ListDistributionsCountProperty",
+			"InvalidationStatus",
+			"ListInvalidationsCountProperty",
+			"OutputTableID",
+			"OutputFile",
+			"IfInputNotFound"
+		};
+		return this.toString(parameters, parameterOrder);
 	}
 	
 }

@@ -6,12 +6,20 @@ See the [TSTool release notes](http://opencdss.state.co.us/tstool/latest/doc-use
 
 Plugin release notes:
 
-* [Version 1.2.0](#version-120)
-* [Version 1.1.1](#version-111)
-* [Version 1.1.0](#version-110)
-* [Version 1.0.0](#version-100)
+*   [Version 1.3.0](#version-130)
+*   [Version 1.2.0](#version-120)
+*   [Version 1.1.1](#version-111)
+*   [Version 1.1.0](#version-110)
+*   [Version 1.0.0](#version-100)
 
 ----------
+
+## Version 1.3.0 ##
+
+**Feature release to add command indentation, compatible with TSTool 14.6.0.**
+
+*   ![change](change.png) [1.3.0] Update the plugin commands to implement command indentation
+    compatible with TSTool 14.6.0 command indentation features.
 
 ## Version 1.2.0 ##
 

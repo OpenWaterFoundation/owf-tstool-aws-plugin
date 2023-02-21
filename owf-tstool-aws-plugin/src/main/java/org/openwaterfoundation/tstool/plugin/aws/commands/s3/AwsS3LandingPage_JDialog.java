@@ -1732,7 +1732,7 @@ private void refresh () {
 	props.add ( "CloudFrontComment=" + CloudFrontComment );
 	props.add ( "CloudFrontCallerReference=" + CloudFrontCallerReference );
     props.add ( "CloudFrontWaitForCompletion=" + CloudFrontWaitForCompletion );
-	__command_JTextArea.setText( __command.toString(props) );
+	__command_JTextArea.setText( __command.toString(props).trim() );
 	// Set the default values as FYI.
 	AwsToolkit.getInstance().uiPopulateProfileDefault(__ProfileDefault_JTextField, __ProfileDefaultNote_JLabel);
 	AwsToolkit.getInstance().uiPopulateRegionDefault( __Profile_JComboBox.getSelected(), __RegionDefault_JTextField, __RegionDefaultNote_JLabel);
