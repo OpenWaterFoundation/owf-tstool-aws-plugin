@@ -79,22 +79,30 @@ createIndexHtmlFiles() {
   # - include Google Analytics for OWF
   indexHtmlTmpFile="/tmp/${USER}-tstool-aws-plugin-index.html"
   s3IndexHtmlUrl="${s3FolderUrl}/index.html"
+  indexFaviconFile="OWF-Logo-Favicon-32x32.png"
+  s3IndexFaviconUrl="${s3FolderUrl}/${indexFaviconFile}"
   echo '<!DOCTYPE html>
-<head>
+<head>' > ${indexHtmlTmpFile}
+  echo "<link rel=\"icon\" type=\"image/x-icon\" href=\"${indexFaviconFile}\">" >> ${indexHtmlTmpFile}
+  echo '
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<meta charset="utf-8"/>' > ${indexHtmlTmpFile}
-echo "<!-- Global Site Tag (gtag.js) - Google Analytics -->
-<script async src=\"https://www.googletagmanager.com/gtag/js?id=UA-135465513-1\"></script>
+<meta charset="utf-8"/>' >> ${indexHtmlTmpFile}
+
+echo "
+<!-- Start Google Analytics 4 property. -->
+<script async src=\"https://www.googletagmanager.com/gtag/js?id=G-KJFMBY739T\"></script>
 <script>
 window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
+gtag('config', 'G-KJFMBY739T');
+</script>
+<!-- End Google Analytics 4 property. -->" >> ${indexHtmlTmpFile}
 
-gtag('config', 'UA-135465513-1');
-</script>" >> ${indexHtmlTmpFile}
-echo '<style>
+echo '
+<style>
    body {
      font-family: "Trebuchet MS", Helvetica, sans-serif !important;
    }
@@ -117,9 +125,11 @@ echo '<style>
      padding: 3px;
    }
 </style>
+
 <title>TSTool AWS Plugin Downloads</title>
-<link rel="icon" type="image/x-icon" href="/images/OWF-Logo-Favicon-32x32.png">
-</head>
+</head>' >> ${indexHtmlTmpFile}
+
+echo '
 <body>
 <h1>Open Water Foundation TSTool AWS Plugin Software Downloads</h1>
 <p>
@@ -136,10 +146,11 @@ The same installer can also be installed on Linux.
      </ul></li>
 <li> See the latest <a href="https://software.openwaterfoundation.org/tstool-aws-plugin/latest/doc-user/appendix-install/install/">TSTool AWS Plugin installation documentation</a>
      for installation information (or follow a link below for specific version documentation).</li>
-<li>The TSTool AWS Plugin requires that TSTool is also installed if not already installed:</li>
+<li>The TSTool AWS Plugin requires that TSTool is also installed if not already installed:
     <ul>
     <li><a href="https://opencdss.state.co.us/tstool/">Download TSTool</a>.</li>
     </ul>
+    </li>
 <li><b>If clicking on a file download link does not download the file, right-click on the link and use "Save link as..." (or similar).</b></li>
 </ul>
 
@@ -163,8 +174,13 @@ Contact OWF if additional help is needed.</p>
 
 <hr>' >> ${indexHtmlTmpFile}
 
-  # Generate a table of available versions for Windows.
-  #createIndexHtmlFile_Table lin
+  # Generate a table of available versions for Linux:
+  # - currently don't need this because one plugin works for Windows and Linux
+
+echo '
+</body>
+</html>' >> ${indexHtmlTmpFile}
+
 }
 
 # Create a table of downloads for an operating system to be used in the index.html file.
@@ -523,6 +539,25 @@ uploadIndexFiles() {
     exit 1
   fi
 
+  # ===========================================================================
+  # Step 6. Upload the favicon file.
+  logInfo "Uploading favicon file."
+  if [ -f "${indexHtmlTmpFile}" ]; then
+    # set -x
+    ${awsExe} s3 cp "web-resources/${indexFaviconFile}" ${s3IndexFaviconUrl} ${dryrun} --profile "${awsProfile}"
+    errorCode=$?
+    # { set +x; } 2> /dev/null
+    if [ ${errorCode} -ne 0 ]; then
+      logError ""
+      logError "Error uploading favicon ${indexFaviconFile} file."
+      exit 1
+    fi
+  else
+    logError ""
+    logError "Favicon file to upload does not exist:  web-resources/${indexFaviconFile}"
+    exit 1
+  fi
+
   # Also invalidate the CloudFront distribution so that new version will be displayed:
   # - see:  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
   # Determine the distribution ID:
@@ -568,9 +603,9 @@ uploadIndexFiles() {
   if [ "${operatingSystem}" = "mingw" ]; then
     # The following is needed to avoid MinGW mangling the paths, just in case a path without * is used:
     # - tried to use a variable for the prefix but that did not work
-    MSYS_NO_PATHCONV=1 ${awsExe} cloudfront create-invalidation --distribution-id "${cloudFrontDistributionId}" --paths '/tstool-aws-plugin/index.html' '/tstool-aws-plugin' '/tstool-aws-plugin/' --output json --profile "${awsProfile}" | tee ${tmpFile}
+    MSYS_NO_PATHCONV=1 ${awsExe} cloudfront create-invalidation --distribution-id "${cloudFrontDistributionId}" --paths '/tstool-aws-plugin/index.html' '/tstool-aws-plugin' '/tstool-aws-plugin/' "/tstool-aws-plugin/${indexFaviconFile}" --output json --profile "${awsProfile}" | tee ${tmpFile}
   else
-    ${awsExe} cloudfront create-invalidation --distribution-id "${cloudFrontDistributionId}" --paths '/tstool-aws-plugin/index*' '/tstool-aws-plugin' '/tstool-aws-plugin/' --output json --profile "${awsProfile}" | tee ${tmpFile}
+    ${awsExe} cloudfront create-invalidation --distribution-id "${cloudFrontDistributionId}" --paths '/tstool-aws-plugin/index*' '/tstool-aws-plugin' '/tstool-aws-plugin/' "/tstool-aws-plugin/${indexFaviconFile}" --output json --profile "${awsProfile}" | tee ${tmpFile}
   fi
   #${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin" --profile "${awsProfile}"
   invalidationId=$(cat ${tmpFile} | grep '"Id":' | cut -d ':' -f 2 | tr -d ' ' | tr -d '"' | tr -d ',')

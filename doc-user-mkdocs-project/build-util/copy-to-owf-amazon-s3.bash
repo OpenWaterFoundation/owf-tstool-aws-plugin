@@ -380,7 +380,7 @@ if [ -n "${pluginVersion}" ]; then
     ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/${pluginVersion}/doc-user/*" --output json --profile "${awsProfile}" | tee ${tmpFile}
   fi
   errorCode=${PIPESTATUS[0]}
-  if [ $errorCode -ne 0 ]; then
+  if [ ${errorCode} -ne 0 ]; then
     logError " "
     logError "Error invalidating CloudFront file(s)."
     exit 1
