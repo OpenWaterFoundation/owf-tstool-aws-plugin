@@ -616,10 +616,9 @@ uploadIndexFiles() {
     return 1
   else
     logInfo "Success invalidating CloudFront file(s)."
+    # Now wait on the invalidation.
+    waitOnInvalidation ${cloudFrontDistributionId} ${invalidationId}
   fi
-
-  # Now wait on the invalidation.
-  waitOnInvalidation ${cloudFrontDistributionId} ${invalidationId}
 
   return 0
 }

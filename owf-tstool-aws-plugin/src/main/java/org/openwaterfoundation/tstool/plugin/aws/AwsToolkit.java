@@ -91,6 +91,60 @@ public class AwsToolkit {
 	 */
 	private AwsToolkit () {
 	}
+
+	/**
+	 * TODO smalers 2023-05-08 need to finish this.
+	 * Determine whether the bucket has a root object (/).
+	 * This may be by design or is a mistake.
+	 * If no root object, removing all objects under the / will result in no / being shown.
+	 * @param awsSession AWS session
+	 * @param region region for S3
+	 * @param bucket bucket
+	 * @return null if cannot determine (no bucket specified, etc.), true if / object exists, and false if no / object exists
+	 */
+    public Boolean bucketHasRootObject( AwsSession awsSession, String region, String bucket ) {
+    	String routine = getClass().getSimpleName() + ".bucketHasRootObject";
+    	Boolean hasRoot = null;
+    	try {
+    		Region regionObject = Region.of(region);
+    		S3Client s3 = S3Client.builder()
+			  		.region(regionObject)
+			  		.credentialsProvider(awsSession.getProfileCredentialsProvider())
+			  		.build();
+    		String prefix = "/";
+    		String delimiter = "/";
+    		boolean useDelimiter = true;
+    		int maxKeys = -1;
+    		int maxObjects = -1;
+    		boolean listFiles = true;
+    		boolean listFolders = true;
+    		String regex = null;
+    		List<AwsS3Object> objects = getS3BucketObjects (
+    			s3,
+		  		bucket,
+		  		prefix,
+		  		delimiter,
+		  		useDelimiter,
+		  		maxKeys, maxObjects,
+	  			listFiles, listFolders,
+	  			regex );
+    		if ( objects.size() == 0 ) {
+    			Message.printStatus(2, routine, "Bucket \"" + bucket + "\" has no root object.");
+    			hasRoot = false;
+    		}
+    		else {
+    			Message.printStatus(2, routine, "Bucket \"" + bucket + "\" has no " + objects.size() + " objects for / prefix.");
+    			for ( AwsS3Object object : objects ) {
+    				Message.printStatus(2, routine, "  Object = " + object);
+    			}
+    			hasRoot = true;
+    		}
+    	}
+		catch ( Exception e ) {
+			hasRoot = null;
+		}
+    	return hasRoot;
+    }
 	
 	/**
 	 * Delete a list of S3 objects using keys.
@@ -427,7 +481,8 @@ public class AwsToolkit {
 	 * or to confirm that objects do or don't exist after an action.
 	 * @param s3 S3Client instance to use for the request
 	 * @param bucket S3 bucket
-	 * @param prefix prefix to filter the keys
+	 * @param prefix prefix to filter the keys,
+	 * should not start with / unless the bucket has a top-level / object
 	 * @param delimiter delimiter to use with prefix requests, only used when useDelimiter=true,
 	 * if null, the default is /
 	 * @param useDelimiter whether or not to specify the delimiter, used when listing a folder's contents
@@ -504,12 +559,19 @@ public class AwsToolkit {
     				// Check the maximum object count, to protect against runaway processes.
     				if ( (maxObjects > 0) && (objectCount >= maxObjects) ) {
 			  			// Quit saving objects when the limit has been reached.
+    					if ( Message.isDebugOn ) {
+    						Message.printDebug(1, routine, "Have reached maxObjects limit " + maxObjects
+    							+ " - quit getting objects.");
+    					}
     					break;
     				}
     				// Output to table and/or file, as requested:
     				// - key is the full path to the file
     				// - have size, owner and modification time properties
    					String key = s3Object.key();
+   					if ( Message.isDebugOn ) {
+   						Message.printDebug(1, routine, "Processing key \"" + key + "\".");
+   					}
    					if ( doPrefix && prefix.endsWith("/") && key.equals(prefix) ) {
    						// Do not include the requested prefix itself because want the contents of the folder,
    						// not the folder itself.

@@ -41,6 +41,7 @@ import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
+
 import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
 import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
 
@@ -55,8 +56,10 @@ import software.amazon.awssdk.services.cloudfront.model.CreateInvalidationReques
 import software.amazon.awssdk.services.cloudfront.model.InvalidationBatch;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
+
 import rti.tscommandprocessor.core.TSCommandProcessor;
 import rti.tscommandprocessor.core.TSCommandProcessorUtil;
+
 import RTi.Util.IO.AbstractCommand;
 import RTi.Util.IO.CommandDiscoverable;
 import RTi.Util.IO.CommandException;
@@ -71,6 +74,7 @@ import RTi.Util.IO.FileGenerator;
 import RTi.Util.IO.HTMLWriter;
 import RTi.Util.IO.IOUtil;
 import RTi.Util.IO.InvalidCommandParameterException;
+import RTi.Util.IO.InvalidCommandSyntaxException;
 import RTi.Util.IO.ObjectListProvider;
 import RTi.Util.IO.PropList;
 import RTi.Util.IO.Markdown.MarkdownWriter;
@@ -165,7 +169,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		String Profile = parameters.getValue ( "Profile" );
 		String Region = parameters.getValue ( "Region" );
     	String Bucket = parameters.getValue ( "Bucket" );
-    	//String StartingFolder = parameters.getValue ( "StartingFolder" );
+    	String StartingFolder = parameters.getValue ( "StartingFolder" );
     	String ProcessSubfolders = parameters.getValue ( "ProcessSubfolders" );
     	//String CatalogFile = parameters.getValue ( "CatalogFile" );
     	//String CatalogIndexFile = parameters.getValue ( "CatalogIndexFile" );
@@ -304,7 +308,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			}
 
 		// Check for invalid parameters.
-		List<String> validList = new ArrayList<>(23);
+		List<String> validList = new ArrayList<>(17);
 		validList.add ( "Profile" );
 		validList.add ( "Region" );
 		validList.add ( "Bucket" );
@@ -314,20 +318,20 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		//validList.add ( "CatalogIndexFile" );
 		//validList.add ( "UploadCatalogFiles" );
 		validList.add ( "DatasetIndexFile" );
-		validList.add ( "DatasetIndexHeadFile" );
-		validList.add ( "DatasetIndexBodyFile" );
-		validList.add ( "DatasetIndexFooterFile" );
+		validList.add ( "DatasetIndexHeadInsertTopFiles" );
+		validList.add ( "DatasetIndexBodyInsertTopFiles" );
+		validList.add ( "DatasetIndexBodyInsertBottomFiles" );
 		validList.add ( "UploadFiles" );
 		//validList.add ( "OutputTableID" );
 		validList.add ( "KeepFiles" );
 		//validList.add ( "IfInputNotFound" );
-			// CloudFront
-			validList.add ( "InvalidateCloudFront" );
-			validList.add ( "CloudFrontRegion" );
-			validList.add ( "CloudFrontDistributionId" );
-			validList.add ( "CloudFrontComment" );
-			validList.add ( "CloudFrontCallerReference" );
-			validList.add ( "CloudFrontWaitForCompletion" );
+		// CloudFront
+		validList.add ( "InvalidateCloudFront" );
+		validList.add ( "CloudFrontRegion" );
+		validList.add ( "CloudFrontDistributionId" );
+		validList.add ( "CloudFrontComment" );
+		validList.add ( "CloudFrontCallerReference" );
+		validList.add ( "CloudFrontWaitForCompletion" );
 		warning = TSCommandProcessorUtil.validateParameterNames ( validList, this, warning );
 
 		if ( warning.length() > 0 ) {
@@ -344,13 +348,14 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
  	* @param dataset the dataset being processed
  	* @param parentDataset the parent dataset for the dataset being processed
  	* @param datasetIndexFile path to the dataset index file to create
- 	* @param datasetIndexHeadFile path to the dataset index <head> file to insert, or null to ignore
- 	* @param datasetIndexBodyFile path to the dataset index <body> file to insert, or null to ignore
- 	* @param datasetIndexFooterFile path to the dataset index <footer> file to insert, or null to ignore
+ 	* @param datasetIndexHeadInsertTopFiles paths to the files to insert at top of <head> of the dataset index file, or null to ignore
+ 	* @param datasetIndexBodyInsertTopFiles paths to the files to insert at top of <body> of the dataset index file, or null to ignore
+ 	* @param datasetIndexBodyInsertBottomFiles paths to the files to insert at bottom of <body> of the dataset index file, or null to ignore
  	* @param uploadDatasetFiles if true, format for uploading; if false, format for local review
  	*/
 	private void createDatasetIndexFileHtml ( DcatDataset dataset, DcatDataset parentDataset,
-		String datasetIndexFile, String datasetIndexHeadFile, String datasetIndexBodyFile, String datasetIndexFooterFile,
+		String datasetIndexFile,
+		String [] datasetIndexHeadInsertTopFiles, String [] datasetIndexBodyInsertTopFiles, String [] datasetIndexBodyInsertBottomFiles,
 		boolean uploadDatasetFiles ) {
 		String routine = getClass().getSimpleName() + ".createDatasetIndexFileHtml";
 		Message.printStatus(2, routine, "Creating file \"" + datasetIndexFile +
@@ -376,15 +381,23 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			html.htmlStart();
 			String customStyleText = "";
 			String cssUrl = null;
-    		writeHeadHtml(html, title, cssUrl, customStyleText, datasetIndexHeadFile);
+    		writeHeadHtml(html, title, cssUrl, customStyleText, datasetIndexHeadInsertTopFiles);
     		// Start the body section.
     		html.bodyStart();
-    		if ( (datasetIndexBodyFile != null) && datasetIndexBodyFile.toUpperCase().endsWith(".HTML") ) {
-    			// Insert the header content.
-    			Message.printStatus(2,routine, "Insert file into <body>: " + datasetIndexBodyFile);
-    			html.comment("Start inserting body file: " + datasetIndexBodyFile);
-    			html.write(IOUtil.fileToStringBuilder(datasetIndexBodyFile).toString());
-    			html.comment("End inserting body file into <body>: " + datasetIndexBodyFile);
+    		if ( (datasetIndexBodyInsertTopFiles != null) && (datasetIndexBodyInsertTopFiles.length > 0) ) {
+    			Message.printStatus(2,routine, "Inserting " + datasetIndexBodyInsertTopFiles.length + " <body> (top) files.");
+    			for ( String insertFile : datasetIndexBodyInsertTopFiles ) {
+    				if ( (insertFile != null) && insertFile.toUpperCase().endsWith(".HTML") ) {
+    					// Insert the header content.
+    					Message.printStatus(2,routine, "Insert file into top of <body>: " + insertFile);
+    					html.comment("Start inserting file: " + insertFile);
+    					html.write(IOUtil.fileToStringBuilder(insertFile).toString());
+    					html.comment("End inserting file: " + insertFile);
+    				}
+    			}
+    		}
+    		else {
+    			Message.printStatus(2,routine, "No <body> (top) insert files were provided.");
     		}
     		// Use a <div> around all the displayed body content:
     		// - the class matches the CSS file
@@ -528,7 +541,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    			html.write("</tr>");
     		html.tableEnd();
 
-    		// Add the "Dataset Details" if Markdown was provided.
+    		// Add the "Dataset Details" if Markdown 'dataset-details.md' was provided.
     		String markdownFile = dataset.getLocalMarkdownPath();
     		if ( IOUtil.fileExists(markdownFile) && !markdownFile.isEmpty() ) {
     			html.header(1, "Dataset Details");
@@ -560,12 +573,20 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
     		html.write("\n</div> <!-- class=\"dataset-content-container\" -->\n");
 			html.bodyEnd();
-    		if ( (datasetIndexFooterFile != null) && datasetIndexFooterFile.toUpperCase().endsWith(".HTML") ) {
-    			// Insert the footer content.
-    			Message.printStatus(2,routine,"Insert file into <footer>: " + datasetIndexFooterFile);
-    			html.comment("Start inserting footer file: " + datasetIndexFooterFile);
-    			html.write(IOUtil.fileToStringBuilder(datasetIndexFooterFile).toString());
-    			html.comment("End inserting footer file: " + datasetIndexFooterFile);
+    		if ( (datasetIndexBodyInsertBottomFiles != null) && (datasetIndexBodyInsertBottomFiles.length > 0) ) {
+    			Message.printStatus(2,routine, "Inserting " + datasetIndexBodyInsertBottomFiles.length + " <body> (bottom) files.");
+    			for ( String insertFile : datasetIndexBodyInsertBottomFiles ) {
+    				if ( (insertFile != null) && insertFile.toUpperCase().endsWith(".HTML") ) {
+    					// Insert the footer content.
+    					Message.printStatus(2,routine,"Insert file into bottom of <body>: " + insertFile);
+    					html.comment("Start inserting file: " + insertFile);
+    					html.write(IOUtil.fileToStringBuilder(insertFile).toString());
+    					html.comment("End inserting file: " + insertFile);
+    				}
+    			}
+    		}
+    		else {
+    			Message.printStatus(2,routine, "No <body> (bottom) insert files were provided.");
     		}
 			html.htmlEnd();
 			fout.print(html.getHTML());
@@ -589,13 +610,17 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
  	* @param dataset the dataset being processed
  	* @param parentDataset the parent dataset for the dataset being processed
  	* @param datasetIndexFile path to the dataset Markdown index file to create
- 	* @param datasetIndexHeadFile path to the dataset index <head> file to insert, or null to ignore (must be Markdown)
- 	* @param datasetIndexBodyFile path to the dataset index <body> file to insert, or null to ignore (must be Markdown)
- 	* @param datasetIndexFooterFile path to the dataset index <footer> file to insert, or null to ignore (must be Markdown)
+ 	* @param datasetIndexHeadInsertTopFiles paths to files to insert at the top of the dataset index <head>,
+ 	* or null to ignore (must be Markdown), NOT USED
+ 	* @param datasetIndexBodyInsertTopFiles paths to files to insert at the top of the dataset index <body>,
+ 	* or null to ignore (must be Markdown), NOT USED
+ 	* @param datasetIndexBodyInsertBottomFiles paths to files to insert at the bottom of the dataset index <body>,
+ 	* or null to ignore (must be Markdown), NOT USED
  	* @param uploadDatasetFiles if true, format for uploading; if false, format for local review
  	*/
 	private void createDatasetIndexFileMarkdown ( DcatDataset dataset, DcatDataset parentDataset,
-		String datasetIndexFile, String datasetIndexHeadFile, String datasetIndexBodyFile, String datasetIndexFooterFile,
+		String datasetIndexFile,
+		String [] datasetIndexHeadInsertTopFiles, String [] datasetIndexBodyInsertTopFiles, String [] datasetIndexBodyInsertBottomFiles,
 		boolean uploadDatasetFiles ) throws IOException {
 		String routine = getClass().getSimpleName() + ".createDatasetIndexFileMarkdown";
 		Message.printStatus(2, routine, "Creating file \"" + datasetIndexFile +
@@ -618,14 +643,18 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			// Start the file and write the head section:
 			// - currently styles depend on the rendering code
 			markdown = new MarkdownWriter(datasetIndexFile, false);
-    		writeHeadMarkdown(markdown, title, datasetIndexHeadFile);
+    		writeHeadMarkdown(markdown, title, datasetIndexHeadInsertTopFiles);
     		// Start the body section.
-    		if ( (datasetIndexBodyFile != null) && (datasetIndexBodyFile.toUpperCase().endsWith(".MD"))) {
-    			// Insert the header content.
-    			Message.printStatus(2,routine, "Insert file into <body>: " + datasetIndexBodyFile);
-    			markdown.comment("Start inserting body file: " + datasetIndexBodyFile);
-    			markdown.write(IOUtil.fileToStringBuilder(datasetIndexBodyFile).toString());
-    			markdown.comment("End inserting body file into <body>: " + datasetIndexBodyFile);
+    		if ( (datasetIndexBodyInsertTopFiles != null) && (datasetIndexBodyInsertTopFiles.length > 0) ) {
+    			for ( String insertFile : datasetIndexBodyInsertTopFiles ) {
+    				if ( (insertFile != null) && (insertFile.toUpperCase().endsWith(".MD"))) {
+    					// Insert the header content.
+    					Message.printStatus(2,routine, "Insert file into <body>: " + insertFile);
+    					markdown.comment("Start inserting file: " + insertFile);
+    					markdown.write(IOUtil.fileToStringBuilder(insertFile).toString());
+    					markdown.comment("End inserting file: " + insertFile);
+    				}
+    			}
     		}
     		markdown.heading(2, "Dataset: " + dataset.getTitle());
 
@@ -746,12 +775,16 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     		}
 
     		//markdown.write("\n</div> <!-- class=\"dataset-content-container\" -->\n");
-    		if ( (datasetIndexFooterFile != null) && datasetIndexFooterFile.toUpperCase().endsWith(".MD") ) {
-    			// Insert the footer content.
-    			Message.printStatus(2,routine,"Insert file into <footer>: " + datasetIndexFooterFile);
-    			markdown.comment("Start inserting footer file: " + datasetIndexFooterFile);
-    			markdown.write(IOUtil.fileToStringBuilder(datasetIndexFooterFile).toString());
-    			markdown.comment("End inserting footer file: " + datasetIndexFooterFile);
+    		if ( (datasetIndexBodyInsertBottomFiles != null) && (datasetIndexBodyInsertBottomFiles.length > 0) ) {
+    			for ( String insertFile : datasetIndexBodyInsertBottomFiles ) {
+    				if ( (insertFile != null) && insertFile.toUpperCase().endsWith(".MD") ) {
+    					// Insert the footer content.
+    					Message.printStatus(2,routine,"Insert file into <body>: " + insertFile);
+    					markdown.comment("Start inserting file: " + insertFile);
+    					markdown.write(IOUtil.fileToStringBuilder(insertFile).toString());
+    					markdown.comment("End inserting file: " + insertFile);
+    				}
+    			}
     		}
 			//fout = new PrintWriter ( new FileOutputStream ( datasetIndexFile ) );
 			//fout.print(markdown.getMarkdown());
@@ -1063,8 +1096,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	/**
  	* Download necessary parent dataset files for datasets that have parent datasets.
  	* This is necessary because the initial search/download logic only matches the requested dataset.
- 	* @param datasetList list of datasets to process
- 	* @param allDatasetList list of all datasets, which contains 'datsetList' and necessary parent datasets to process, will be updated
+ 	* @param datasetList list of datasets to process as input (will not be modified)
+ 	* @param allDatasetList list of all datasets, which contains 'datasetList' and necessary parent datasets to process, will be updated
  	*/
 	private int downloadParentDatasetFiles (
 		List<DcatDataset> datasetList,
@@ -1080,7 +1113,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		) throws Exception {
 		String routine = getClass().getSimpleName() + ".downloadParentDatasetFiles";
    		Message.printStatus(2, routine, "Downloading parent datasets referenced in datasets." );
-		// Always add to the full list of datset files:
+		// Always add to the full list of dataset files:
 		// - this is needed to find the parent dataset file for the specific dataset
 		for ( DcatDataset dataset : datasetList ) {
 			String parentFile = dataset.getParentDatasetFile();
@@ -1251,6 +1284,33 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	}
 
 	/**
+ 	* Parse the command.
+ 	* Do here because plugin version 1.4.0 changed some property names.
+ 	*/
+	public void parseCommand ( String commandString )
+	throws InvalidCommandSyntaxException, InvalidCommandParameterException {
+		// First parse in the base class.
+		super.parseCommand(commandString);
+	
+    	// If DatasetIndexHeadFile is set, convert to DataSetIndexHeadInsertTopFiles.
+    	String DatasetIndexHeadFile = getCommandParameters().getValue("DatasetIndexHeadFile");
+    	if ( (DatasetIndexHeadFile != null) && !DatasetIndexHeadFile.isEmpty() ) {
+    		getCommandParameters().set("DatasetIndexHeadInsertTopFiles",DatasetIndexHeadFile);
+    	}
+    	// If DatasetIndexBodyFile is set, convert to DatasetIndexBodyTopFiles.
+    	String DatasetIndexBodyFile = getCommandParameters().getValue("DatasetIndexBodyFile");
+    	if ( (DatasetIndexBodyFile != null) && !DatasetIndexBodyFile.isEmpty() ) {
+    		getCommandParameters().set("DatasetIndexBodyTopFiles",DatasetIndexBodyFile);
+    	}
+    	// If DatasetIndexFooterFile is set, convert to DatasetIndexBodyTopFiles.
+    	String DatasetIndexFooterFile = getCommandParameters().getValue("DatasetIndexFooterFile");
+    	if ( (DatasetIndexFooterFile != null) && !DatasetIndexFooterFile.isEmpty() ) {
+    		getCommandParameters().set("DatasetIndexBodyBottomFiles",DatasetIndexFooterFile);
+    	}
+	}
+
+
+	/**
  	* Read a dataset JSON file and create a dataset object.
  	* The file must exist.
  	* @param datasetFile the path to the 'dataset.json' file to read
@@ -1360,7 +1420,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		String StartingFolder = parameters.getValue ( "StartingFolder" );
 		StartingFolder = TSCommandProcessorUtil.expandParameterValue(processor,this,StartingFolder);
 		if ( (StartingFolder == null) || StartingFolder.isEmpty() ) {
-			StartingFolder = "/";
+			// Empty string indicates root folder.
+			StartingFolder = "";
 		}
 		String ProcessSubfolders = parameters.getValue ( "ProcessSubfolders" );
 		boolean processSubfolders = false; // Default.
@@ -1374,9 +1435,18 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			doTable = true;
 		}
 		String DatasetIndexFile = parameters.getValue ( "DatasetIndexFile" ); // Expand below.
-		String DatasetIndexHeadFile = parameters.getValue ( "DatasetIndexHeadFile" ); // Expand below.
-		String DatasetIndexBodyFile = parameters.getValue ( "DatasetIndexBodyFile" ); // Expand below.
-		String DatasetIndexFooterFile = parameters.getValue ( "DatasetIndexFooterFile" ); // Expand below.
+		String DatasetIndexHeadInsertTopFiles = parameters.getValue ( "DatasetIndexHeadInsertTopFiles" ); // Expand below.
+		if ( DatasetIndexHeadInsertTopFiles != null ) {
+			DatasetIndexHeadInsertTopFiles = DatasetIndexHeadInsertTopFiles.trim();
+		}
+		String DatasetIndexBodyInsertTopFiles = parameters.getValue ( "DatasetIndexBodyInsertTopFiles" ); // Expand below.
+		if ( DatasetIndexBodyInsertTopFiles != null ) {
+			DatasetIndexBodyInsertTopFiles = DatasetIndexBodyInsertTopFiles.trim();
+		}
+		String DatasetIndexBodyInsertBottomFiles = parameters.getValue ( "DatasetIndexBodyInsertBottomFiles" ); // Expand below.
+		if ( DatasetIndexBodyInsertBottomFiles != null ) {
+			DatasetIndexBodyInsertBottomFiles = DatasetIndexBodyInsertBottomFiles.trim();
+		}
 		String UploadFiles = parameters.getValue ( "UploadFiles" );
 		boolean doUploadDataset = false; // Default.
 		if ( (UploadFiles != null) && UploadFiles.equalsIgnoreCase("true")) {
@@ -1474,11 +1544,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		credentialsProvider0 = ProfileCredentialsProvider.create(profile);
 		ProfileCredentialsProvider credentialsProvider = credentialsProvider0;
 
-		Region regionO = Region.of(region);
+		Region regionObject = Region.of(region);
 
 		// S3Client is needed to list files.
 		S3Client s3 = S3Client.builder()
-			.region(regionO)
+			.region(regionObject)
 			.credentialsProvider(credentialsProvider)
 			.build();
 
@@ -1486,7 +1556,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    		S3TransferManager tm = S3TransferManager
    			.builder()
    			.s3ClientConfiguration(b -> b.credentialsProvider(credentialsProvider)
-  			.region(regionO))
+  			.region(regionObject))
    			.build();
 
    		// List of temporary files to delete.
@@ -1570,6 +1640,12 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	        	boolean listFiles = true;
    	        	boolean listFolders = false;
    	        	String regex = ".*dataset.json"; // Only match the dataset metadata.
+   	        	if ( Message.isDebugOn ) {
+   	        		Message.printDebug(1, routine, "Listing S3 objects using bucket=" + bucket + " prefix=" + prefix
+   	        			+ " delimiter=" + delimiter + " useDelimiter=" + useDelimiter + " maxKeys=" + maxKeys
+   	        			+ " maxObjects=" + maxObjects + " listFiles=" + listFiles + " listFolders=" + listFolders
+   	        			+ " regex=" + regex);
+   	        	}
    	        	List<AwsS3Object> s3Objects = AwsToolkit.getInstance().getS3BucketObjects(
    	        		s3,
    	        		bucket,
@@ -1615,6 +1691,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
     	    	// Get the list of parent datasets, as necessary:
     	    	// - the above may have downloaded a specific dataset but not its parent file
+   	        	// - it is OK to not have parent 'dataset.json' files
 
     	    	warningCount = downloadParentDatasetFiles (
     	    		datasetList,
@@ -1639,12 +1716,12 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
     	    	if ( datasetList.size() == 0 ) {
     	    		// Likely a problem in the input or dataset files.
-					message = "No dataset.json files were found on S3.";
+					message = "No 'dataset.json' files were found on S3.";
   						Message.printWarning ( warningLevel,
 							MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
   						status.addToLog(CommandPhaseType.RUN,
   							new CommandLogRecord(CommandStatusType.WARNING,
-							message, "Check the starting folder and that 'dataset.json' files exist in the S3 folder(s)."));
+							message, "Check the starting folder (must end in /) and that 'dataset.json' files exist in the S3 folder(s)."));
     	    	}
 
     	    	for ( DcatDataset dataset : datasetList ) {
@@ -1718,14 +1795,14 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
    	    				if ( doIndex ) {
     	    				// Create the dataset index file.
-    	    				if ( DatasetIndexFile.equalsIgnoreCase("Temp.html") ) {
+    	    				if ( DatasetIndexFile.equalsIgnoreCase("temp.html") ) {
     	    					// Use a temporary file similar to the dataset.json path, which was previously determined in the temporary folder.
     	    					//datasetIndexFile = IOUtil.tempFileName() + "-index.html";
     	    					// Create as the same name as the dataset.json file but use index.html
     	    					//datasetIndexFile = datasetLocalInfo.getLocalPath().replace("dataset.json","index.html");
     	    					datasetIndexFile = dataset.getLocalPath().replace("dataset.json","index.html");
     	    				}
-    	    				else if ( DatasetIndexFile.equalsIgnoreCase("Temp.md") ) {
+    	    				else if ( DatasetIndexFile.equalsIgnoreCase("temp.md") ) {
     	    					// Use a temporary file similar to the dataset.json path, which was previously determined in the temporary folder.
     	    					//datasetIndexFile = IOUtil.tempFileName() + "-index.html";
     	    					// Create as the same name as the dataset.json file but use index.html
@@ -1738,62 +1815,85 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	    						IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
 	            						TSCommandProcessorUtil.expandParameterValue(processor,this,DatasetIndexFile)));
     	    				}
-    	    				String datasetIndexHeadFile = null;
-    	    				if ( DatasetIndexHeadFile != null ) {
-    	    					datasetIndexHeadFile = IOUtil.verifyPathForOS(
-    	    						IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
-	            						TSCommandProcessorUtil.expandParameterValue(processor,this,DatasetIndexHeadFile)));
-    	    					if ( !IOUtil.fileExists(datasetIndexHeadFile) ) {
-    	    						// Warn and set to null to disable the insert.
-    	    						message = "Dataset index <head> file does not exist: " + datasetIndexHeadFile;
-    								Message.printWarning ( warningLevel,
-    									MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
-    								status.addToLog(CommandPhaseType.RUN,
-    									new CommandLogRecord(CommandStatusType.FAILURE,
-    										message, "Confirm that the insert file is correct."));
+    	    				String [] datasetIndexHeadTopFiles = null;
+    	    				if ( DatasetIndexHeadInsertTopFiles != null ) {
+    	    					datasetIndexHeadTopFiles = DatasetIndexHeadInsertTopFiles.split(",");
+    	    					int i = -1;
+    	    					for ( String part : datasetIndexHeadTopFiles ) {
+    	    						i++;
+    	    						datasetIndexHeadTopFiles[i] = IOUtil.verifyPathForOS(
+    	    							IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
+	            							TSCommandProcessorUtil.expandParameterValue(processor,this,part)));
+    	    						if ( !IOUtil.fileExists(datasetIndexHeadTopFiles[i]) ) {
+    	    							// Warn and set to null to disable the insert.
+    	    							message = "Dataset index <head> (top) file does not exist: " +
+    	    								datasetIndexHeadTopFiles[i];
+    									Message.printWarning ( warningLevel,
+    										MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
+    									status.addToLog(CommandPhaseType.RUN,
+    										new CommandLogRecord(CommandStatusType.FAILURE,
+    											message, "Confirm that the insert file is correct."));
+    									datasetIndexHeadTopFiles[i] = null;
+    	    						}
     	    					}
     	    				}
-    	    				String datasetIndexBodyFile = null;
-    	    				if ( DatasetIndexBodyFile != null ) {
-    	    					datasetIndexBodyFile = IOUtil.verifyPathForOS(
-    	    						IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
-	            						TSCommandProcessorUtil.expandParameterValue(processor,this,DatasetIndexBodyFile)));
-    	    					if ( !IOUtil.fileExists(datasetIndexBodyFile) ) {
-    	    						// Warn and set to null to disable the insert.
-    	    						message = "Dataset index <body> file does not exist: " + datasetIndexBodyFile;
-    								Message.printWarning ( warningLevel,
-    									MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
-    								status.addToLog(CommandPhaseType.RUN,
-    									new CommandLogRecord(CommandStatusType.FAILURE,
-    										message, "Confirm that the insert file is correct."));
+    	    				String [] datasetIndexBodyTopFiles = null;
+    	    				if ( DatasetIndexBodyInsertTopFiles != null ) {
+    	    					datasetIndexBodyTopFiles = DatasetIndexBodyInsertTopFiles.split(",");
+    	    					int i = -1;
+    	    					for ( String part : datasetIndexBodyTopFiles ) {
+    	    						i++;
+    	    						datasetIndexBodyTopFiles[i] = IOUtil.verifyPathForOS(
+    	    							IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
+	            							TSCommandProcessorUtil.expandParameterValue(processor,this,part)));
+    	    						if ( !IOUtil.fileExists(datasetIndexBodyTopFiles[i]) ) {
+    	    							// Warn and set to null to disable the insert.
+    	    							message = "Dataset index <body> (top) file does not exist: " + datasetIndexBodyTopFiles[i];
+    									Message.printWarning ( warningLevel,
+    										MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
+    									status.addToLog(CommandPhaseType.RUN,
+    										new CommandLogRecord(CommandStatusType.FAILURE,
+    											message, "Confirm that the insert file is correct."));
+    									datasetIndexBodyTopFiles[i] = null;
+    	    						}
     	    					}
     	    				}
-    	    				String datasetIndexFooterFile = null;
-    	    				if ( DatasetIndexFooterFile != null ) {
-    	    					datasetIndexFooterFile = IOUtil.verifyPathForOS(
-    	    						IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
-	            						TSCommandProcessorUtil.expandParameterValue(processor,this,DatasetIndexFooterFile)));
-    	    					if ( !IOUtil.fileExists(datasetIndexFooterFile) ) {
-    	    						// Warn and set to null to disable the insert.
-    	    						message = "Dataset index footer file does not exist: " + datasetIndexFooterFile;
-    								Message.printWarning ( warningLevel,
-    									MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
-    								status.addToLog(CommandPhaseType.RUN,
-    									new CommandLogRecord(CommandStatusType.FAILURE,
+    	    				String [] datasetIndexBodyBottomFiles = null;
+    	    				if ( DatasetIndexBodyInsertBottomFiles != null ) {
+    	    					datasetIndexBodyBottomFiles = DatasetIndexBodyInsertBottomFiles.split(",");
+    	    					int i = -1;
+    	    					for ( String part : datasetIndexBodyBottomFiles ) {
+    	    						i++;
+    	    						datasetIndexBodyBottomFiles[i] = IOUtil.verifyPathForOS(
+    	    							IOUtil.toAbsolutePath(TSCommandProcessorUtil.getWorkingDir(processor),
+	            							TSCommandProcessorUtil.expandParameterValue(processor,this,part)));
+    	    						if ( !IOUtil.fileExists(datasetIndexBodyBottomFiles[i]) ) {
+    	    							// Warn and set to null to disable the insert.
+    	    							message = "Dataset index footer file does not exist: " + datasetIndexBodyBottomFiles[i];
+    									Message.printWarning ( warningLevel,
+    										MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
+    									status.addToLog(CommandPhaseType.RUN,
+    										new CommandLogRecord(CommandStatusType.FAILURE,
     										message, "Confirm that the insert file is correct."));
+    									datasetIndexBodyBottomFiles[i] = null;
+    	    						}
     	    					}
     	    				}
     	    				String indexExt = null;
     	    				if ( datasetIndexFile.toUpperCase().endsWith(".HTML") ) {
     	    					// Create an HTML file.
     	    					createDatasetIndexFileHtml ( dataset, parentDataset,
-    	    						datasetIndexFile, datasetIndexHeadFile, datasetIndexBodyFile, datasetIndexFooterFile, doUploadDataset );
+    	    						datasetIndexFile,
+    	    						datasetIndexHeadTopFiles, datasetIndexBodyTopFiles, datasetIndexBodyBottomFiles,
+    	    						doUploadDataset );
     	    					indexExt = "html";
     	    				}
     	    				else if ( datasetIndexFile.toUpperCase().endsWith(".MD") ) {
     	    					// Else create a Markdown file.
     	    					createDatasetIndexFileMarkdown ( dataset, parentDataset,
-    	    						datasetIndexFile, datasetIndexHeadFile, datasetIndexBodyFile, datasetIndexFooterFile, doUploadDataset );
+    	    						datasetIndexFile,
+    	    						datasetIndexHeadTopFiles, datasetIndexBodyTopFiles, datasetIndexBodyBottomFiles,
+    	    						doUploadDataset );
     	    					indexExt = "md";
     	    				}
     	    				else {
@@ -1951,9 +2051,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			"KeepFiles",
 			"UploadFiles",
 			//("MaxObjects");
-			"DatasetIndexHeadFile",
-			"DatasetIndexBodyFile",
-			"DatasetIndexFooterFile",
+			"DatasetIndexHeadInsertTopFiles", // In 1.3.0, was: "DatasetIndexHeadFile"
+			"DatasetIndexBodyInsertTopFiles", // In 1.3.0, was: "DatasetIndexBodyFile"
+			"DatasetIndexBodyInsertBottomFiles", // In 1.3.0, was: "DatasetIndexFooterFile"
 			// Catalog.
 			//"CatalogFile",
 			//"CatalogIndexFile",
@@ -2010,20 +2110,31 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	Writes the start tags for the HTML index file.
 	@param html HTMLWriter object.
 	@param title title for the document.
+	@param cssUrl URL to CSS file to use
+	@param datasetIndexHeadInsertTopFiles paths to files to insert at top of <head> section
 	@throws Exception
 	*/
-	private void writeHeadHtml( HTMLWriter html, String title, String cssUrl, String customStyleText, String datasetIndexHeadFile ) throws Exception {
+	private void writeHeadHtml( HTMLWriter html, String title, String cssUrl, String customStyleText,
+		String [] datasetIndexHeadInsertTopFiles ) throws Exception {
 		String routine = getClass().getSimpleName() + ".writeHtmlHead";
     	if ( html != null ) {
         	html.headStart();
         	html.title(title);
         	html.addText("");
-    		if ( (datasetIndexHeadFile != null) && datasetIndexHeadFile.toUpperCase().endsWith(".HTML") ) {
-    			// Insert the header content.
-    			Message.printStatus(2,routine, "Insert file into <head>: " + datasetIndexHeadFile);
-    			html.comment("Start inserting head file: " + datasetIndexHeadFile);
-    			html.write(IOUtil.fileToStringBuilder(datasetIndexHeadFile).toString());
-    			html.comment("End inserting head file: " + datasetIndexHeadFile);
+    		if ( (datasetIndexHeadInsertTopFiles != null) && (datasetIndexHeadInsertTopFiles.length > 0) ) {
+    			Message.printStatus(2,routine, "Inserting " + datasetIndexHeadInsertTopFiles.length + " <head> (top) files.");
+    			for ( String insertFile : datasetIndexHeadInsertTopFiles ) {
+    				if ( (insertFile != null) && insertFile.toUpperCase().endsWith(".HTML") ) {
+    					// Insert the header content.
+    					Message.printStatus(2,routine, "Insert file into <head>: " + insertFile);
+    					html.comment("Start inserting head file: " + insertFile);
+    					html.write(IOUtil.fileToStringBuilder(insertFile).toString());
+    					html.comment("End inserting head file: " + insertFile);
+    				}
+    			}
+    		}
+    		else {
+    			Message.printStatus(2,routine, "No <head> (top) insert files were provided.");
     		}
     		// Write custom styles last so they take precedence.
         	writeStylesHtml(html, cssUrl, customStyleText);
@@ -2037,18 +2148,23 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	@param title title for the document.
 	@throws Exception
 	*/
-	private void writeHeadMarkdown ( MarkdownWriter markdown, String title, String datasetIndexHeadFile ) throws Exception {
+	private void writeHeadMarkdown ( MarkdownWriter markdown, String title,
+		String [] datasetIndexHeadInsertTopFiles ) throws Exception {
 		String routine = getClass().getSimpleName() + ".writeHtmlMarkdown";
     	if ( markdown != null ) {
         	//markdown.headStart();
         	//markdown.title(title);
         	markdown.heading(1,title);
-    		if ( datasetIndexHeadFile != null ) {
-    			// Insert the header content.
-    			Message.printStatus(2,routine, "Insert file into <head>: " + datasetIndexHeadFile);
-    			markdown.comment("Start inserting head file: " + datasetIndexHeadFile);
-    			markdown.write(IOUtil.fileToStringBuilder(datasetIndexHeadFile).toString());
-    			markdown.comment("End inserting head file: " + datasetIndexHeadFile);
+    		if ( (datasetIndexHeadInsertTopFiles != null) && (datasetIndexHeadInsertTopFiles.length > 0) ) {
+    			for ( String insertFile : datasetIndexHeadInsertTopFiles ) {
+    				if ( insertFile != null ) {
+    					// Insert the header content.
+    					Message.printStatus(2,routine, "Insert file into <head>: " + insertFile);
+    					markdown.comment("Start inserting file: " + insertFile);
+    					markdown.write(IOUtil.fileToStringBuilder(insertFile).toString());
+    					markdown.comment("End inserting file: " + insertFile);
+    				}
+    			}
     		}
     		// Write custom styles last so they take precedence.
         	//writeStylesHtml(html, cssUrl, customStyleText);

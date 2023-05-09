@@ -2611,7 +2611,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
             		}
             		boolean localHadWildcard = false;
             		if ( localFile.indexOf("*") >= 0 ) {
-            			// Remote file has a wildcard so it should be a folder with wildcard for the file:
+            			// Local file has a wildcard so it should be a folder with wildcard for the file:
             			// - this does not handle * in the folder as in: folder/*/folder/file.*
             			if ( Message.isDebugOn ) {
             				Message.printStatus(2, routine, "Local file has a wildcard.");
@@ -2920,15 +2920,17 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
             				// The following method requires forward slashes.
             				localPathList = IOUtil.getFilesMatchingPattern("glob:" + localFileFull.replace("\\", "/"));
             				for ( File localPath : localPathList ) {
+            					// Use a copy because otherwise the wildcard is removed after the first iteration.
+            					String remoteFile2 = remoteFile;
             					if ( remoteFile.endsWith("/*") ) {
-            						 remoteFile = remoteFile.replace("*", localPath.getName());
+            						 remoteFile2 = remoteFile.replace("*", localPath.getName());
             					}
             					uploadFilesOrig.add(localFile);
             					uploadFilesFileList.add(localPath.getAbsolutePath());
-            					uploadFilesKeyList.add(remoteFile);
+            					uploadFilesKeyList.add(remoteFile2);
             					if ( Message.isDebugOn ) {
             						Message.printStatus(2, routine, "Local file from wildcard: " + localPath.getAbsolutePath() );
-            						Message.printStatus(2, routine, "             Remote file: " + remoteFile );
+            						Message.printStatus(2, routine, "             Remote file: " + remoteFile2 );
             					}
             				}
             			}
@@ -2954,7 +2956,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		   					Message.printWarning(warningLevel,
 		   						MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 		   					status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
-		   						message, "Verify that the folder exists." ) );
+		   						message, "Verify that the file exists." ) );
 		   					continue;
 			   			}
 		   				if ( f.isDirectory() ) {
