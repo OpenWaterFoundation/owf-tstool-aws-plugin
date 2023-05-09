@@ -11,12 +11,12 @@ information product, or other electronic asset.
         -   [`dataset.json - Dataset Metadata`](#datasetjson-dataset-metadata)
     +   [Command Input Files for HTML Landing Page](#command-input-files-for-html-landing-page)
         -   [`dataset.png` - Image for HTML Landing Page](#datasetpng-image-for-html-landing-page)
-        -   [Insert for `<head>`](#insert-for-head)
-        -   [Insert for `<body>`](#insert-for-body)
-        -   [Insert for `<footer>`](#insert-for-footer)
+        -   [`dataset-details.md` - Insert for Dataset Details Section](#dataset-detailsmd-insert-for-dataset-details-section) - same as for Markdown
+        -   [Inserts for `<head>`](#inserts-for-head)
+        -   [Inserts for `<body>`](#inserts-for-body)
     +   [Command Input Files for Markdown Landing Page](#command-input-files-for-markdown-landing-page)
         -   [`dataset.png` - Image for Markdown Landing Page](#datasetpng-image-for-markdown-landing-page)
-        -   [`dataset-details.md` - Insert for Dataset Section](#dataset-detailsmd-insert-for-dataset-section)
+        -   [`dataset-details.md` - Insert for Dataset Details Section](#dataset-detailsmd-insert-for-dataset-details-section)
     +   [Command Output Files](#command-output-files)
         - [Dataset `index.html` HTML Landing Page](#dataset-indexhtml-html-landing-page)
         - [Dataset `index.md` Markdown Landing Page](#dataset-indexmd-markdown-landing-page)
@@ -58,7 +58,14 @@ General dataset concepts are described in the [Overview / Dataset Commands](../o
 Dataset Design Example (<a href="../../dataset-design.png">see also the full-size image)</a>
 </p>**
 
-The landing page can be an `index.html` or `index.md` (Markdown) file depending on the website and application software design.
+The landing page can be one of the following:
+
+*   `index.html` (HTML):
+    +    Can be viewed directly by a web browser when hosted on a website.
+    +    Requires creating a valid HTML file (more complex formatting than Markdown).
+*   `index.md` (Markdown):
+    +    Can be viewed in a web application that is able to convert Markdown to HTML.
+    +    Markdown files are simpler to format than HTML but can't be viewed directly in a web browser.
 
 A typical high-level workflow to implement a dataset landing page is:
 
@@ -66,36 +73,43 @@ A typical high-level workflow to implement a dataset landing page is:
     and corresponding CloudFront website URLs.
     The overall conventions are typically determined up front and are applied to multiple datasets.
     For example see the [`https://data.openwaterfoundation.org`](https://data.openwaterfoundation.org) website
+    and specific dataset landing pages
+    (e.g., the [Colorado Municipalities](https://data.openwaterfoundation.org/state/co/owf/municipalities/) dataset,
+    which uses an `index.html` landing page file).
 2.  Create dataset files locally, for example using TSTool commands or other software
     and automated workflows.
-    This work and following steps are typically maintained in a Git repository for the dataset,
+    The workflow files are typically maintained in a Git repository for the dataset,
     with each repository containing one or more datasets.
     For example, see the [`owf-data-co-municipalities`](https://github.com/OpenWaterFoundation/owf-data-co-municipalities)
-    repository for Colorado municipalities. 
+    repository and `workflow` folder for Colorado municipalities. 
 3.  Upload the dataset files to Amazon S3, for example using the
     [`AwsS3`](../AwsS3/AwsS3.md) command.
     Also invalidate the files for AWS CloudFront so that they are pushed to CloudFront servers.
     For example, see the `AwsS3` command at the start of the
     [TSTool command file for the above dataset](https://github.com/OpenWaterFoundation/owf-data-co-municipalities/blob/main/workflow/02-upload-dataset-to-s3.tstool).
-4.  Scan the S3 files and create a dataset landing page that references the S3/CloudFront files,
+4.  List the S3 dataset files and create a dataset landing page,
     for example using this `AwsS3LandingPage` command.
+    This ensures that the landing page reflects all previously uploaded dataset files.
     Also invalidate the dataset landing page files for AWS CloudFront so that they are pushed to CloudFront servers.
     For example, see the `AwsS3LandingPage` command at the end of the
     [TSTool command file for the above dataset](https://github.com/OpenWaterFoundation/owf-data-co-municipalities/blob/main/workflow/02-upload-dataset-to-s3.tstool).
 5.  Create/update the dataset catalog, which lists multiple datasets,
     for example using the [`AwsS3Catalog`](../AwsS3Catalog/AwsS3Catalog.md) command.
+    This command is intended to create a wab page similar to
+    [`https://data.openwaterfoundation.org`](https://data.openwaterfoundation.org).
     **This functionality is under development.**
 6.  Use the published dataset files in applications by accessing dataset files with URLs.
     For example see the
     [Municipalities map in the Poudre Basin Information](https://poudre.openwaterfoundation.org/latest/map/entities-municipalities) website.
 
 If the landing page is an `index.html` file,
-this `AwsS3LandingPage` command allows HTML inserts to be provided for the `<head>`, `<body>`, and `<footer>` sections of the landing page,
+this `AwsS3LandingPage` command allows HTML inserts to be provided for the `<head>` and `<body>` sections of the landing page,
 which allows implementation of a standard "skin" and branding, such as a navigation menu for an organization's website.
 The inserted files can reference shared files such as CSS for the entire website.
 
-If the landing page is a Markdown file, the website must provide functionality to convert Markdown files to
-HTML to view the result in a browser.
+If the landing page is a Markdown file,
+the website must provide functionality to convert Markdown files to HTML to view the result in a browser,
+for example a web application that converts Markdown into HTML for viewing.
 Markdown files are easier to create than HTML but typically do not automatically display in browsers without
 a web browser extension, or application code such as [Showdown](https://showdownjs.com/),
 which converts the Markdown file to HTML on the fly.
@@ -112,16 +126,19 @@ or a landing page for a dataset version under a parent dataset.
 This `AwsS3LandingPage` command is used in a workflow to perform the following tasks for each dataset landing page:
 
 1.  Prior to using this `AwsS3LandingPage` command:
-    1.  Typically, work in a Git repository's working files.
-    2.  Data files that comprise the dataset should exist in local files and
-        are uploaded to S3, for example using the [`AwsS3`](../AwsS3/AwsS3) command.
-    3.  Dynamic content is created by TSTool and other software and then uploaded to S3.
+    1.  Typically, work in a Git repository's working files to create dataset files.
+    2.  Data files that comprise the dataset should exist in local files and are uploaded to S3,
+        for example using the [`AwsS3`](../AwsS3/AwsS3) command.
+    3.  Typically, dynamic content such as output from a workflow, especially large files,
+        is not committed to a repository,
+        which is why publishing to a dataset landing page is needed.
 2.  This `AwsS3LandingPage` command:
     1.  Finds dataset landing pages on S3 by searching for `dataset.json` metadata files.
-    2.  Merges input files and creates content based on `dataset.json` to create a local
+    2.  Merges local input files and creates content based on the `dataset.json` file to create a local
         `index.html` (or `index.md`) landing page for the dataset,
-    3.  Upload the landing page file to S3.
-    4.  Optionally, invalidate the CloudFront distribution so that the files are visible on the website.
+    3.  Uploads the `index.html` (or `index.md`) landing page file to S3.
+    4.  Optionally, invalidates the CloudFront distribution for the landing page
+        so that the files are visible on the website.
 
 This `AwsS3LandingPage` command can be used to create individual landing pages for each dataset version,
 for example a dated snapshot, and can also be used to create a parent dataset landing page
@@ -134,13 +151,16 @@ In this case, make sure that `AwsS3LandingPage(ProcessSubfolders=False,...)` sin
 
 ### DCAT Background ###
 
+See the [Dataset Metadata](#dataset-metadata) section for metadata used by this command.
+The DCAT specification described below was evaluated when designing the dataset metadata used by this command.
+
 One challenge for describing datasets is creating metadata that adheres to a standard.
 Standard metadata allows compliant software tools to understand the datasets.
 An attempt has been made to leverage dataset metadata standards;
 however, these standards are not fully settled.
 The design of this `AwsS3LandingPage` command has been informed by DCAT;
 however, a simple approach has been implemented as discussed in the
-[Datasset Metadata](#dataset-metadata) section.
+[Dataset Metadata](#dataset-metadata) section.
 
 The W3C Data Catalog Vocabulary (DCAT) is a standard for publishing dataset catalogs.
 Each dataset includes the data files or server and DCAT metadata.
@@ -165,6 +185,9 @@ Future versions of this command may support DCAT JSON format.
 
 ### JSON-LD Background ###
 
+See the [Dataset Metadata](#dataset-metadata) section for metadata used by this command.
+The JSON-LD specification described below was evaluated when designing the dataset metadata used by this command.
+
 JSON Linked Data (JSON-LD) is a method of encoding linked data using JSON.
 See the [JSON-LD Wikipedia article](https://en.wikipedia.org/wiki/JSON-LD).
 JSON-LD is mentioned in resources related to DCAT.
@@ -175,7 +198,7 @@ Examples of JSON-LD implementations are:
 
 This `AwsS3LandingPage` command may be updated in the future to use JSON-LD dataset metadata standards.
 However, currently this command implements a simple approach as discussed in the
-[Datasset Metadata](#dataset-metadata) section.
+[Dataset Metadata](#dataset-metadata) section.
 
 ### Dataset Metadata ###
 
@@ -565,6 +588,10 @@ with the files shared between dataset repositories.
 In other words, shared files are typically not stored in each dataset's repository.
 Shared files such as css can be stored in a website's root folders and accessed with absolute locations in URLs.
 
+See also the 
+[`dataset-details.md` - Insert for Dataset Details Section](#dataset-detailsmd-insert-for-dataset-section)
+discussion.  If the `dataset-details.md` file is found, it is converted to HTML and inserted.
+
 #### `dataset.png` - Image for HTML Landing Page ####
 
 The file is used by the output `index.html` landing page to provide a visual for the dataset.
@@ -576,21 +603,19 @@ All datasets should provide an image file in order to create a more visually int
 for example a screen shot of map if the dataset is a spatial data layer.
 The image for a dataset version may change over time as the data changes.
 
-#### Insert for `<head>` ####
+#### Inserts for `<head>` ####
 
-This file is specified by the `DatasetIndexHeadFile` command parameter.
+One or more files can be inserted in the `<head>` section using the `DatasetIndexHeadInsertTopFiles` command parameter.
 
-Specify the parameter to insert an HTML snippet at the top of the `<head>` section of the `index.html` landing page.
+Specify the parameter to insert HTML snippets at the top of the `<head>` section of the `index.html` landing page.
 This can be used, for example, to insert the following:
 
 *   Google Analytics tracking `<script>`.
 *   `<meta>` elements, for example to specify cache control properties.
 *   `<link>` elements to specify CSS files, favicon, etc.
-    The CSS may be used by other content that is inserted.
 *   `<script>` code blocks that define JavaScript functions and other code.
-    The code may be used by other content that is inserted.
-*   CSS and other files that are linked to can use a generic name to share content
-    or can include a version to allow changes over time (web browser "cache-busting" technique).
+*   CSS and JavaScript files that are referenced in the inserts must be packaged with the inserts
+    or must exist on the deployed website and be accessible.
 
 Because the insert may occur for landing pages at any point in a website hierarchy,
 paths to shared files should be absolute and begin with `/`, for example `/css`, `/js`, `/images`, etc.
@@ -599,36 +624,25 @@ be uploaded to the top of the website files, and be referenced by different data
 It is a website design decision as to whether the style of pages should be frozen as snapshots or used
 shared configuration.
 
-#### Insert for `<body>` ####
+#### Inserts for `<body>` ####
 
-This file is specified by the `DatasetIndexBodyFile` command parameter.
+One or more files can be inserted in the `<body>` section using the `DatasetIndexBodyInsertTopFiles`
+and `DatasetIndexBodyInsertBottomFiles` command parameters.
 
-Specify the parameter to insert an HTML snippet at the top of the `<body>` section of the `index.html` landing page,
-for example:
+Inserts for the top of the `<body>` section might include:
 
 *   `<nav>` block to insert page navigation, such as menus consistent with the overall website.
-    The inserted HTML can use JavaScript code and CSS inserted in the `<body>` insert.
+    The inserted HTML can use JavaScript code and CSS inserted in the `<head>` insert.
 
-Because the insert may occur for landing pages at any point in a website hierarchy,
-paths to files should be absolute and begin with `/`, for example `/css`, `/js`, `/images`, etc.
+Inserts for the bottom of the `<body>` section might include:
 
-See the `dataset-details.md` file for how to insert dataset information as Markdown,
-which allows providing content for a specific dataset,
-whereas the `<body>` insert is for all generated dataset landing pages.
-
-#### Insert for `<footer>` ####
-
-This file is specified by the `DatasetIndexFooterFile` command parameter.
-
-Specify the parameter to insert an HTML snippet after the `</body>` element of the `index.html` landing page:
-
-*   The insert should contain a `<footer>` block to insert a page footer,
+*   `<footer>` block to insert a page footer,
     for example to provide organization contact information.
 
 Because the insert may occur for landing pages at any point in a website hierarchy,
 paths to files should be absolute and begin with `/`, for example `/css`, `/js`, `/images`, etc.
 
-### Command Input Files for Markdown Landing Page
+### Command Input Files for Markdown Landing Page ###
 
 The following files are used when creating an `index.md` Markdown landing page.
 
@@ -642,9 +656,10 @@ All datasets should provide an image file in order to create a more visually-int
 for example a screen shot of map if the dataset is a spatial data layer.
 The image for a dataset version may change over time.
 
-#### `dataset-details.md` - Insert for Dataset Section ####
+#### `dataset-details.md` - Insert for Dataset Details Section ####
 
 This file is automatically used if found and is not specified with a command parameter.
+It is handled similarly for HTML and Markdown landing page files.
 
 The `dataset-details.md` file can be provided in the main or version dataset folder
 to provide an insert into the ***Dataset Details*** section of the
@@ -664,7 +679,7 @@ Typical sections include:
 
 This command creates output files based on the command parameters.
 If `ProcessSubfolders=True`, multiple datasets may be processed.
-Therefore, use `DatasetIndexFile=Temp.html` or `DatasetIndexFile=Temp.md` to use temporary files for output files prior.
+Therefore, use `DatasetIndexFile=temp.html` or `DatasetIndexFile=temp.md` to use temporary files for output files prior.
 Otherwise output files for multiple datasets will overwrite.
 If processing a single dataset, a specific output file (e.g., `DatasetIndexFile=index.html` or `DatasetIndexFile=index.md`) can be used.
 
@@ -681,7 +696,7 @@ This command will upload the file to S3 and invalidate the file if CloudFront in
 
 The created `index.html` file depends on several CSS class styles being defined,
 typically in a CSS file that is referenced using a `<script>` element in the
-[body insert](#insert-for-body).
+[`<body>` inserts](#inserts-for-body).
 The following is an example of CSS file contents.
 CSS files are often cached by the web browser so the CSS filename should include a version
 that is changed when the file contents are changed.
@@ -887,7 +902,7 @@ Command Parameters - Dataset
 
 |**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default**|
 |--------------|-----------------|-----------------|
-|`DatasetIndexFile`| Dataset `index.html` (HTML) or or `index.md` (Markdown) landing page file to create, can use `${Property}` syntax:<ul><li>path to an `index.html` (or `index.md`) file to create, use when processing one dataset</li><li>`Temp.html` (or `Temp.md`) - create temporary index file, use when processing a hierarchy of datasets</li></ul> | Do not create the dataset index file(s). |
+|`DatasetIndexFile`| Dataset `index.html` (HTML) or or `index.md` (Markdown) landing page file to create, can use `${Property}` syntax:<ul><li>path to an `index.html` (or `index.md`) file to create, use when processing one dataset</li><li>`temp.html` (or `temp.md`) - create temporary index file, use when processing a hierarchy of datasets</li></ul> | Do not create the dataset index file(s). |
 |`StartingFolder`| Starting folder to search in the S3 bucket, including the trailing `/`, can use `${Property}` notation. Use a leading `/` only if the S3 bucket objects use a top-level `/` in object keys. | All files in the bucket will be checked. |
 |`ProcessSubfolders` | Whether to process folders below the `StartingFolder`:<ul><li>`False` - do not process subfolders (used to update a single dataset landing page)</li><li>`True` - process subfolders (useful for bulk updates to a dataset website)</li></ul> | `False` |
 |`KeepFiles`| Whether to keep temporary output files that are created during processing (`True`) or not (`False`), useful for troubleshooting. | `False`|
@@ -897,11 +912,11 @@ Command Parameters - Dataset
 Command Parameters - HTML Inserts
 </p>**
 
-|**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|
+|**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|
 |--------------|-----------------|-----------------|
-|`DatasetIndexHeadFile`| If creating an HTML index file, the dataset-level `index.html` insert file for the top of the `<head>` section, can use `${Property}`. | |
-|`DatasetIndexBodyFile`| If creating an HTML index file, the dataset-level `index.html` insert file for the top of the `<body>` section, can use `${Property}`. | |
-|`DatasetIndexFooterFile`| If creating an HTML index file, the dataset-level `index.html` insert file for the `<footer>` section (after `</body>`), can use `${Property}`. | |
+|`DatasetIndexHeadInsertTopFiles`| If creating a dataset HTML `index.html` file, insert one or more files at the top of the `<head>` section, can use `${Property}`. Specify multiple files separated by commas. | |
+|`DatasetIndexBodyInsertTopFiles`| If creating a dataset HTML `index.html` file, insert one or more files at the top of the `<body>` section, can use `${Property}`. Specify multiple files separated by commas. | |
+|`DatasetIndexBodyInsertBottomFiles`| If creating a dataset HTML `index.html` file, insert one or more files at the bottom of the `</body>` section, can use `${Property}`. Specify multiple files separated by commas. | |
 
 **<p style="text-align: center;">
 Command Parameters - CloudFront

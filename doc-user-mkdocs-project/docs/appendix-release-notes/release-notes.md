@@ -6,6 +6,7 @@ See the [TSTool release notes](http://opencdss.state.co.us/tstool/latest/doc-use
 
 Plugin release notes:
 
+*   [Version 1.4.0](#version-140)
 *   [Version 1.3.0](#version-130)
 *   [Version 1.2.0](#version-120)
 *   [Version 1.1.1](#version-111)
@@ -13,6 +14,19 @@ Plugin release notes:
 *   [Version 1.0.0](#version-100)
 
 ----------
+
+## Version 1.4.0 ##
+
+**Feature release to improve creating of landing pages.**
+
+*   ![bug](bug.png) [1.4.0] Fix bug in the [`AwsS3LandingPage`](../command-ref/AwsS3LandingPage/AwsS3LandingPage.md) command:
+    +   An `UploadFiles` parameter with wildcard was causing the first S3 file to be overwritten with each local file.
+        This has been fixed.
+*   ![change](change.png) [1.4.0] Update the [`AwsS3LandingPage`](../command-ref/AwsS3LandingPage/AwsS3LandingPage.md) command:
+    +   Change the `DatasetIndexHeadFile` parameter to `DatasetIndexHeadInsertTopFiles` to provide more clarity and flexibility.
+    +   Change the `DatasetIndexBodyFile` parameter to `DatasetIndexBodyInsertTopFiles` to provide more clarity and flexibility.
+    +   Change the `DatasetIndexFooterFile` parameter to `DatasetIndexBodyInsertBottomFiles` to provide more clarity and flexibility.
+    +   The above command parameters are automatically migrated when the command file is read.
 
 ## Version 1.3.0 ##
 
