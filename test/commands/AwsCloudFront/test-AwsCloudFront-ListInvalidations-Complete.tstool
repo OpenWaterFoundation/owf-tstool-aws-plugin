@@ -12,5 +12,5 @@ AwsCloudFront(CloudFrontCommand="ListInvalidations",Region="aws-global",Comment=
 # - should be > 5 for the Completed invalidations
 # - assumes that TSTool runs quickly and invalidation takes a little time
 If(Name="IfCheck",Condition="${TestListInvalidationsCount} < 5")
-Message(Message="There should be at least 5 Completed invalidations (have ${TestListInvalidationsCount}).",CommandStatus=FAILURE)
+Message(Message="There should be at least 5 Completed invalidations (have ${TestListInvalidationsCount}).",CommandStatus="FAILURE")
 EndIf(Name="IfCheck")

@@ -6,6 +6,7 @@ See the [TSTool release notes](http://opencdss.state.co.us/tstool/latest/doc-use
 
 Plugin release notes:
 
+*   [Version 1.4.1](#version-141)
 *   [Version 1.4.0](#version-140)
 *   [Version 1.3.0](#version-130)
 *   [Version 1.2.0](#version-120)
@@ -15,9 +16,21 @@ Plugin release notes:
 
 ----------
 
+## Version 1.4.1 ##
+
+**Maintenence release to refresh data when new profile is selected in command editors.**
+
+*   ![bug](bug.png) [1.4.1] Fix the root URL to command help pages.
+*   ![bug](bug.png) [1.4.1] Update the [`AwsCloudFront`](../command-ref/AwsCloudFront/AwsCloudFront.md) command:
+    +   Fix bug where changing the AWS profile did not update the distribution ID choices.
+*   ![bug](bug.png) [1.4.1] Update the [`AwsCloudFront`](../command-ref/AwsS3LandingPage/AwsS3LandingPage.md) command:
+    +   Fix bug where changing the AWS profile did not refresh the bucket choices.
+*   ![bug](bug.png) [1.4.1] Update the [`AwsCloudFront`](../command-ref/AwsS3/AwsS3.md) command:
+    +   Fix bug where changing the AWS profile did not refresh the bucket choices.
+
 ## Version 1.4.0 ##
 
-**Feature release to improve creating of landing pages.**
+**Feature release to improve creation of landing pages.**
 
 *   ![bug](bug.png) [1.4.0] Fix bug in the [`AwsS3LandingPage`](../command-ref/AwsS3LandingPage/AwsS3LandingPage.md) command:
     +   An `UploadFiles` parameter with wildcard was causing the first S3 file to be overwritten with each local file.

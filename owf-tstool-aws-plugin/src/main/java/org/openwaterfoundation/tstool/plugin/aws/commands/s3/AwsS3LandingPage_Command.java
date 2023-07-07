@@ -572,6 +572,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     		}
 
     		html.write("\n</div> <!-- class=\"dataset-content-container\" -->\n");
+    		// TODO smalers 2023-05-15 need to move this below.
 			html.bodyEnd();
     		if ( (datasetIndexBodyInsertBottomFiles != null) && (datasetIndexBodyInsertBottomFiles.length > 0) ) {
     			Message.printStatus(2,routine, "Inserting " + datasetIndexBodyInsertBottomFiles.length + " <body> (bottom) files.");
@@ -588,6 +589,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     		else {
     			Message.printStatus(2,routine, "No <body> (bottom) insert files were provided.");
     		}
+    		// TODO smalers 2023-05-15 enable this here.
+			// html.bodyEnd();
 			html.htmlEnd();
 			fout.print(html.getHTML());
 		}

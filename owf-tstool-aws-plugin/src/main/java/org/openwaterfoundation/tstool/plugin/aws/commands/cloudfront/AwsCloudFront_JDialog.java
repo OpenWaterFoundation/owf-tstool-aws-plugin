@@ -208,7 +208,7 @@ public void actionPerformed( ActionEvent event ) {
 		response ( false );
 	}
 	else if ( o == __help_JButton ) {
-		HelpViewer.getInstance().showHelp("command", "AwsCloudFront", PluginMeta.documentationRootUrl() );
+		HelpViewer.getInstance().showHelp("command", "AwsCloudFront", PluginMeta.getDocumentationRootUrl() );
 	}
     else if ( event.getActionCommand().equalsIgnoreCase("EditInvalidationPaths") ) {
         // Edit the list in the dialog.  It is OK for the string to be blank.
@@ -880,6 +880,7 @@ public void itemStateChanged ( ItemEvent e ) {
 		setTabForS3Command();
 	}
 	else if ( o == this.__Profile_JComboBox ) {
+    	this.awsSession.setProfile(this.__Profile_JComboBox.getSelected());
 		populateDistributionIdChoices();
 	}
 	else if ( o == this.__Region_JComboBox ) {

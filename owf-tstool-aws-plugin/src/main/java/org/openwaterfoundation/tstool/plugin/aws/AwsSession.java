@@ -93,6 +93,14 @@ public class AwsSession {
 	}
 
 	/**
+	 * Set the profile, for example when selected from a UI.
+	 * @param profile the profile to use, if null see 'defaultProfile'
+	 */
+	public void setProfile ( String profile ) {
+		this.profile = profile;
+	}
+
+	/**
 	 * Set the ProfileCredentialsProvider instance used with the session.
 	 * This facilitates passing the AwSession to methods.
 	 * @param credentialsProvider ProfileCredentialsProvider instance to use to instantiate

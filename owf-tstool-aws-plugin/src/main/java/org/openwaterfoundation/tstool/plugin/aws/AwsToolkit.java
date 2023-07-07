@@ -933,14 +933,14 @@ public class AwsToolkit {
     	if ( awsSession == null ) {
     		// Startup - can't populate the buckets.
     		if ( debug ) {
-    			Message.printStatus(2, routine, "Startup - not populating the list of buckets." );
+    			Message.printStatus(2, routine, "AWS session is null (startup) - not populating the list of buckets." );
     		}
     		return;
     	}
     	else {
     		String profile = awsSession.getProfile();
     		if ( debug ) {
-    			Message.printStatus(2, routine, "Getting the list of buckets." );
+    			Message.printStatus(2, routine, "Getting the list of buckets for profile \"" + profile + "\"." );
     		}
     		// Get the list of buckets.
     		if ( (region == null) || region.isEmpty() ) {
@@ -957,7 +957,8 @@ public class AwsToolkit {
     			else {
     				region = AwsToolkit.getInstance().getDefaultRegion(profile);
     				if ( (region == null) || region.isEmpty() ) {
-    					Message.printStatus(2, routine, "Region is not specified and no default profile - can't populate the list of buckets." );
+    					Message.printStatus(2, routine, "Default region for profile \"" + profile
+    						+ "\" is not specified - can't populate the list of buckets." );
     					bucket_JComboBox.setData(bucketChoices);
     					return;
     				}
@@ -968,7 +969,8 @@ public class AwsToolkit {
     		}
     		// Have a region from specified value or default.
     		if ( debug ) {
-    			Message.printStatus(2, routine, "Region is \"" + region + "\" - populating the list of buckets." );
+    			Message.printStatus(2, routine, "Profile is \"" + profile + "\", region is \"" + region
+    				+ "\" - populating the list of buckets." );
     		}	
     		List<Bucket> buckets = AwsToolkit.getInstance().getS3Buckets(awsSession, region);
     		for ( Bucket bucket : buckets ) {
@@ -982,6 +984,7 @@ public class AwsToolkit {
     			// Add a blank because some services don't use.
     			bucketChoices.add(0,"");
     		}
+    		// This will reset data if already set.
     		bucket_JComboBox.setData(bucketChoices);
     		if ( bucket_JComboBox.getItemCount() > 0 ) {
     			// Select the first bucket by default.
