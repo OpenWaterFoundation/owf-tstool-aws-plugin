@@ -336,7 +336,7 @@ public void actionPerformed( ActionEvent event ) {
         }
     }
 	else if ( o == __help_JButton ) {
-		HelpViewer.getInstance().showHelp("command", "AwsS3", PluginMeta.documentationRootUrl());
+		HelpViewer.getInstance().showHelp("command", "AwsS3", PluginMeta.getDocumentationRootUrl());
 	}
 	else if ( o == __ok_JButton ) {
 		refresh ();
@@ -1700,6 +1700,7 @@ public void itemStateChanged ( ItemEvent e ) {
     	setTabForS3Command();
     }
     else if ( o == this.__Profile_JComboBox ) {
+    	this.awsSession.setProfile(this.__Profile_JComboBox.getSelected());
         AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Bucket_JComboBox, true );
         AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __CopyBucket_JComboBox, true );
 	}

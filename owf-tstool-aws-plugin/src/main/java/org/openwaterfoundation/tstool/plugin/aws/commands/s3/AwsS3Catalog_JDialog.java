@@ -352,7 +352,7 @@ public void actionPerformed( ActionEvent event ) {
 		response ( false );
 	}
 	else if ( o == __help_JButton ) {
-		HelpViewer.getInstance().showHelp("command", "AwsS3", PluginMeta.documentationRootUrl());
+		HelpViewer.getInstance().showHelp("command", "AwsS3", PluginMeta.getDocumentationRootUrl());
 	}
 	else if ( o == __ok_JButton ) {
 		refresh ();

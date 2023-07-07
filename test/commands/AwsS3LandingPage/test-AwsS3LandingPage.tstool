@@ -1,10 +1,12 @@
 StartLog(LogFile="results/test-AwsS3LandingPage.tstool.log")
-# Test AwsS3Catalog command:
+# Test AwsS3LandingPage command:
 # - use the 'test.openwaterfoundation.org' bucket
 # - AWS permissions are required to run the tests
 # - the default profile is used
+# - TODO smalers 2023-07-07 this test was originally written to process multiple landing pages,
+#   but the command is now typically used for individual landing pages (AwsS3Catalog needs to be completed)
 #
-# Upload test data similar to the data.openwaterfoundation.org website.
+# Upload test data similar to the test.openwaterfoundation.org website.
 # The following dataset configurations are tested:
 #
 #   data/state/co/
@@ -23,16 +25,19 @@ StartLog(LogFile="results/test-AwsS3LandingPage.tstool.log")
 #         dataset.json
 #         *.geojson
 #
-# Uncomment the following to upload test data to S3.
+# Uncomment the following to upload test data to S3:
+# - usually the dataset files can be reused without uploading again
 # AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",UploadFiles="data/datasetA.json:data/state/co/datasetA/dataset.json,data/example.geojson:data/state/co/datasetA/example.geojson,data/datasetB.json:data/state/co/datasetB/latest/dataset.json,data/example.geojson:data/state/co/datasetB/latest/example.geojson,data/datasetC-latest.json:data/state/co/datasetC/latest/dataset.json,data/example.geojson:data/state/co/datasetC/latest/example.geojson,data/datasetC-version.json:data/state/co/datasetC/2022-06-12/dataset.json,data/example.geojson:data/state/co/datasetC/2022-06-12/example.geojson,data/datasetC-parent.json:data/state/co/datasetC/dataset.json,data/datasetA-details.md:data/state/co/datasetA/dataset-details.md,data/owf-logo.png:data/state/co/datasetA/dataset.png,data/owf-logo.png:data/state/co/datasetB/dataset.png,data/owf-logo.png:data/state/co/datasetC/dataset.png")
 #
-# Generate a single index.html file for one dataset.
-# Use website CSS
+# Generate a single index.html file for one dataset:
+# - use website CSS
 # AwsS3Catalog(Region="us-west-2",Bucket="test.openwaterfoundation.org",StartingPrefix="data/state/co",DatasetIndexFile="Temp",CssUrl="https://test.openwaterfoundation.org/css/data-site.css",OutputTableID="Datasets",KeepFiles=True,UploadFiles=False)
 # Use the following for local review:
 # - use Temp folder CSS
 # AwsS3Catalog(Region="us-west-2",Bucket="test.openwaterfoundation.org",StartingPrefix="data/state/co",DatasetIndexFile="Temp",OutputTableID="Datasets",KeepFiles=True)
-AwsS3LandingPage(Region="us-west-2",Bucket="test.openwaterfoundation.org",DatasetIndexFile="Temp.html",KeepFiles=True)
+SetDebugLevel(LogFileLevel="1")
+AwsS3LandingPage(Region="us-west-2",Bucket="test.openwaterfoundation.org",DatasetIndexFile="Temp.html",ProcessSubfolders="True",KeepFiles="True")
+SetDebugLevel(ScreenLevel="0",LogFileLevel="0")
 #
 # Use the following for production upload:
 # - CSS file is at the root of the server

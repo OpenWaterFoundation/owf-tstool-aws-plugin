@@ -120,7 +120,7 @@ The plugin is currently distributed on Windows using a zip file,
 using the following procedure:
 
 1.  Update the version:
-    1.  Update the `src/main/java/owf-tstool-aws-plugin/org/openwaterfoundation/tstool/plugin/aws/Aws.java` source file.
+    1.  Update the `src/main/java/owf-tstool-aws-plugin/org/openwaterfoundation/tstool/plugin/aws/PluginMeta.java` source file.
     2.  The version is extracted by scripts below to use in the documentation location and zip file name,
         which results in versioned installers being listed in the product landing page.
 2.  Update the documentation:
@@ -148,7 +148,7 @@ Contributions to this project can be submitted using the following options:
     Contents of the current master branch should be merged with the fork to minimize
     code review before committing the pull request.
 
-See also the [OpenCDSS / TSTool protocols](http://learn.openwaterfoundation.org/cdss-website-opencdss/tstool/tstool/).
+See also the [OpenCDSS / TSTool protocols](https://opencdss.state.co.us/opencdss/tstool/)
 
 ## License ##
 
