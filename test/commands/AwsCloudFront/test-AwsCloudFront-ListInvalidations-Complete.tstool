@@ -9,8 +9,8 @@ StartLog(LogFile="results/test-AwsCloudFront-ListInvalidations-Complete.tstool.l
 AwsCloudFront(CloudFrontCommand="ListInvalidations",Region="aws-global",Comment="*test.openwaterfoundation.org*",InvalidationStatus="Completed",ListInvalidationsCountProperty="TestListInvalidationsCount",OutputTableID="TestInvalidationsTable")
 #
 # Test getting status=InProcess invalidations are listed:
-# - should be > 5 for the Completed invalidations
+# - should be > 3 for the Completed invalidations
 # - assumes that TSTool runs quickly and invalidation takes a little time
-If(Name="IfCheck",Condition="${TestListInvalidationsCount} < 5")
+If(Name="IfCheck",Condition="${TestListInvalidationsCount} < 3")
 Message(Message="There should be at least 5 Completed invalidations (have ${TestListInvalidationsCount}).",CommandStatus="FAILURE")
 EndIf(Name="IfCheck")

@@ -76,6 +76,7 @@ import RTi.Util.IO.PropList;
 import RTi.Util.IO.Markdown.MarkdownWriter;
 import RTi.Util.Message.Message;
 import RTi.Util.Message.MessageUtil;
+import RTi.Util.String.StringDictionary;
 import RTi.Util.String.StringUtil;
 import RTi.Util.Table.DataTable;
 import RTi.Util.Table.TableField;
@@ -1259,6 +1260,8 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	if ( (DistributionId != null) && !DistributionId.isEmpty() ) {
 		// Get the distribution Id given input.
 		String commentPattern = DistributionId;
+		// Don't match the tags.
+		StringDictionary tagDict = null;
 		String distributionId2 = null;
 		if ( DistributionId.indexOf("*") >= 0 ) {
 			// DistributionId was specified with comment pattern:
@@ -1270,7 +1273,8 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 			commentPattern = null;
 			distributionId2 = DistributionId;
 		}
-		distributionId = AwsToolkit.getInstance().getCloudFrontDistributionId(awsSession, cloudFrontRegion, distributionId2, commentPattern);
+		distributionId = AwsToolkit.getInstance().getCloudFrontDistributionId(
+			awsSession, cloudFrontRegion, distributionId2, tagDict, commentPattern);
 	}
 
 	// The following is used to create a temporary table before outputting to a file.

@@ -80,6 +80,7 @@ import RTi.Util.IO.PropList;
 import RTi.Util.IO.Markdown.MarkdownWriter;
 import RTi.Util.Message.Message;
 import RTi.Util.Message.MessageUtil;
+import RTi.Util.String.StringDictionary;
 import RTi.Util.String.StringUtil;
 import RTi.Util.Table.DataTable;
 import RTi.Util.Table.TableField;
@@ -181,6 +182,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    		// CloudFront
    		String InvalidateCloudFront = parameters.getValue ( "InvalidateCloudFront" );
    		String CloudFrontDistributionId = parameters.getValue ( "CloudFrontDistributionId" );
+    	String CloudFrontTags = parameters.getValue ( "CloudFrontTags" );
    		String CloudFrontComment = parameters.getValue ( "CloudFrontComment" );
    		String CloudFrontWaitForCompletion = parameters.getValue ( "CloudFrontWaitForCompletion" );
 
@@ -280,20 +282,30 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 				}
 				if ( InvalidateCloudFront.equalsIgnoreCase(_True) ) {
 					if ( ((CloudFrontDistributionId == null) || CloudFrontDistributionId.isEmpty()) &&
+						((CloudFrontTags == null) || CloudFrontTags.isEmpty()) &&
 						((CloudFrontComment == null) || CloudFrontComment.isEmpty()) ) {
-						message = "The CloudFront distribution ID or CloudFront comment must be specified.";
+						message = "The CloudFront distribution ID, tag(s), or comment must be specified.";
 						warning += "\n" + message;
 						status.addToLog(CommandPhaseType.INITIALIZATION,
 							new CommandLogRecord(CommandStatusType.FAILURE,
-								message, "Specify the CloudFront distribution ID or comment."));
+								message, "Specify the CloudFront distribution ID, tag(s), or comment."));
 					}
-					if ( ((CloudFrontDistributionId != null) && !CloudFrontDistributionId.isEmpty()) &&
-						((CloudFrontComment != null) && !CloudFrontComment.isEmpty()) ) {
-						message = "The CloudFront distribution ID or CloudFront comment must be specified (not both).";
+					int count = 0;
+					if ( (CloudFrontDistributionId != null) && !CloudFrontDistributionId.isEmpty() ) {
+						++count;
+					}
+					if ( (CloudFrontTags != null) && !CloudFrontTags.isEmpty() ) {
+						++count;
+					}
+					if ( (CloudFrontComment != null) && !CloudFrontComment.isEmpty() ) {
+						++count;
+					}
+					if ( count > 1 ) {
+						message = "The CloudFront distribution ID, tag(s), or comment must be specified (not more than one).";
 						warning += "\n" + message;
 						status.addToLog(CommandPhaseType.INITIALIZATION,
 							new CommandLogRecord(CommandStatusType.FAILURE,
-								message, "Specify the CloudFront distribution ID or comment."));
+								message, "Specify the CloudFront distribution ID, tag(s), or comment."));
 					}
 
 					if ( (CloudFrontWaitForCompletion != null) && (CloudFrontWaitForCompletion.length() != 0) &&
@@ -329,6 +341,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		validList.add ( "InvalidateCloudFront" );
 		validList.add ( "CloudFrontRegion" );
 		validList.add ( "CloudFrontDistributionId" );
+		validList.add ( "CloudFrontTags" );
 		validList.add ( "CloudFrontComment" );
 		validList.add ( "CloudFrontCallerReference" );
 		validList.add ( "CloudFrontWaitForCompletion" );
@@ -813,7 +826,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	 */
 	private int doCloudFrontInvalidation (
 		AwsSession awsSession,
-		String region, String cloudFrontRegion, String distributionId, String commentPattern,
+		String region, String cloudFrontRegion, String distributionId, StringDictionary tagDict, String commentPattern,
 		List<String> cloudFrontPaths, String callerReference, boolean waitForCompletion,
 		CommandStatus status, int logLevel, int warningLevel, int warningCount, String commandTag ) throws Exception {
 		String routine = getClass().getSimpleName() + ".doCloudFrontInvalidation";
@@ -829,15 +842,15 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	   	// - see: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
    	   	// List the distributions given the input parameters.
    	   	distributionId = AwsToolkit.getInstance().getCloudFrontDistributionId(
-   	   		awsSession, cloudFrontRegion, distributionId, commentPattern);
+   	   		awsSession, cloudFrontRegion, distributionId, tagDict, commentPattern);
        	boolean doInvalidate = true;
        	if ( distributionId == null ) {
-   			message = "Unable to determine CloudFront distribution ID for invalidation.";
+   			message = "Unable to determine CloudFront distribution for invalidation.";
    			Message.printWarning(warningLevel,
    				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
    			status.addToLog ( commandPhase,
    				new CommandLogRecord(CommandStatusType.FAILURE,
-   					message, "Verify that the distribution ID is valid for the CloudFront region." ) );
+   					message, "Verify that the distribution ID, tag(s), and comment are valid for the CloudFront region." ) );
    			doInvalidate = false;
        	}
        	if ( cloudFrontPaths.size() == 0 ) {
@@ -1476,6 +1489,12 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		String CloudFrontRegion = parameters.getValue ( "CloudFrontRegion" );
 		String CloudFrontDistributionId = parameters.getValue ( "CloudFrontDistributionId" );
 		CloudFrontDistributionId = TSCommandProcessorUtil.expandParameterValue(processor,this,CloudFrontDistributionId);
+		String CloudFrontTags = parameters.getValue ( "CloudFrontTags" );
+		CloudFrontTags = TSCommandProcessorUtil.expandParameterValue(processor,this,CloudFrontTags);
+		StringDictionary tagDict = null;
+		if ( (CloudFrontTags != null) && !CloudFrontTags.isEmpty() ) {
+			tagDict = new StringDictionary ( CloudFrontTags, ":", "," );
+		}
 		String CloudFrontComment = parameters.getValue ( "CloudFrontComment" );
 		CloudFrontComment = TSCommandProcessorUtil.expandParameterValue(processor,this,CloudFrontComment);
 		// Convert the comment to a Java pattern.
@@ -1973,7 +1992,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	       			try {
 	       				warningCount = doCloudFrontInvalidation (
 	       					awsSession,
-	       					region, CloudFrontRegion, CloudFrontDistributionId, commentPattern,
+	       					region, CloudFrontRegion, CloudFrontDistributionId, tagDict, commentPattern,
 	       					cloudFrontPaths, callerReference, waitForCompletion,
 	       					status, logLevel, warningLevel, warningCount, commandTag );
 	       			}
@@ -2068,6 +2087,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			"InvalidateCloudFront",
 			"CloudFrontRegion",
 			"CloudFrontDistributionId",
+			"CloudFrontTags",
 			"CloudFrontComment",
 			"CloudFrontCallerReference",
 			"CloudFrontWaitForCompletion",

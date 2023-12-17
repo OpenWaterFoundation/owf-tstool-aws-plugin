@@ -45,7 +45,7 @@ The following dialog is used to edit the command and illustrates the syntax for 
 Each `AwsCloudFront` command has a tab for parameters specific to that command.
 The ***Output*** tab is used with the `ListDistributions` and `ListInvalidations` CloudFront commands.
 
-Command parameters are provided to help with automated tests and error checks.
+Some command parameters are provided to help with automated tests and error checks.
 For example, the `ListDistributionsCountProperty` parameter can be used to set a processor property containing
 the number of buckets in the returned list.
 Use the [`If`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/If/If/) command to check the property value.
@@ -56,18 +56,33 @@ Use the `CloudFrontCommand=InvalidateDistribution` parameter to invalidate files
 For example, use the command to update a dataset's files after files have been uploaded to S3 and
 if invalidation did not occur in the [`AwsS3`](../AwsS3/AwsS3.md) command.
 
+The following example shows how to match a distribution using a tag.
+Using a tag generally works well because unique tag values can be defined for CloudFront distributions.
+
 **<p style="text-align: center;">
-![AwsCloudFront-invalidate](AwsCloudFront-invalidate.png)
+![AwsCloudFront invalidate using a tag](AwsCloudFront-invalidate-tag.png)
 </p>**
 
 **<p style="text-align: center;">
-`AwsCloudFront` Command Editor for Invalidate Distribution Parameters (<a href="../AwsCloudFront-invalidate.png">see also the full-size image)</a>
+`AwsCloudFront` Command Editor for Invalidate Distribution Parameters using a Tag (<a href="../AwsCloudFront-invalidate-tag.png">see full-size image)</a>
+</p>**
+
+The following example shows how to match a distribution using a comment substring.
+Note the use of asterisk at front and back as wildcards.
+Matching a comment can be prone to errors if the substring is found in multiple distribution comments.
+
+**<p style="text-align: center;">
+![AwsCloudFront invalidate using a comment](AwsCloudFront-invalidate-comment.png)
+</p>**
+
+**<p style="text-align: center;">
+`AwsCloudFront` Command Editor for Invalidate Distribution Parameters Using a Comment (<a href="../AwsCloudFront-invalidate-comment.png">see full-size image)</a>
 </p>**
 
 ### List Distributions ###
 
 Use the `CloudFrontCommand=ListDistributions` parameter to list CloudFront distributions.
-For example, use the general `Comment` parameter to match the domain name in the CloudFront comment (description)
+For example, use the general `Tags` parameter to match the domain name in the CloudFront tag
 to look up the distribution ID.
 
 **<p style="text-align: center;">
@@ -75,7 +90,7 @@ to look up the distribution ID.
 </p>**
 
 **<p style="text-align: center;">
-`AwsCloudFront` Command Editor for List Distributions Parameters (<a href="../AwsCloudFront-list-distributions.png">see also the full-size image)</a>
+`AwsCloudFront` Command Editor for List Distributions Parameters (<a href="../AwsCloudFront-list-distributions.png">see full-size image)</a>
 </p>**
 
 ### List Invalidations ###
@@ -85,13 +100,14 @@ For example, use the command to list whether invalidations have recently been ru
 and to see if any invalidations are in process.
 Note that the default is to list only invalidations that have status of `InProcess`.
 Use the `InvalidatationStatus` command parameter to filter the status.
+The following example matches a CloudFront distribution tag.
 
 **<p style="text-align: center;">
 ![AwsCloudFront-list-invalidations](AwsCloudFront-list-invalidations.png)
 </p>**
 
 **<p style="text-align: center;">
-`AwsCloudFront` Command Editor for List Invalidations Parameters (<a href="../AwsCloudFront-list-invalidations.png">see also the full-size image)</a>
+`AwsCloudFront` Command Editor for List Invalidations Parameters (<a href="../AwsCloudFront-list-invalidations.png">see full-size image)</a>
 </p>**
 
 ### Output ###
@@ -103,7 +119,7 @@ The ***Output*** tab is used to specify the output table and/or file used with t
 </p>**
 
 **<p style="text-align: center;">
-`AwsCloudFront` Command Editor for Output Parameters (<a href="../AwsCloudFront-output.png">see also the full-size image)</a>
+`AwsCloudFront` Command Editor for Output Parameters (<a href="../AwsCloudFront-output.png">see full-size image)</a>
 </p>**
 
 ## Command Syntax ##
@@ -123,8 +139,9 @@ Command Parameters - General
 |`CloudFrontCommand`<br>**required**|The CloudFront command to run, which indicates which tab's parameters are used. | None - must be specified. |
 |`Profile`|The AWS command line interface profile to use for authentication, can use `${Property}` syntax. | <ul><li>If only one profile is provided in the AWS command line interface configuration files, use it.</li><li>If multiple profiles are available, use the one named `default` if available.</li></ul>|
 |`Region`| The AWS region to use for service requests. Use the [AWS Management Console website](https://aws.amazon.com/console/) to check which region is used for an account, can use `${Property}` syntax. | Default region from the user's AWS configuration file. CloudFront seems to store distributions in the `aws-global` region. |
-|`DistributionId`| The CloudFront distribution identifier, can use `${Property}` syntax. The `DistributionID` or `Comment` parameter must be specified. | A distribution ID or comment must be specified for CloudFront commands that act on specific distributions. |
-|`Comment`|The distribution comment (description) to match, useful because a comment may match a domain name that is easy to understand, whereas the distribution ID is a sequence of characters.  Specify using `*` as a wildcard to match a pattern (e.g., `*some.domain.org*`).  The `DistributionID` or `Comment` parameter must be specified. | A distribution ID or comment must be specified for CloudFront commands that act on specific distributions. |
+|`DistributionId`| The CloudFront distribution identifier, can use `${Property}` syntax. |  Must specify `DistributionId`, `Tags`, or `Comment`. |
+|`Tags`| CloudFront distribution tags to match the distribution to process, can use `${Property}` syntax. | Must specify `DistributionId`, `Tags`, or `Comment`. |
+|`Comment`|The distribution comment (description) to match, useful because a comment may match a domain name that is easy to understand, whereas the distribution ID is a sequence of characters.  Specify using `*` as a wildcard to match a pattern (e.g., `*some.domain.org*`).  | Must specify `DistributionId`, `Tags`, or `Comment`. |
 
 ### Invalidate Distribution Command Parameters ###
 

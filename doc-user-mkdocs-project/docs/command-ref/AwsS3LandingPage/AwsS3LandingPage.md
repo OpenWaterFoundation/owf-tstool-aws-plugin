@@ -21,6 +21,11 @@ information product, or other electronic asset.
         - [Dataset `index.html` HTML Landing Page](#dataset-indexhtml-html-landing-page)
         - [Dataset `index.md` Markdown Landing Page](#dataset-indexmd-markdown-landing-page)
 *   [Command Editor](#command-editor)
+    +   [AWS S3](#aws-s3)
+    +   [Dataset](#dataset)
+    +   [HTML Inserts](#html-inserts)
+    +   [Markdown Inserts](#markdown-inserts)
+    +   [CloudFront](#cloudfront)
 *   [Command Syntax](#command-syntax)
 *   [Examples](#examples)
     +   [HTML Landing Page](#html-landing-page)
@@ -55,7 +60,7 @@ General dataset concepts are described in the [Overview / Dataset Commands](../o
 </p>**
 
 **<p style="text-align: center;">
-Dataset Design Example (<a href="../../dataset-design.png">see also the full-size image)</a>
+Dataset Design Example (<a href="../../dataset-design.png">see full-size image)</a>
 </p>**
 
 The landing page can be one of the following:
@@ -838,44 +843,69 @@ This workflow can be run when a dataset is updated and can be run on a schedule 
 
 The following dialog is used to edit the command and illustrates the syntax for the command.
 
+### AWS S3 ###
+
 **<p style="text-align: center;">
 ![AwsS3LandingPage-aws-s3](AwsS3LandingPage-aws-s3.png)
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3LandingPage` Command Editor for AWS S3 Parameters (<a href="../AwsS3LandingPage-aws-s3.png">see also the full-size image)</a>
+`AwsS3LandingPage` Command Editor for AWS S3 Parameters (<a href="../AwsS3LandingPage-aws-s3.png">see full-size image)</a>
 </p>**
+
+### Dataset ###
 
 **<p style="text-align: center;">
 ![AwsS3LandingPage-dataset](AwsS3LandingPage-dataset.png)
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3LandingPage` Command Editor for Dataset Parameters (<a href="../AwsS3LandingPage-dataset.png">see also the full-size image)</a>
+`AwsS3LandingPage` Command Editor for Dataset Parameters (<a href="../AwsS3LandingPage-dataset.png">see full-size image)</a>
 </p>**
+
+### HTML Inserts ###
 
 **<p style="text-align: center;">
 ![AwsS3LandingPage-html](AwsS3LandingPage-html.png)
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3LandingPage` Command Editor for HTML Insert Parameters (<a href="../AwsS3LandingPage-html.png">see also the full-size image)</a>
+`AwsS3LandingPage` Command Editor for HTML Insert Parameters (<a href="../AwsS3LandingPage-html.png">see full-size image)</a>
 </p>**
+
+### Markdown Inserts ###
 
 **<p style="text-align: center;">
 ![AwsS3LandingPage-markdown](AwsS3LandingPage-markdown.png)
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3LandingPage` Command Editor for Markdown Insert Parameters (<a href="../AwsS3LandingPage-markdown.png">see also the full-size image)</a>
+`AwsS3LandingPage` Command Editor for Markdown Insert Parameters (<a href="../AwsS3LandingPage-markdown.png">see full-size image)</a>
+</p>**
+
+### CloudFront ###
+
+The following example shows how to match a distribution using a tag.
+Using a tag generally works well because unique tag values can be defined for CloudFront distributions.
+
+**<p style="text-align: center;">
+![AwsS3LandingPage cloudfront parameters using a tag](AwsS3LandingPage-cloudfront-tag.png)
 </p>**
 
 **<p style="text-align: center;">
-![AwsS3LandingPage-cloudfront](AwsS3LandingPage-cloudfront.png)
+`AwsS3LandingPage` Command Editor for CloudFront Parameters Using a Tag (<a href="../AwsS3LandingPage-cloudfront-tag.png">see full-size image)</a>
+</p>**
+
+The following example shows how to match a distribution using a comment substring.
+Note the use of asterisk at front and back as wildcards.
+Matching a comment can be prone to errors if the substring is found in multiple distribution comments.
+
+**<p style="text-align: center;">
+![AwsS3LandingPage cloudfront parameters using a comment](AwsS3LandingPage-cloudfront-comment.png)
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3LandingPage` Command Editor for CloudFront Parameters (<a href="../AwsS3LandingPage-cloudfront.png">see also the full-size image)</a>
+`AwsS3LandingPage` Command Editor for CloudFront Parameters Using a Comment (<a href="../AwsS3LandingPage-cloudfront-comment.png">see full-size image)</a>
 </p>**
 
 ## Command Syntax ##
@@ -926,8 +956,9 @@ Command Parameters - CloudFront
 |--------------|-----------------|-----------------|
 |`InvalidateCloudFront`| Indicate whether CloudFront invalidation should occur (`True`) or not (`False`). | `False` |
 |`CloudFrontRegion`| The AWS region to use for CloudFront requests. The `aws-global` region may need to be used in any case (this is being evaluated). | `Region` parameter value. |
-|`CloudFrontDistributionId`| CloudFront distribution ID to invalidate, can use `${Property}` syntax. | Must be specified if `CloudFrontComment` is not specified. |
-|`CloudFrontComment`| CloudFront comment (description) pattern to match, to indicate the CloudFront distribution, using `*` for wildcards.  For example, if the comment includes the domain for the distribution (e.g., `data.openwaterfoundation.org`) it is easier to look up the distribution than using the distribution ID, which is a sequence of characters. Can use `${Property}` syntax. | Must be specified if `CloudFrontDistributionID` is not specified. |
+|`CloudFrontDistributionId`| CloudFront distribution ID to invalidate, can use `${Property}` syntax. | Must specify `CloudFrontDistributionId`, `CloudFrontTags`, or `CloudFrontComment`. |
+|`CloudFrontTags`| CloudFront distribution tags to match the distribution to invalidate, can use `${Property}` syntax. | Must specify `CloudFrontDistributionId`, `CloudFrontTags`, or `CloudFrontComment`. |
+|`CloudFrontComment`| CloudFront comment (description) pattern to match, to indicate the CloudFront distribution, using `*` for wildcards.  For example, if the comment includes the domain for the distribution (e.g., `data.openwaterfoundation.org`) it is easier to look up the distribution than using the distribution ID, which is a sequence of characters. Can use `${Property}` syntax. | Must specify `CloudFrontDistributionId`, `CloudFrontTags`, or `CloudFrontComment`. |
 |`CloudFrontCallerReference`| String to use to identify the invalidation, can use `${Property}` syntax.  | `TSTool-user-YYMMDDThhmmss` to uniquely identify the invalidation. |
 |`CloudFrontWaitForCompletion`| Whether the software should wait until the invalidation finishes (and output is visible in URLs), typically a few seconds, but varies depending on the size of files and AWS performance level.  | |
 

@@ -682,7 +682,7 @@ The following dialog is used to edit the command and illustrates the syntax for 
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3Catalog` Command Editor for Dataset Parameters (<a href="../AwsS3Catalog-dataset.png">see also the full-size image)</a>
+`AwsS3Catalog` Command Editor for Dataset Parameters (<a href="../AwsS3Catalog-dataset.png">see full-size image)</a>
 </p>**
 
 **<p style="text-align: center;">
@@ -690,7 +690,7 @@ The following dialog is used to edit the command and illustrates the syntax for 
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3Catalog` Command Editor for Catalog Parameters (<a href="../AwsS3Catalog-catalog.png">see also the full-size image)</a>
+`AwsS3Catalog` Command Editor for Catalog Parameters (<a href="../AwsS3Catalog-catalog.png">see full-size image)</a>
 </p>**
 
 **<p style="text-align: center;">
@@ -698,7 +698,7 @@ The following dialog is used to edit the command and illustrates the syntax for 
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3Catalog` Command Editor for CloudFront Parameters (<a href="../AwsS3Catalog-cloudfront.png">see also the full-size image)</a>
+`AwsS3Catalog` Command Editor for CloudFront Parameters (<a href="../AwsS3Catalog-cloudfront.png">see full-size image)</a>
 </p>**
 
 **<p style="text-align: center;">
@@ -706,7 +706,7 @@ The following dialog is used to edit the command and illustrates the syntax for 
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3Catalog` Command Editor for Output Parameters (<a href="../AwsS3Catalog-output.png">see also the full-size image)</a>
+`AwsS3Catalog` Command Editor for Output Parameters (<a href="../AwsS3Catalog-output.png">see full-size image)</a>
 </p>**
 
 ## Command Syntax ##

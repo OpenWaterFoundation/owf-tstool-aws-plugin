@@ -102,7 +102,7 @@ TSTool and this AWS plugin.
 </p>**
 
 **<p style="text-align: center;">
-Dataset Design Example (<a href="../dataset-design.png">see also the full-size image)</a>
+Dataset Design Example (<a href="../dataset-design.png">see full-size image)</a>
 </p>**
 
 The initial focus of implementation has been on dataset landing pages

@@ -29,6 +29,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.JLabel;
 import javax.swing.JTextField;
@@ -38,6 +39,7 @@ import org.openwaterfoundation.tstool.plugin.aws.commands.s3.AwsS3Object;
 import RTi.Util.GUI.SimpleJComboBox;
 import RTi.Util.IO.IOUtil;
 import RTi.Util.Message.Message;
+import RTi.Util.String.StringDictionary;
 import RTi.Util.Time.TimeUtil;
 
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
@@ -53,6 +55,10 @@ import software.amazon.awssdk.services.cloudfront.model.ListDistributionsRequest
 import software.amazon.awssdk.services.cloudfront.model.ListDistributionsResponse;
 import software.amazon.awssdk.services.cloudfront.model.ListInvalidationsRequest;
 import software.amazon.awssdk.services.cloudfront.model.ListInvalidationsResponse;
+import software.amazon.awssdk.services.cloudfront.model.ListTagsForResourceRequest;
+import software.amazon.awssdk.services.cloudfront.model.ListTagsForResourceResponse;
+import software.amazon.awssdk.services.cloudfront.model.Tag;
+import software.amazon.awssdk.services.cloudfront.model.Tags;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Bucket;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
@@ -145,6 +151,68 @@ public class AwsToolkit {
 		}
     	return hasRoot;
     }
+
+    /**
+     * Indicate whether the CloudFront distribution tags match the requested tags.
+     * @param tags CloudFront distribution tags
+     * @param tagDict a dictionary of tags to match
+     * @return true if all the requested tag values are matched, false otherwise
+     */
+	public boolean cloudFrontDistributionTagsMatch ( Tags tags, StringDictionary tagDict ) {
+		String routine = getClass().getSimpleName() + ".cloudFrontDistributionTagsMatch";
+		int tagDictSize = 0;
+		if ( tagDict != null ) {
+			tagDictSize = tagDict.size();
+		}
+		if ( (tags == null) || !tags.hasItems() ) {
+			// Distribution has no tags.
+			if ( tagDictSize == 0 ) {
+				// No items to check.
+				Message.printStatus(2, routine, "No distribution tags and no requested tags so returning true.");
+				return true;
+			}
+			else {
+				// Have items to check.
+				Message.printStatus(2, routine, "No distribution tags and do have requested tags so returning false.");
+				return false;
+			}
+		}
+		if ( tagDictSize == 0 ) {
+			// Not checking tags so return true.
+			Message.printStatus(2, routine, "No requested tags to check so returning true.");
+			return true;
+		}
+		else {
+			// Check the distribution's tags against the requested tag(s).
+			int matchCount = 0;
+			if ( (tags != null) && (tags.items().size() > 0) ) {
+				// Have distribution tags to check.
+				Map<String,String> map = tagDict.getLinkedHashMap();
+				for ( Map.Entry<String, String> set : map.entrySet() ) {	
+					// Tags does not behave like a map so have to iterate through the list of tags.
+					for ( Tag tag : tags.items() ) {
+						if  ( tag.key().equals(set.getKey()) && tag.value().equals(set.getValue())) {
+							++matchCount;
+							// TODO smalers 2023-12-15 what if multiple same-named tags are used?
+							break;
+						}
+					}
+				}
+			}
+			if ( matchCount == tagDictSize ) {
+				// Matched all the requested tags.
+				Message.printStatus(2, routine, "Matched " + matchCount + " requested tags so returning true.");
+				return true;
+			}
+			else {
+				// Did not match all the requested tags:
+				// - could be because the distribution had no tags
+				Message.printStatus(2, routine, "Matched " + matchCount + " of " +
+					tagDict.size() + " requested tags so returning false.");
+				return false;
+			}
+		}
+	}
 	
 	/**
 	 * Delete a list of S3 objects using keys.
@@ -190,6 +258,27 @@ public class AwsToolkit {
     }
 
 	/**
+	 * Format tags into a CSV string.
+	 * @param tags the CloudFront tags to format
+	 * @return tags as a CSV string "Tag1=Value1,Tag2=Value2,...".
+	 */
+	public String formatCloudFrontTagsAsCsv ( Tags tags, boolean includeSpace ) {
+		StringBuilder b = new StringBuilder();
+		for ( Tag tag : tags.items() ) {
+			if ( b.length() > 0 ) {
+				b.append(",");
+				if ( includeSpace ) {
+					b.append(" "); 
+				}
+			}
+			b.append(tag.key());
+			b.append("=");
+			b.append(tag.value());
+		}
+		return b.toString();
+	}
+	
+	/**
 	 * Get the path to the user's AWS configuration file.
 	 * @return the path to the user's AWS configuration file.
 	 */
@@ -204,18 +293,28 @@ public class AwsToolkit {
   	 * @param awsSession the AWS session, containing profile
  	 * @param region the AWS region
 	 * @param distributionId if not null and not empty, the distribution ID to use, takes precedence over the comment
+	 * @param tagDict dictionary of tags to match
 	 * @param commentPattern if not null and not empty, a Java pattern to match the distribution comment
 	 * @return the distribution ID to use after evaluating input, or null if not matched.
 	 */
-   	public String getCloudFrontDistributionId( AwsSession awsSession, String region, String distributionId, String commentPattern ) {
+   	public String getCloudFrontDistributionId ( AwsSession awsSession, String region,
+   		String distributionId, StringDictionary tagDict, String commentPattern ) {
    		// Get the list of distributions.
    		List<DistributionSummary> distributions = getCloudFrontDistributions ( awsSession, region );
    		// Match a specific distribution.
    		for ( DistributionSummary distribution : distributions ) {
    			if ( (distributionId != null) && !distributionId.isEmpty() && distribution.id().equals(distributionId) ) {
+   				// Matched the distribution ID.
    				return distributionId;
    			}
+   			else if ( (tagDict != null) && (tagDict.size() > 0) ) {
+   				Tags tags = getCloudFrontDistributionTags(awsSession, region, distribution.arn());
+   				if ( AwsToolkit.getInstance().cloudFrontDistributionTagsMatch(tags, tagDict) ) {
+   					return distribution.id();
+   				}
+   			}
    			else if ( (commentPattern != null) && !commentPattern.isEmpty() && distribution.comment().matches(commentPattern) ) {
+   				// Matched the comment.
    				return distribution.id();
    			}
    		}
@@ -254,6 +353,46 @@ public class AwsToolkit {
 			Message.printWarning(3, routine, "Error getting list of distributions (" + e + ").");
 		}
 		return new ArrayList<DistributionSummary>();
+	}
+
+	/**
+ 	 * Get the list of CloudFront tags for a distribution.
+ 	 * @param awsSession the AWS session, containing profile
+ 	 * @param region the AWS region
+ 	 * @param distributionArn the CloudFront arn of interest
+ 	 * @return a list of DistributionSummary or an empty list if no distributions
+ 	 */
+	public Tags getCloudFrontDistributionTags (
+		AwsSession awsSession, String region, String distributionArn ) {
+		ProfileCredentialsProvider credentialsProvider = null;
+		String profile = awsSession.getProfile();
+		// If the region is not specified, use the default.
+		if ( (region == null) || region.isEmpty() ) {
+			region = getDefaultRegion ( profile );
+		}
+		try {
+			credentialsProvider = ProfileCredentialsProvider.create(profile);
+			Region regionObject = Region.of(region);
+			CloudFrontClient cloudfront = CloudFrontClient.builder()
+				.region(regionObject)
+				.credentialsProvider(credentialsProvider)
+				.build();
+			ListTagsForResourceRequest request = ListTagsForResourceRequest.builder()
+				.resource(distributionArn)
+				.build();
+			ListTagsForResourceResponse response = cloudfront.listTagsForResource(request);
+			Tags tags = response.tags();
+    		return tags;
+		}
+		catch ( Exception e ) {
+			// Log the error and return an empty list:
+			// - may have requested an invalid region
+			String routine = getClass().getSimpleName() + ".getCloudFrontDistributionTags";
+			Message.printWarning(3, routine, "Error getting list of distribution tags for distribution ARN \"" +
+				distributionArn + "\" (" + e + ").");
+		}
+		Tags tags = Tags.builder().build();
+		return tags;
 	}
 
 	/**

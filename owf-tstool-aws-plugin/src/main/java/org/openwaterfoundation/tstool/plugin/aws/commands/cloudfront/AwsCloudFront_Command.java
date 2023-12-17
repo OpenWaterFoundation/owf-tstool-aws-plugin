@@ -43,6 +43,7 @@ import software.amazon.awssdk.services.cloudfront.model.DistributionSummary;
 import software.amazon.awssdk.services.cloudfront.model.InvalidationBatch;
 import software.amazon.awssdk.services.cloudfront.model.InvalidationSummary;
 import software.amazon.awssdk.services.cloudfront.model.Paths;
+import software.amazon.awssdk.services.cloudfront.model.Tags;
 import rti.tscommandprocessor.core.TSCommandProcessor;
 import rti.tscommandprocessor.core.TSCommandProcessorUtil;
 import RTi.Util.IO.AbstractCommand;
@@ -62,6 +63,7 @@ import RTi.Util.IO.ObjectListProvider;
 import RTi.Util.IO.PropList;
 import RTi.Util.Message.Message;
 import RTi.Util.Message.MessageUtil;
+import RTi.Util.String.StringDictionary;
 import RTi.Util.String.StringUtil;
 import RTi.Util.Table.DataTable;
 import RTi.Util.Table.TableField;
@@ -126,6 +128,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 		String Profile = parameters.getValue ( "Profile" );
 		String Region = parameters.getValue ( "Region" );
     	String DistributionId = parameters.getValue ( "DistributionId" );
+    	String Tags = parameters.getValue ( "Tags" );
     	String Comment = parameters.getValue ( "Comment" );
     	String InvalidationPaths = parameters.getValue ( "InvalidationPaths" );
     	String WaitForCompletion = parameters.getValue ( "WaitForCompletion" );
@@ -178,20 +181,30 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 		// - listing does not require the distribution
 		if ( cloudfrontCommand != AwsCloudFrontCommandType.LIST_DISTRIBUTIONS ) {
 			if ( ((DistributionId == null) || DistributionId.isEmpty()) &&
+				((Tags == null) || Tags.isEmpty()) &&
 				((Comment == null) || Comment.isEmpty()) ) {
-				message = "The distribution ID or comment must be specified.";
+				message = "The CloudFront distribution ID, tag(s), or comment must be specified.";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
 					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Specify the distribution ID or comment."));
+						message, "Specify the CloudFront distribution ID, tag(s), or comment."));
 			}
-			if ( ((DistributionId != null) && !DistributionId.isEmpty()) &&
-				((Comment != null) && !Comment.isEmpty()) ) {
-				message = "The distribution ID or comment must be specified.";
+			int count = 0;
+			if ( (DistributionId != null) && !DistributionId.isEmpty() ) {
+				++count;
+			}
+			if ( (Tags != null) && !Tags.isEmpty() ) {
+				++count;
+			}
+			if ( (Comment != null) && !Comment.isEmpty() ) {
+				++count;
+			}
+			if ( count > 1 ) {
+				message = "The CloudFront distribution ID, tag(s), or comment must be specified (not more than one).";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
 					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Specify the distribution ID or comment."));
+						message, "Specify the CloudFront distribution ID, tag(s), or comment."));
 			}
 		}
 
@@ -285,11 +298,12 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 		}
 
 		// Check for invalid parameters.
-		List<String> validList = new ArrayList<>(14);
+		List<String> validList = new ArrayList<>(15);
 		validList.add ( "CloudFrontCommand" );
 		validList.add ( "Profile" );
 		validList.add ( "Region" );
 		validList.add ( "DistributionId" );
+		validList.add ( "Tags" );
 		validList.add ( "Comment" );
 		validList.add ( "InvalidationPaths" );
 		validList.add ( "CallerReference" );
@@ -316,7 +330,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 	private int doCloudFrontInvalidateDistribution(
 		AwsSession awsSession,
 		CloudFrontClient cloudfront,
-		String region, String distributionID, String commentPattern,
+		String region, String distributionID, StringDictionary tagDict, String commentPattern,
 		List<String> invalidationPathsList, String callerReference, boolean waitForCompletion,
 		CommandStatus status, int warningLevel, int warningCount, String commandTag ) throws Exception {
 		String routine = getClass().getSimpleName() + ".doCloudFrontInvalidateDistribution";
@@ -326,15 +340,16 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
        	// Invalidate files in a distribution using one or more paths:
        	// - see: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
        	// List the distributions given the input parameters.
-       	String distributionId = AwsToolkit.getInstance().getCloudFrontDistributionId(awsSession, region, distributionID, commentPattern);
+       	String distributionId = AwsToolkit.getInstance().getCloudFrontDistributionId(
+       		awsSession, region, distributionID, tagDict, commentPattern);
        	boolean doInvalidate = true;
        	if ( distributionId == null ) {
-			message = "Unable to determine CloudFront distribution ID for invalidation.";
+			message = "Unable to determine CloudFront distribution for invalidation.";
 			Message.printWarning(warningLevel,
 				MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 			status.addToLog ( commandPhase,
 				new CommandLogRecord(CommandStatusType.FAILURE,
-					message, "Verify that the distribution ID is valid for the region." ) );
+					message, "Verify that the distribution ID, tag(s), and comment are valid for the region." ) );
 			doInvalidate = false;
        	}
        	if ( invalidationPathsList.size() == 0 ) {
@@ -388,9 +403,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 		CommandProcessor processor,
 		AwsSession awsSession,
 		CloudFrontClient cloudfront,
-		String region, String distributionId, String commentPattern,
+		String region, String distributionId, StringDictionary tagDict, String commentPattern,
 		DataTable table,
-		int idCol, int arnCol, int commentCol, int domainNameCol, int enabledCol,
+		int idCol, int arnCol, int tagsCol, int commentCol, int domainNameCol, int enabledCol,
 		String listDistributionsCountProperty,
 		CommandStatus status, int logLevel, int warningLevel, int warningCount, String commandTag ) throws Exception {
    		String routine = getClass().getSimpleName() + ".doCloudFrontListDistributions";
@@ -420,6 +435,17 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 						continue;
 					}
 				}
+				// Check the tags:
+				// - check after comment and distribution ID, in case tags are not needed
+				// - always get tags from AWS because they are included in output
+				//   (requires a separate call because tags are not included in the distribution summary)
+				// - if tag(s) were requested to match, also check
+				Tags tags = AwsToolkit.getInstance().getCloudFrontDistributionTags(awsSession, region, distribution.arn());
+				if ( !AwsToolkit.getInstance().cloudFrontDistributionTagsMatch(tags, tagDict) ) {
+					// Did not match the requested tags.
+					continue;
+				}
+				// If here have a distribution to output.
 				TableRecord rec = null;
 				if ( !allowDuplicates ) {
 					// Try to match the object key, which is the unique identifier.
@@ -432,6 +458,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 				// Set the data in the record.
 				rec.setFieldValue(idCol,distribution.id());
 				rec.setFieldValue(arnCol,distribution.arn());
+				rec.setFieldValue(tagsCol,AwsToolkit.getInstance().formatCloudFrontTagsAsCsv(tags,false));
 				rec.setFieldValue(commentCol,distribution.comment());
 				rec.setFieldValue(domainNameCol,distribution.domainName());
 				rec.setFieldValue(enabledCol,distribution.enabled());
@@ -467,10 +494,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
    	/**
    	 * List CloudFront invalidations.
    	 */
-   	private int doCloudFrontListInvalidations(
+   	private int doCloudFrontListInvalidations (
 		CommandProcessor processor,
 		AwsSession awsSession,
-		String region, String distributionID, String commentPattern,
+		String region, String distributionID, StringDictionary tagDict, String commentPattern,
 		DataTable table,
 		int idCol, int statusCol, int createTimeCol,
 		String invalidationStatus, String listInvalidationsCountProperty,
@@ -482,15 +509,16 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
    	    // List invalidations:
    	    // - useful for troubleshooting
     	// Output to table and/or file, as requested.
-   	    String distributionId = AwsToolkit.getInstance().getCloudFrontDistributionId(awsSession, region, distributionID, commentPattern);
+   	    String distributionId = AwsToolkit.getInstance().getCloudFrontDistributionId (
+   	    	awsSession, region, distributionID, tagDict, commentPattern );
    	    boolean doList = true;
    	    if ( distributionId == null ) {
-	    	message = "Unable to determine CloudFront distribution ID for invalidation.";
+	    	message = "Unable to determine CloudFront distribution for invalidation.";
 	    	Message.printWarning(warningLevel,
 	    		MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 	    	status.addToLog ( commandPhase,
 	    		new CommandLogRecord(CommandStatusType.FAILURE,
-	    			message, "Verify that the distribution ID is valid for the region." ) );
+	    			message, "Verify that the distribution ID, tag(s), and comment are valid for the region." ) );
 	    	doList = false;
    	   	}
     	// TODO smalers 2022-05-31 for now use UTC time.
@@ -695,9 +723,16 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 		}
 		String DistributionID = parameters.getValue ( "DistributionID" );
 		DistributionID = TSCommandProcessorUtil.expandParameterValue(processor,this,DistributionID);
+		String Tags = parameters.getValue ( "Tags" );
+		Tags = TSCommandProcessorUtil.expandParameterValue(processor,this,Tags);
+		StringDictionary tagDict = null;
+		if ( (Tags != null) && !Tags.isEmpty() ) {
+			tagDict = new StringDictionary ( Tags, ":", "," );
+		}
 		String Comment = parameters.getValue ( "Comment" );
 		Comment = TSCommandProcessorUtil.expandParameterValue(processor,this,Comment);
-		// Convert the comment to a Java pattern.
+		// Convert the comment to a Java pattern:
+		// - null value indicates that no comment pattern is used
 		String commentPattern = null;
 		if ( (Comment != null) && !Comment.isEmpty() ) {
 			commentPattern = Comment.replace("*", ".*");
@@ -872,6 +907,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 	        	int idCol = -1;
 
 	        	int arnCol = -1;
+    	    	int tagsCol = -1;
     	    	int commentCol = -1;
     	    	int domainNameCol = -1;
     	    	int enabledCol = -1;
@@ -887,6 +923,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 	    				if ( cloudfrontCommand == AwsCloudFrontCommandType.LIST_DISTRIBUTIONS ) {
 	    					columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "ID", -1) );
 	    					columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "ARN", -1) );
+	    					columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Tags", -1) );
 	    					columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Comment", -1) );
 	    					columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "DomainName", -1) );
 	    					columnList.add ( new TableField(TableField.DATA_TYPE_BOOLEAN, "Enabled", -1) );
@@ -905,6 +942,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 	    				if ( cloudfrontCommand == AwsCloudFrontCommandType.LIST_DISTRIBUTIONS ) {
 	    					idCol = table.getFieldIndex("ID");
 	    					arnCol = table.getFieldIndex("ARN");
+	    					tagsCol = table.getFieldIndex("Tags");
 	    					commentCol = table.getFieldIndex("Comment");
 	    					domainNameCol = table.getFieldIndex("DomainName");
 	    					enabledCol = table.getFieldIndex("Enabled");
@@ -951,6 +989,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 	    				if ( cloudfrontCommand == AwsCloudFrontCommandType.LIST_DISTRIBUTIONS ) {
 	    					idCol = table.getFieldIndex("ID");
 	    					arnCol = table.getFieldIndex("ARN");
+	    					tagsCol = table.getFieldIndex("Tags");
 	    					commentCol = table.getFieldIndex("Comment");
 	    					domainNameCol = table.getFieldIndex("DomainName");
 	    					enabledCol = table.getFieldIndex("Enabled");
@@ -966,10 +1005,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
     	    	// Call the service that was requested.
 
 	    		if ( cloudfrontCommand == AwsCloudFrontCommandType.INVALIDATE_DISTRIBUTION ) {
-	    			warningCount = doCloudFrontInvalidateDistribution(
+	    			warningCount = doCloudFrontInvalidateDistribution (
 	    				awsSession,
 	    				cloudfront,
-	    				region, DistributionID, commentPattern,
+	    				region, DistributionID, tagDict, commentPattern,
 	    				invalidationPathsList, callerReference, waitForCompletion,
 	    				status, warningLevel, warningCount, commandTag );
 	    		}
@@ -978,18 +1017,18 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 	    				processor,
 	    				awsSession,
 	    				cloudfront,
-	    				region, DistributionID, commentPattern,
+	    				region, DistributionID, tagDict, commentPattern,
 	    				table,
-	    				idCol, arnCol, commentCol, domainNameCol, enabledCol,
+	    				idCol, arnCol, tagsCol, commentCol, domainNameCol, enabledCol,
 	    				ListDistributionsCountProperty,
 	    				status, logLevel, warningLevel, warningCount, commandTag );
 	    		}
 	    		else if ( cloudfrontCommand == AwsCloudFrontCommandType.LIST_INVALIDATIONS ) {
-	    			warningCount = doCloudFrontListInvalidations(
+	    			warningCount = doCloudFrontListInvalidations (
 	    				processor,
 	    				awsSession,
 	    				//CloudFrontClient cloudfront,
-	    				region, DistributionID, commentPattern,
+	    				region, DistributionID, tagDict, commentPattern,
 	    				table,
 	    				idCol, statusCol, createTimeCol,
 	    				InvalidationStatus, ListInvalidationsCountProperty,
@@ -1133,6 +1172,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider {
 			"Profile",
 			"Region",
 			"DistributionId",
+			"Tags",
 			"Comment",
 			"InvalidationPaths",
 			"CallerReference",

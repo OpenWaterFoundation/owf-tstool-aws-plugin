@@ -7,16 +7,16 @@ StartLog(LogFile="results/test-AwsCloudFront-ListDistributions-TableAndFile.tsto
 # - output to a table and file
 #
 # List distributions.
-SetDebugLevel(LogFileLevel=1)
+SetDebugLevel(LogFileLevel="1")
 AwsCloudFront(CloudFrontCommand="ListDistributions",Region="aws-global",Comment="*test.openwaterfoundation.org*",ListDistributionsCountProperty="TestListDistributionsCount",OutputTableID="TestDistributionsTable",OutputFile="results/test-AwsCloudFront-ListDistributions-TableAndFile-out.csv")
-SetDebugLevel(ScreenLevel=0,LogFileLevel=0)
+SetDebugLevel(ScreenLevel="0",LogFileLevel="0")
 #
 # Test that 1 distribution is listed.
 If(Name="IfCheck",Condition="${TestListDistributionsCount} != 1")
-Message(Message="There should be 1 distribtion (have ${TestListDistributionsCount}).",CommandStatus=FAILURE)
+Message(Message="There should be 1 distribtion (have ${TestListDistributionsCount}).",CommandStatus="FAILURE")
 EndIf(Name="IfCheck")
 #
 # Compare output files:
 # - uncomment the following command to save expected results
 # CopyFile(InputFile="results/test-AwsCloudFront-ListDistributions-TableAndFile-out.csv",OutputFile="expected-results/test-AwsCloudFront-ListDistributions-TableAndFile-out.csv")
-CompareFiles(InputFile1="expected-results/test-AwsCloudFront-ListDistributions-TableAndFile-out.csv",InputFile2="results/test-AwsCloudFront-ListDistributions-TableAndFile-out.csv",IfDifferent=Warn)
+CompareFiles(InputFile1="expected-results/test-AwsCloudFront-ListDistributions-TableAndFile-out.csv",InputFile2="results/test-AwsCloudFront-ListDistributions-TableAndFile-out.csv",IfDifferent="Warn")

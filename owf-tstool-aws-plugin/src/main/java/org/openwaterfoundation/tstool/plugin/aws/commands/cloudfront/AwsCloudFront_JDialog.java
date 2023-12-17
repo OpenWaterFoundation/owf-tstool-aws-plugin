@@ -58,6 +58,7 @@ import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
 import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
 import org.openwaterfoundation.tstool.plugin.aws.ui.S3Browser_App;
 
+import RTi.Util.GUI.DictionaryJDialog;
 import RTi.Util.GUI.JFileChooserFactory;
 import RTi.Util.GUI.JGUIUtil;
 import RTi.Util.GUI.SimpleJButton;
@@ -95,6 +96,7 @@ private SimpleJComboBox __Region_JComboBox = null;
 private JTextField __RegionDefault_JTextField = null; // View only (not a command parameter).
 private JLabel __RegionDefaultNote_JLabel = null; // To explain the default.
 private SimpleJComboBox __DistributionId_JComboBox = null;
+private JTextArea __Tags_JTextArea = null;
 private JTextField __Comment_JTextField = null;
 //private SimpleJComboBox __IfInputNotFound_JComboBox = null;
 
@@ -207,6 +209,22 @@ public void actionPerformed( ActionEvent event ) {
 	else if ( o == __cancel_JButton ) {
 		response ( false );
 	}
+    else if ( event.getActionCommand().equalsIgnoreCase("EditTags") ) {
+        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
+        String Tags = __Tags_JTextArea.getText().trim();
+        String [] notes = {
+            "Match the CloudFront distribution by matching the tag(s).",
+            "All specified tags must be matched to match the distribution.",
+            "Tag Name - distribution tag name to match (can use ${property})",
+            "Tag Value - distribution tag value to match (can use ${property})"
+        };
+        String tagDict = (new DictionaryJDialog ( __parent, true, Tags, "Edit Tags Parameter",
+            notes, "Tag Name", "Tag Value",10)).response();
+        if ( tagDict != null ) {
+            __Tags_JTextArea.setText ( tagDict );
+            refresh();
+        }
+    }
 	else if ( o == __help_JButton ) {
 		HelpViewer.getInstance().showHelp("command", "AwsCloudFront", PluginMeta.getDocumentationRootUrl() );
 	}
@@ -277,6 +295,7 @@ private void checkInput () {
 	String Profile = __Profile_JComboBox.getSelected();
 	String Region = getSelectedRegion();
 	String DistributionId = __DistributionId_JComboBox.getSelected();
+	String Tags = __Tags_JTextArea.getText().trim().replace("\n"," ");
 	String Comment = __Comment_JTextField.getText().trim();
 	String InvalidationPaths = __InvalidationPaths_JTextArea.getText().trim().replace("\n"," ");
 	String CallerReference = __CallerReference_JTextField.getText().trim();
@@ -299,6 +318,9 @@ private void checkInput () {
 	}
 	if ( (DistributionId != null) && !DistributionId.isEmpty() ) {
 		props.set ( "DistributionId", DistributionId );
+	}
+	if ( (Tags != null) && !Tags.isEmpty() ) {
+		props.set ( "Tags", Tags );
 	}
 	if ( (Comment != null) && !Comment.isEmpty() ) {
 		props.set ( "Comment", Comment );
@@ -351,6 +373,7 @@ private void commitEdits () {
 	String Profile = __Profile_JComboBox.getSelected();
 	String Region = getSelectedRegion();
 	String DistributionId = __DistributionId_JComboBox.getSelected();
+	String Tags = __Tags_JTextArea.getText().trim().replace("\n"," ");
 	String Comment = __Comment_JTextField.getText().trim();
 	String InvalidationPaths = __InvalidationPaths_JTextArea.getText().trim().replace("\n"," ");
 	String CallerReference = __CallerReference_JTextField.getText().trim();
@@ -365,6 +388,7 @@ private void commitEdits () {
 	__command.setCommandParameter ( "Profile", Profile );
 	__command.setCommandParameter ( "Region", Region );
 	__command.setCommandParameter ( "DistributionId", DistributionId );
+	__command.setCommandParameter ( "Tags", Tags );
 	__command.setCommandParameter ( "Comment", Comment );
 	__command.setCommandParameter ( "InvalidationPaths", InvalidationPaths );
 	__command.setCommandParameter ( "CallerReference", CallerReference );
@@ -504,7 +528,7 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
     JGUIUtil.addComponent(main_JPanel, new JLabel ("The 'aws-global' region may need to be used for CloudFront distributions (not the S3 region)." ),
 		0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel (
-        "It is recommended to specify a distribution by matching a comment (description) rather than identifier for readability,"),
+        "Specify a distribution by matching the distribution ID, tag(s), or comment (description),"),
         0, ++y, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(main_JPanel, new JLabel (
         "for exmaple if the comment includes the website domain name."),
@@ -628,6 +652,20 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 		"Optional - distribution ID (specify the distribution using ID)."),
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("CloudFront distribution tag(s):"),
+        0, ++y, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __Tags_JTextArea = new JTextArea (3,35);
+    __Tags_JTextArea.setLineWrap ( true );
+    __Tags_JTextArea.setWrapStyleWord ( true );
+    __Tags_JTextArea.setToolTipText("Distribution tag(s) to match in format Tag1:Value1,Tag2:Value2, can use ${Property}.");
+    __Tags_JTextArea.addKeyListener (this);
+    JGUIUtil.addComponent(main_JPanel, new JScrollPane(__Tags_JTextArea),
+        1, y, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(main_JPanel, new JLabel ("Optional - tag(s) to match."),
+        3, y, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+    JGUIUtil.addComponent(main_JPanel, new SimpleJButton ("Edit","EditTags",this),
+        3, ++y, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
     JGUIUtil.addComponent(main_JPanel, new JLabel ( "Comment:"),
         0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __Comment_JTextField = new JTextField ( "", 20 );
@@ -708,6 +746,8 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
 
     JGUIUtil.addComponent(listDist_JPanel, new JLabel ("List CloudFront distributions."),
 		0, ++yListDist, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(listDist_JPanel, new JLabel ("Use the Output tab to specify an output table and/or file."),
+		0, ++yListDist, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(listDist_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yListDist, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
@@ -729,6 +769,8 @@ private void initialize ( JFrame parent, AwsCloudFront_Command command, List<Str
     __main_JTabbedPane.addTab ( "List Invalidations", listInv_JPanel );
 
     JGUIUtil.addComponent(listInv_JPanel, new JLabel ("List CloudFront invalidations."),
+		0, ++yListInv, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(listDist_JPanel, new JLabel ("Use the Output tab to specify an output table and/or file."),
 		0, ++yListInv, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(listInv_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yListInv, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -974,6 +1016,7 @@ private void refresh () {
 	String Profile = "";
 	String Region = "";
 	String DistributionId = "";
+	String Tags = "";
 	String Comment = "";
 	String InvalidationPaths = "";
 	String CallerReference = "";
@@ -992,6 +1035,7 @@ private void refresh () {
 		Profile = parameters.getValue ( "Profile" );
 		Region = parameters.getValue ( "Region" );
 		DistributionId = parameters.getValue ( "DistributionId" );
+		Tags = parameters.getValue ( "Tags" );
 		Comment = parameters.getValue ( "Comment" );
 		InvalidationPaths = parameters.getValue ( "InvalidationPaths" );
 		CallerReference = parameters.getValue ( "CallerReference" );
@@ -1102,6 +1146,9 @@ private void refresh () {
 				"DistributionId parameter \"" + DistributionId + "\".  Select a value or Cancel." );
 			}
 		}
+        if ( Tags != null ) {
+            __Tags_JTextArea.setText ( Tags );
+        }
         if ( Comment != null ) {
             __Comment_JTextField.setText ( Comment );
         }
@@ -1214,6 +1261,7 @@ private void refresh () {
 	if ( DistributionId == null ) {
 		DistributionId = "";
 	}
+	Tags = __Tags_JTextArea.getText().trim().replace("\n"," ");
 	Comment = __Comment_JTextField.getText().trim();
 	InvalidationPaths = __InvalidationPaths_JTextArea.getText().trim().replace("\n","");
 	CallerReference = __CallerReference_JTextField.getText().trim();
@@ -1229,6 +1277,7 @@ private void refresh () {
 	props.add ( "Profile=" + Profile );
 	props.add ( "Region=" + Region );
 	props.add ( "DistributionId=" + DistributionId );
+	props.add ( "Tags=" + Tags );
 	props.add ( "Comment=" + Comment );
 	props.add ( "InvalidationPaths=" + InvalidationPaths );
 	props.add ( "CallerReference=" + CallerReference );
