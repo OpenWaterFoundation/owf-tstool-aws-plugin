@@ -58,6 +58,7 @@ import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
 import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
 import org.openwaterfoundation.tstool.plugin.aws.ui.S3Browser_App;
 
+import RTi.Util.GUI.DictionaryJDialog;
 import RTi.Util.GUI.JFileChooserFactory;
 import RTi.Util.GUI.JGUIUtil;
 import RTi.Util.GUI.SimpleJButton;
@@ -130,6 +131,7 @@ private SimpleJButton __browseDatasetIndexBodyInsertBottomFiles_JButton = null;
 private SimpleJComboBox __InvalidateCloudFront_JComboBox = null;
 private SimpleJComboBox __CloudFrontRegion_JComboBox = null;
 private SimpleJComboBox __CloudFrontDistributionId_JComboBox = null;
+private JTextArea __CloudFrontTags_JTextArea = null;
 private JTextField __CloudFrontComment_JTextField = null;
 private JTextField __CloudFrontCallerReference_JTextField = null;
 private SimpleJComboBox __CloudFrontWaitForCompletion_JComboBox = null;
@@ -141,7 +143,7 @@ private boolean __first_time = true;
 private AwsS3LandingPage_Command __command = null;
 private boolean __ok = false; // Whether the user has pressed OK to close the dialog.
 private boolean ignoreEvents = false; // Ignore events when initializing, to avoid infinite loop.
-//private JFrame __parent = null;
+private JFrame __parent = null;
 
 // AWS session used to interact with AWS:
 // - will be null until the profile is set, which will happen when refresh() is called once
@@ -350,6 +352,22 @@ public void actionPerformed( ActionEvent event ) {
 	else if ( o == __cancel_JButton ) {
 		response ( false );
 	}
+    else if ( event.getActionCommand().equalsIgnoreCase("EditCloudFrontTags") ) {
+        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
+        String CloudFrontTags = __CloudFrontTags_JTextArea.getText().trim();
+        String [] notes = {
+            "Match the CloudFront distribution by matching the tag(s).",
+            "All specified tags must be matched to match the distribution.",
+            "Tag Name - distribution tag name to match (can use ${property})",
+            "Tag Value - distribution tag value to match (can use ${property})"
+        };
+        String tagDict = (new DictionaryJDialog ( __parent, true, CloudFrontTags, "Edit CloudFrontTags Parameter",
+            notes, "Tag Name", "Tag Value",10)).response();
+        if ( tagDict != null ) {
+            __CloudFrontTags_JTextArea.setText ( tagDict );
+            refresh();
+        }
+    }
 	else if ( o == __help_JButton ) {
 		HelpViewer.getInstance().showHelp("command", "AwsS3LandingPage", PluginMeta.getDocumentationRootUrl());
 	}
@@ -484,6 +502,7 @@ private void checkInput () {
     String InvalidateCloudFront = __InvalidateCloudFront_JComboBox.getSelected();
 	String CloudFrontRegion = getSelectedCloudFrontRegion();
 	String CloudFrontDistributionId = __CloudFrontDistributionId_JComboBox.getSelected();
+	String CloudFrontTags = __CloudFrontTags_JTextArea.getText().trim().replace("\n"," ");
 	String CloudFrontComment = __CloudFrontComment_JTextField.getText().trim();
 	String CloudFrontCallerReference = __CloudFrontCallerReference_JTextField.getText().trim();
     String CloudFrontWaitForCompletion = __CloudFrontWaitForCompletion_JComboBox.getSelected();
@@ -541,6 +560,9 @@ private void checkInput () {
 	if ( (CloudFrontDistributionId != null) && !CloudFrontDistributionId.isEmpty() ) {
 		props.set ( "CloudFrontDistributionId", CloudFrontDistributionId );
 	}
+	if ( (CloudFrontTags != null) && !CloudFrontTags.isEmpty() ) {
+		props.set ( "CloudFrontTags", CloudFrontTags );
+	}
 	if ( (CloudFrontComment != null) && !CloudFrontComment.isEmpty() ) {
 		props.set ( "CloudFrontComment", CloudFrontComment );
 	}
@@ -582,6 +604,7 @@ private void commitEdits () {
     String InvalidateCloudFront = __InvalidateCloudFront_JComboBox.getSelected();
 	String CloudFrontRegion = getSelectedCloudFrontRegion();
 	String CloudFrontDistributionId = __CloudFrontDistributionId_JComboBox.getSelected();
+	String CloudFrontTags = __CloudFrontTags_JTextArea.getText().trim().replace("\n"," ");
 	String CloudFrontComment = __CloudFrontComment_JTextField.getText().trim();
 	String CloudFrontCallerReference = __CloudFrontCallerReference_JTextField.getText().trim();
     String CloudFrontWaitForCompletion = __CloudFrontWaitForCompletion_JComboBox.getSelected();
@@ -602,6 +625,7 @@ private void commitEdits () {
 	__command.setCommandParameter ( "InvalidateCloudFront", InvalidateCloudFront );
 	__command.setCommandParameter ( "CloudFrontRegion", CloudFrontRegion );
 	__command.setCommandParameter ( "CloudFrontDistributionId", CloudFrontDistributionId );
+	__command.setCommandParameter ( "CloudFrontTags", CloudFrontTags );
 	__command.setCommandParameter ( "CloudFrontComment", CloudFrontComment );
 	__command.setCommandParameter ( "CloudFrontCallerReference", CloudFrontCallerReference );
 	__command.setCommandParameter ( "CloudFrontWaitForCompletion", CloudFrontWaitForCompletion );
@@ -763,7 +787,7 @@ Instantiates the GUI components.
 */
 private void initialize ( JFrame parent, AwsS3LandingPage_Command command, List<String> tableIDChoices ) {
 	this.__command = command;
-	//this.__parent = parent;
+	this.__parent = parent;
 	CommandProcessor processor =__command.getCommandProcessor();
 
 	__working_dir = TSCommandProcessorUtil.getWorkingDirForCommand ( processor, __command );
@@ -1214,7 +1238,7 @@ private void initialize ( JFrame parent, AwsS3LandingPage_Command command, List<
     JGUIUtil.addComponent(cf_JPanel, new JLabel ("The 'aws-global' region may be required for CloudFront distributions."),
 		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(cf_JPanel, new JLabel (
-    	"Specify a CloudFront distribution using the distribution ID or comment (description) pattern (e.g., *some.domain.org*)."),
+    	"Specify a CloudFront distribution using the distribution ID, tag(s), or comment (description) pattern (e.g., *some.domain.org*)."),
 		0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(cf_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yCloudFront, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -1272,6 +1296,20 @@ private void initialize ( JFrame parent, AwsS3LandingPage_Command command, List<
     JGUIUtil.addComponent(cf_JPanel, new JLabel(
 		"Optional - distribution ID (specify the distribution using ID)."),
 		3, yCloudFront, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ("CloudFront distribution tag(s):"),
+        0, ++yCloudFront, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __CloudFrontTags_JTextArea = new JTextArea (3,35);
+    __CloudFrontTags_JTextArea.setLineWrap ( true );
+    __CloudFrontTags_JTextArea.setWrapStyleWord ( true );
+    __CloudFrontTags_JTextArea.setToolTipText("Distribution tag(s) to match in format Tag1:Value1,Tag2:Value2, can use ${Property}.");
+    __CloudFrontTags_JTextArea.addKeyListener (this);
+    JGUIUtil.addComponent(cf_JPanel, new JScrollPane(__CloudFrontTags_JTextArea),
+        1, yCloudFront, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(cf_JPanel, new JLabel ("Optional - tag(s) to match."),
+        3, yCloudFront, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+    JGUIUtil.addComponent(cf_JPanel, new SimpleJButton ("Edit","EditCloudFrontTags",this),
+        3, ++yCloudFront, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
     JGUIUtil.addComponent(cf_JPanel, new JLabel ( "CloudFront comment (description):"),
         0, ++yCloudFront, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
@@ -1471,6 +1509,7 @@ private void refresh () {
 	String InvalidateCloudFront = "";
 	String CloudFrontRegion = "";
 	String CloudFrontDistributionId = "";
+	String CloudFrontTags = "";
 	String CloudFrontComment = "";
 	String CloudFrontCallerReference = "";
     String CloudFrontWaitForCompletion = "";
@@ -1496,6 +1535,7 @@ private void refresh () {
 		InvalidateCloudFront = parameters.getValue ( "InvalidateCloudFront" );
 		CloudFrontRegion = parameters.getValue ( "CloudFrontRegion" );
 		CloudFrontDistributionId = parameters.getValue ( "CloudFrontDistributionId" );
+		CloudFrontTags = parameters.getValue ( "CloudFrontTags" );
 		CloudFrontComment = parameters.getValue ( "CloudFrontComment" );
 		CloudFrontCallerReference = parameters.getValue ( "CloudFrontCallerReference" );
     	CloudFrontWaitForCompletion = parameters.getValue ( "CloudFrontWaitForCompletion" );
@@ -1764,6 +1804,9 @@ private void refresh () {
 				"CloudFrontDistributionId parameter \"" + CloudFrontDistributionId + "\".  Select a value or Cancel." );
 			}
 		}
+        if ( CloudFrontTags != null ) {
+            __CloudFrontTags_JTextArea.setText ( CloudFrontTags );
+        }
         if ( CloudFrontComment != null ) {
             __CloudFrontComment_JTextField.setText ( CloudFrontComment );
         }
@@ -1816,6 +1859,7 @@ private void refresh () {
 	if ( CloudFrontDistributionId == null ) {
 		CloudFrontDistributionId = "";
 	}
+	CloudFrontTags = __CloudFrontTags_JTextArea.getText().trim().replace("\n"," ");
 	CloudFrontComment = __CloudFrontComment_JTextField.getText().trim();
 	CloudFrontCallerReference = __CloudFrontCallerReference_JTextField.getText().trim();
     CloudFrontWaitForCompletion = __CloudFrontWaitForCompletion_JComboBox.getSelected();
@@ -1838,6 +1882,7 @@ private void refresh () {
 	props.add ( "InvalidateCloudFront=" + InvalidateCloudFront);
 	props.add ( "CloudFrontRegion=" + CloudFrontRegion );
 	props.add ( "CloudFrontDistributionId=" + CloudFrontDistributionId );
+	props.add ( "CloudFrontTags=" + CloudFrontTags );
 	props.add ( "CloudFrontComment=" + CloudFrontComment );
 	props.add ( "CloudFrontCallerReference=" + CloudFrontCallerReference );
     props.add ( "CloudFrontWaitForCompletion=" + CloudFrontWaitForCompletion );

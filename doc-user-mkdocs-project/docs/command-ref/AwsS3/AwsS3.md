@@ -67,7 +67,7 @@ The following dialog is used to edit the command and illustrates the syntax for 
 Each `AwsS3` command has a tab for parameters specific to that command.
 The ***Output*** and ***CloudFront*** tabs are used with multiple AWS S3 commands, as noted.
 
-Command parameters are provided to help with automated tests and error checks.
+Some command parameters are provided to help with automated tests and error checks.
 For example the `ListBucketsCountProperty` parameter can be used to set a processor property
 containing the number of buckets in the returned list.
 Use the [`If`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/If/If/) command to check the property value.
@@ -77,7 +77,7 @@ Use the [`If`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/I
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor (<a href="../AwsS3.png">see also the full-size image)</a>
+`AwsS3` Command Editor (<a href="../AwsS3.png">see full-size image)</a>
 </p>**
 
 ### Copy Objects ###
@@ -93,7 +93,7 @@ each copied object will be invalidated.
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for CopyObject Parameters (<a href="../AwsS3-copy.png">see also the full-size image)</a>
+`AwsS3` Command Editor for CopyObject Parameters (<a href="../AwsS3-copy.png">see full-size image)</a>
 </p>**
 
 ### Delete Objects ###
@@ -117,7 +117,7 @@ the parent folders for deleted objects are invalidated, using a wildcard.
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for DeleteObjects Parameters (<a href="../AwsS3-delete.png">see also the full-size image)</a>
+`AwsS3` Command Editor for DeleteObjects Parameters (<a href="../AwsS3-delete.png">see full-size image)</a>
 </p>**
 
 ### Download Objects ###
@@ -131,7 +131,7 @@ Currently, wildcards cannot be used to specify S3 objects to download.
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for DownloadObjects Parameters (<a href="../AwsS3-download.png">see also the full-size image)</a>
+`AwsS3` Command Editor for DownloadObjects Parameters (<a href="../AwsS3-download.png">see full-size image)</a>
 </p>**
 
 ### List Buckets ###
@@ -147,7 +147,7 @@ Use the ***Output*** tab to set the output table and file.
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for ListBuckets Parameters (<a href="../AwsS3-list-buckets.png">see also the full-size image)</a>
+`AwsS3` Command Editor for ListBuckets Parameters (<a href="../AwsS3-list-buckets.png">see full-size image)</a>
 </p>**
 
 ### List Objects ###
@@ -167,7 +167,7 @@ See the examples.
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for ListObjects Parameters (<a href="../AwsS3-list-objects.png">see also the full-size image)</a>
+`AwsS3` Command Editor for ListObjects Parameters (<a href="../AwsS3-list-objects.png">see full-size image)</a>
 </p>**
 
 ### Upload Objects ###
@@ -187,7 +187,7 @@ the uploaded files and folders (using wildcard) are invalidated.
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for UploadObjects Parameters (<a href="../AwsS3-upload.png">see also the full-size image)</a>
+`AwsS3` Command Editor for UploadObjects Parameters (<a href="../AwsS3-upload.png">see full-size image)</a>
 </p>**
 
 ### Output ###
@@ -197,17 +197,32 @@ the uploaded files and folders (using wildcard) are invalidated.
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for Output Parameters (<a href="../AwsS3-output.png">see also the full-size image)</a>
+`AwsS3` Command Editor for Output Parameters (<a href="../AwsS3-output.png">see full-size image)</a>
 </p>**
 
 ### CloudFront ###
 
+The following example shows how to match a distribution using a tag.
+Using a tag generally works well because unique tag values can be defined for CloudFront distributions.
+
 **<p style="text-align: center;">
-![AwsS3-cloudfront](AwsS3-cloudfront.png)
+![AwsS3 CloudFront parameters for distribution tags](AwsS3-cloudfront-tag.png)
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for CloudFront Parameters (<a href="../AwsS3-cloudfront.png">see also the full-size image)</a>
+`AwsS3` Command Editor for CloudFront Parameters Using Tags (<a href="../AwsS3-cloudfront-tag.png">see full-size image)</a>
+</p>**
+
+The following example shows how to match a distribution using a comment substring.
+Note the use of asterisk at front and back as wildcards.
+Matching a comment can be prone to errors if the substring is found in multiple distribution comments.
+
+**<p style="text-align: center;">
+![AwsS3 CloudFront parameters for distribution comment](AwsS3-cloudfront-comment.png)
+</p>**
+
+**<p style="text-align: center;">
+`AwsS3` Command Editor for CloudFront Parameters Using Comment (<a href="../AwsS3-cloudfront-comment.png">see full-size image)</a>
 </p>**
 
 ## Command Syntax ##
@@ -359,13 +374,15 @@ CloudFront paths for invalidation can use `*` wildcards,
 for example to invalidate all files in a folder that has been deleted or uploaded.
 
 By default, CloudFront paths associated with S3 files will not
-immediately be invalidated on CloudFront and won't be visible in URLs.
+be invalidated on CloudFront (`InvalidateCloudFront=False`)
+and new or updated content won't be visible via CloudFront URLs.
 
 [CloudFront invalidation costs](https://aws.amazon.com/cloudfront/pricing/) are higher
 than [S3 upload costs](https://aws.amazon.com/s3/pricing/) and therefore sometimes it makes sense to
 invalidate files with one request after performing multiple S3 operations,
 rather than to automatically invalidate changed S3 files.
-Therefore, the CloudFront invalidation in this command is disabled by default.
+Therefore, the CloudFront invalidation in this command is disabled by default (`InvalidateCloudFront=False`)
+but can be enabled as needed.
 If necessary, a separate [`AwsCloudFront`](../AwsCloudFront/AwsCloudFront.md) command can be used.
 
 **<p style="text-align: center;">
@@ -376,8 +393,9 @@ Command Parameters - CloudFront Parameters
 |--------------|-----------------|-----------------|
 |`InvalidateCloudFront`| Indicate whether CloudFront invalidation should occur (`True`) or not (`False`). | `False` |
 |`CloudFrontRegion`| The AWS region to use for CloudFront requests. The `aws-global` region may need to be used in any case (this is being evaluated). | `Region` parameter value. |
-|`CloudFrontDistributionId`| CloudFront distribution ID to invalidate, can use `${Property}` syntax. | Must be specified if `CloudFrontComment` is not specified. |
-|`CloudFrontComment`| CloudFront comment (description) pattern to match, to indicate the CloudFront distribution, using `*` for wildcards.  For example, if the comment includes the domain for the distribution (e.g., `data.openwaterfoundation.org`) it is easier to look up the distribution than using the distribution ID, which is a sequence of characters. Can use `${Property}` syntax. | Must be specified if `CloudFrontDistributionID` is not specified. |
+|`CloudFrontDistributionId`| CloudFront distribution ID to invalidate, can use `${Property}` syntax. | Must specify `CloudFrontDistributionId`, `CloudFrontTags`, or `CloudFrontComment`. |
+|`CloudFrontTags`| CloudFront distribution tags to match the distribution to invalidate, can use `${Property}` syntax. | Must specify `CloudFrontDistributionId`, `CloudFrontTags`, or `CloudFrontComment`. |
+|`CloudFrontComment`| CloudFront comment (description) pattern to match, to indicate the CloudFront distribution, using `*` for wildcards.  For example, if the comment includes the domain for the distribution (e.g., `data.openwaterfoundation.org`) it is easier to look up the distribution than using the distribution ID, which is a sequence of characters. Can use `${Property}` syntax. | Must specify `CloudFrontDistributionId`, `CloudFrontTags`, or `CloudFrontComment`. |
 |`CloudFrontCallerReference`| String to use to identify the invalidation, can use `${Property}` syntax.  | `TSTool-user-YYMMDDThhmmss` to uniquely identify the invalidation. |
 |`CloudFrontWaitForCompletion`| Whether the software should wait until the invalidation finishes (and output is visible in URLs), typically a few seconds, but varies depending on the size of files and AWS performance level.  | |
 

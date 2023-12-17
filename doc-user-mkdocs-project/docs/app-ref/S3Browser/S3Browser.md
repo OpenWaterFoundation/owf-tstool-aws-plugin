@@ -46,7 +46,7 @@ The following image illustrates the S3 Browser interface.
 </p>**
 
 **<p style="text-align: center;">
-S3 Browser Showing Example Bucket Contents (<a href="../S3Browser.png">see also the full-size image)</a>
+S3 Browser Showing Example Bucket Contents (<a href="../S3Browser.png">see full-size image)</a>
 </p>**
 
 The browser, when started from a command editor, uses the profile, region, and bucket set in the command editor.

@@ -6,11 +6,16 @@ StartLog(LogFile="results/test-AwsCloudFront-InvalidateDistribution.tstool.log")
 # - invalidate all files in the /test/commands/AwsCloudFront folder
 #
 # Set configuration properties.
-SetProperty(PropertyName="TestCloudFrontFolder",PropertyType=String,PropertyValue="/tstool-aws-plugin/test/commands/AwsCloudFront/test-AwsCloudFront-InvalidateDistribution")
+SetProperty(PropertyName="TestCloudFrontFolder",PropertyType="String",PropertyValue="/tstool-aws-plugin/test/commands/AwsCloudFront/test-AwsCloudFront-InvalidateDistribution")
 #
 # Upload files for the invalidation:
 # - OK if they overwrite existing S3 objects
 AwsS3(S3Command="UploadObjects",Bucket="test.openwaterfoundation.org",UploadFiles="../AwsS3/data/root-testfile1.txt:${TestCloudFrontFolder}/*")
 #
-# Invalidate the files.
+# Invalidate the files:
+# - run three times so that later checks on invalidations find at least 3 completed validations
+# - don't use a For loop to make it easier to find problems
+# - select the distribution using a tag and comment in each command to test this functionality
 AwsCloudFront(CloudFrontCommand="InvalidateDistribution",Region="aws-global",Comment="*test.openwaterfoundation.org*",InvalidationPaths="${TestCloudFrontFolder}/*",CallerReference="test-AwsCloudFront-InvalidateDistribution")
+AwsCloudFront(CloudFrontCommand="InvalidateDistribution",Region="aws-global",Tags="Domain:test.openwaterfoundation.org",InvalidationPaths="${TestCloudFrontFolder}/*",CallerReference="test-AwsCloudFront-InvalidateDistribution")
+AwsCloudFront(CloudFrontCommand="InvalidateDistribution",Region="aws-global",Tags="Domain:test.openwaterfoundation.org",InvalidationPaths="${TestCloudFrontFolder}/*",CallerReference="test-AwsCloudFront-InvalidateDistribution")

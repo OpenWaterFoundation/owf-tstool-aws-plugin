@@ -1,22 +1,16 @@
 StartLog(LogFile="results/test-AwsCloudFront-ListDistributions-FileOnly.tstool.log")
 # Test CloudFront commands:
-# - list distributions
-# - use the 'test.openwaterfoundation.org' distribution
+# - list all distributions and check for a reasonable count
 # - AWS permissions are required to run the tests
 # - the default profile is used
 # - output to a file only (temporary table is used)
 #
 # List distributions.
 SetDebugLevel(LogFileLevel="1")
-AwsCloudFront(CloudFrontCommand="ListDistributions",Region="aws-global",Comment="*test.openwaterfoundation.org*",ListDistributionsCountProperty="TestListDistributionsCount",OutputFile="results/test-AwsCloudFront-ListDistributions-FileOnly-out.csv")
+AwsCloudFront(CloudFrontCommand="ListDistributions",Region="aws-global",ListDistributionsCountProperty="TestListDistributionsCount",OutputTableID="TestListDistributions",OutputFile="results/test-AwsCloudFront-ListDistributions-FileOnly-out.csv")
 SetDebugLevel(ScreenLevel="0",LogFileLevel="0")
 #
-# Test that 1 distribution is listed.
-If(Name="IfCheck",Condition="${TestListDistributionsCount} != 1")
-Message(Message="There should be 1 distribtion (have ${TestListDistributionsCount}).",CommandStatus="FAILURE")
+# Test that >= 15 distribution are listed.
+If(Name="IfCheck",Condition="${TestListDistributionsCount} < 15")
+Message(Message="There should be >= 15 distributions (have ${TestListDistributionsCount}).",CommandStatus="FAILURE")
 EndIf(Name="IfCheck")
-#
-# Compare output files:
-# - uncomment the following command to save expected results
-# CopyFile(InputFile="results/test-AwsCloudFront-ListDistributions-FileOnly-out.csv",OutputFile="expected-results/test-AwsCloudFront-ListDistributions-FileOnly-out.csv")
-CompareFiles(InputFile1="expected-results/test-AwsCloudFront-ListDistributions-FileOnly-out.csv",InputFile2="results/test-AwsCloudFront-ListDistributions-FileOnly-out.csv",IfDifferent="Warn")

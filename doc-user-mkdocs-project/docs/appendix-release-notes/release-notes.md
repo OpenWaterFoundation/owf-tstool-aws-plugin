@@ -1,11 +1,13 @@
 # TSTool AWS Plugin / Release Notes #
 
 Release notes are available for the core TSTool product and plugin.
-Each component is maintained separately and may be updated at different times.
+The core software and plugins are maintained separately and may be updated at different times.
 See the [TSTool release notes](http://opencdss.state.co.us/tstool/latest/doc-user/appendix-release-notes/release-notes/).
 
-Plugin release notes:
+Plugin release notes are listed below.
+The repository issue for release note item is shown where applicable.
 
+*   [Version 1.4.2](#version-142)
 *   [Version 1.4.1](#version-141)
 *   [Version 1.4.0](#version-140)
 *   [Version 1.3.0](#version-130)
@@ -15,6 +17,17 @@ Plugin release notes:
 *   [Version 1.0.0](#version-100)
 
 ----------
+
+## Version 1.4.2 ##
+
+**Maintenence release to improve workflow integration.**
+
+*   ![change](change.png) [#41] Update the [`AwsCloudFront`](../command-ref/AwsCloudFront/AwsCloudFront.md) command:
+    +   Add the `Tags` command parameter to specify the CloudFront distribution using tag(s).
+*   ![change](change.png) [#41] Update the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command:
+    +   Add the `CloudFrontTags` command parameter to specify the CloudFront distribution using tag(s).
+*   ![change](change.png) [#41] Update the [`AwsS3LandingPage`](../command-ref/AwsS3LandingPage/AwsS3LandingPage.md) command:
+    +   Add the `CloudFrontTags` command parameter to specify the CloudFront distribution using tag(s).
 
 ## Version 1.4.1 ##
 
