@@ -2,8 +2,8 @@
 
 /* NoticeStart
 
-OWF AWS TSTool Plugin
-Copyright (C) 2022-2023 Open Water Foundation
+OWF TSTool AWS Plugin
+Copyright (C) 2022-2024 Open Water Foundation
 
 OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ public class PluginMeta {
 	/**
 	 * Plugin version.
 	 */
-	public static final String VERSION = "1.4.2 (2023-12-15)";
+	public static final String VERSION = "1.5.0 (2024-01-11)";
 	
 	/**
 	 * Get the documentation root URL, used for command help.

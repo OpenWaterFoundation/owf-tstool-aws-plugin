@@ -2,20 +2,20 @@
 
 /* NoticeStart
 
-OWF AWS TSTool Plugin
-Copyright (C) 2022-2023 Open Water Foundation
+OWF TSTool AWS Plugin
+Copyright (C) 2022-2024 Open Water Foundation
 
 OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
-    OWF TSTool AWS Plugin is distributed in the hope that it will be useful,
+OWF TSTool AWS Plugin is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
+You should have received a copy of the GNU General Public License
     along with OWF TSTool AWS Plugin.  If not, see <https://www.gnu.org/licenses/>.
 
 NoticeEnd */
@@ -287,7 +287,7 @@ public class AwsToolkit {
 		String configFileName = userFolder + File.separator + ".aws" + File.separator + "config";
 		return configFileName;
 	}
-	
+
 	/**
 	 * Get the CloudFront distribution ID to use for CloudFront commands.
   	 * @param awsSession the AWS session, containing profile
@@ -571,6 +571,14 @@ public class AwsToolkit {
 			Message.printWarning(3, routine, "AWS configuration file does not exist: " + configFileName);
 		}
 		return region;
+	}
+	
+	/**
+	 * Get the default region for the Cost Explorer.
+	 * This seems to be aws-global because the cost data are mananged there?
+	 */
+	public String getDefaultRegionForCostExplorer () {
+		return "aws-global";
 	}
 	
 	/**
