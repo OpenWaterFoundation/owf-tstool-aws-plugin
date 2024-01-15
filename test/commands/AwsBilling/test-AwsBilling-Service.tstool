@@ -1,0 +1,7 @@
+StartLog(LogFile="results/test-AwsBilling-Service.tstool.log")
+# Read all billing data grouped by service and save to table and time series.
+SetProperty(PropertyName="BillingStart",PropertyType="DateTime",PropertyValue="2023-01-01")
+SetProperty(PropertyName="BillingEnd",PropertyType="DateTime",PropertyValue="CurrentToDay")
+AwsBilling(InputStart="${BillingStart}",InputEnd="${BillingEnd}",GroupBy1="Service",GroupBy2="Tag",GroupByTag2="SystemId",OutputTableID="TestOutputTable")
+# AwsBilling(InputStart="${BillingStart}",InputEnd="${BillingEnd}",GroupBy="Tag",GroupByTag="SystemId",OutputTableID="TestOutputTable")
+# AwsBilling(InputStart="${BillingStart}",InputEnd="${BillingEnd}",GroupBy="Tag",GroupByTag="Name",OutputTableID="TestOutputTable")
