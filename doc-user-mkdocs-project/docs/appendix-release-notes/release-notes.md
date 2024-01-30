@@ -7,6 +7,7 @@ See the [TSTool release notes](http://opencdss.state.co.us/tstool/latest/doc-use
 Plugin release notes are listed below.
 The repository issue for release note item is shown where applicable.
 
+*   [Version 1.5.0](#version-150)
 *   [Version 1.4.2](#version-142)
 *   [Version 1.4.1](#version-141)
 *   [Version 1.4.0](#version-140)
@@ -17,6 +18,14 @@ The repository issue for release note item is shown where applicable.
 *   [Version 1.0.0](#version-100)
 
 ----------
+
+## Version 1.5.0 ##
+
+**Feature release to add `AwsBilling` command.**
+
+*   ![new](new.png) [#43] Add the [`AwsBilling`](../command-ref/AwsBilling/AwsBilling.md) command:
+    +   Query AWS Cost Explorer costs in tabular form.
+    +   Create time series for cost records.
 
 ## Version 1.4.2 ##
 

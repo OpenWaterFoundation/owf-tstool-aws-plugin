@@ -12,6 +12,7 @@ nav:
   - S3 Browser: app-ref/S3Browser/S3Browser.md
 - Reference - Commands:
   - Overview: command-ref/overview.md
+  - AwsBilling: command-ref/AwsBilling/AwsBilling.md
   - AwsCloudFront: command-ref/AwsCloudFront/AwsCloudFront.md
   - AwsS3: command-ref/AwsS3/AwsS3.md
   - AwsS3Catalog: command-ref/AwsS3Catalog/AwsS3Catalog.md

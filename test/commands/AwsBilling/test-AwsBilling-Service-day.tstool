@@ -1,0 +1,14 @@
+StartLog(LogFile="results/test-AwsBilling-Service.tstool.log")
+# Read all billing data grouped by service and save to table and time series:
+# - use daily granularity and last 14 days to make sure that big charges are being tagged
+SetProperty(PropertyName="BillingStart",PropertyType="DateTime",PropertyValue="CurrentToDay - 13Day")
+SetProperty(PropertyName="BillingEnd",PropertyType="DateTime",PropertyValue="CurrentToDay")
+AwsBilling(InputStart="${BillingStart}",InputEnd="${BillingEnd}",Granularity="Daily",GroupBy1="Service",GroupBy2="Tag",GroupByTag2="SystemId",OutputTableID="TestOutputTable",CreateTimeSeries="True")
+# AwsBilling(InputStart="${BillingStart}",InputEnd="${BillingEnd}",Granularity="Daily",GroupBy1="Service",GroupBy2="Region",OutputTableID="TestOutputTable",CreateTimeSeries="True",TimeSeriesLocationID="GroupBy2")
+# Sort the table:
+# - date
+# - then SystemId
+# - then service
+SortTable(TableID="TestOutputTable",SortColumns="Date,GroupItem2,GroupItem1")
+# Sort the time series by TSID.
+SortTimeSeries()

@@ -52,11 +52,14 @@ import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 import org.openwaterfoundation.tstool.plugin.aws.PluginMeta;
 import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
 import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
 
+import RTi.TS.TSFormatSpecifiersJPanel;
 import RTi.Util.GUI.JFileChooserFactory;
 import RTi.Util.GUI.JGUIUtil;
 import RTi.Util.GUI.SimpleJButton;
@@ -74,7 +77,7 @@ import software.amazon.awssdk.regions.RegionMetadata;
 
 @SuppressWarnings("serial")
 public class AwsBilling_JDialog extends JDialog
-implements ActionListener, ChangeListener, ItemListener, KeyListener, WindowListener
+implements ActionListener, ChangeListener, DocumentListener, ItemListener, KeyListener, WindowListener
 {
 private final String __AddWorkingDirectory = "Abs";
 private final String __RemoveWorkingDirectory = "Rel";
@@ -91,28 +94,38 @@ private JLabel __ProfileDefaultNote_JLabel = null; // To explain the default.
 private SimpleJComboBox __Region_JComboBox = null;
 private JTextField __RegionDefault_JTextField = null; // View only (not a command parameter).
 private JLabel __RegionDefaultNote_JLabel = null; // To explain the default.
-// TODO smalers 2023-01-11 costs are not by bucket although may use in the future somehow?
-//private SimpleJComboBox __Bucket_JComboBox = null;
 //private SimpleJComboBox __IfInputNotFound_JComboBox = null;
 
-// Cost Explorer tab.
-private JTextField __InputStart_JTextField;
-private JTextField __InputEnd_JTextField;
+// Cost Explorer Query tab.
+private JTextField __InputStart_JTextField = null;
+private JTextField __InputEnd_JTextField = null;
 private SimpleJComboBox __Granularity_JComboBox = null;
 private SimpleJComboBox __GroupBy1_JComboBox = null;
 private JTextField __GroupByTag1_JTextField = null;
 private SimpleJComboBox __GroupBy2_JComboBox = null;
 private JTextField __GroupByTag2_JTextField = null;
-private SimpleJComboBox __GroupBy3_JComboBox = null;
-private JTextField __GroupByTag3_JTextField = null;
+// The AWS SDK is limited to 2 GroupBy but maybe more can be enabled later.
+//private SimpleJComboBox __GroupBy3_JComboBox = null;
+//private JTextField __GroupByTag3_JTextField = null;
 private SimpleJComboBox __Metric_JComboBox = null;
+
+// Cost Explorer Filter tab.
+private JTextField __FilterAvailabilityZones_JTextField = null;
+private JTextField __FilterInstanceTypes_JTextField = null;
+private JTextField __FilterRegions_JTextField = null;
+private JTextField __FilterServices_JTextField = null;
+private JTextField __FilterTags_JTextField = null;
 
 // Output tab.
 private SimpleJComboBox __OutputTableID_JComboBox = null;
 private JTextField __OutputFile_JTextField = null;
 private SimpleJComboBox __AppendOutput_JComboBox = null;
+private JTextField __OutputTableRowCountProperty_JTextField = null;
 
 // Time Series tab.
+private SimpleJComboBox __CreateTimeSeries_JComboBox = null;
+private SimpleJComboBox __TimeSeriesLocationID_JComboBox = null;
+private TSFormatSpecifiersJPanel __Alias_JTextField = null;
 
 private JTextArea __command_JTextArea = null;
 private String __working_dir = null;
@@ -184,25 +197,6 @@ public void actionPerformed( ActionEvent event ) {
             }
         }
     }
-    /*
-    else if ( o == this.__browseS3_JButton ) {
-        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
-    	//boolean modal = true;
-    	//boolean modal = false;
-    	try {
-    		String title = null;
-    		Message.printStatus(2, routine, "Calling launchBrowser with session.profile=" + awsSession.getProfile()
-    			+ " region=" + getSelectedRegion(true));
-    		// Launch the stand-alone browser program:
-    		// - authentication is via the AwsSession
-    		// - use the default region if none is selected
-    		S3Browser_App.launchBrowser ( title, awsSession, getSelectedRegion(true), this.__Bucket_JComboBox.getSelected() );
-    	}
-    	catch ( Exception e ) {
-    		// Should not happen.
-    	}
-    }
-    */
 	else if ( o == __cancel_JButton ) {
 		response ( false );
 	}
@@ -238,6 +232,34 @@ public void actionPerformed( ActionEvent event ) {
 	}
 }
 
+// Start event handlers for DocumentListener...
+
+/**
+Handle DocumentEvent events.
+@param e DocumentEvent to handle.
+*/
+public void changedUpdate ( DocumentEvent e ) {
+    refresh();
+}
+
+/**
+Handle DocumentEvent events.
+@param e DocumentEvent to handle.
+*/
+public void insertUpdate ( DocumentEvent e ) {
+    refresh();
+}
+
+/**
+Handle DocumentEvent events.
+@param e DocumentEvent to handle.
+*/
+public void removeUpdate ( DocumentEvent e ) {
+    refresh();
+}
+
+// ...end event handlers for DocumentListener.
+
 /**
 Check the input.  If errors exist, warn the user and set the __error_wait flag to true.
 This should be called before response() is allowed to complete.
@@ -251,8 +273,7 @@ private void checkInput () {
 	// General.
 	String Profile = __Profile_JComboBox.getSelected();
 	String Region = getSelectedRegion();
-	//String Bucket = __Bucket_JComboBox.getSelected();
-	// Cost Explorer.
+	// Cost Explorer Query.
 	String InputStart = __InputStart_JTextField.getText().trim();
 	String InputEnd = __InputEnd_JTextField.getText().trim();
 	String Granularity = __Granularity_JComboBox.getSelected();
@@ -260,13 +281,24 @@ private void checkInput () {
 	String GroupByTag1 = __GroupByTag1_JTextField.getText().trim();
 	String GroupBy2 = __GroupBy2_JComboBox.getSelected();
 	String GroupByTag2 = __GroupByTag2_JTextField.getText().trim();
-	String GroupBy3 = __GroupBy3_JComboBox.getSelected();
-	String GroupByTag3 = __GroupByTag3_JTextField.getText().trim();
+	//String GroupBy3 = __GroupBy3_JComboBox.getSelected();
+	//String GroupByTag3 = __GroupByTag3_JTextField.getText().trim();
 	String Metric = __Metric_JComboBox.getSelected();
+	// Cost Explorer Filter.
+	String FilterAvailabilityZones = __FilterAvailabilityZones_JTextField.getText().trim();
+	String FilterInstanceTypes = __FilterInstanceTypes_JTextField.getText().trim();
+	String FilterRegions = __FilterRegions_JTextField.getText().trim();
+	String FilterServices = __FilterServices_JTextField.getText().trim();
+	String FilterTags = __FilterTags_JTextField.getText().trim();
 	// Output.
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
 	String OutputFile = __OutputFile_JTextField.getText().trim();
 	String AppendOutput = __AppendOutput_JComboBox.getSelected();
+	String OutputTableRowCountProperty = __OutputTableRowCountProperty_JTextField.getText().trim();
+	// Time series.
+	String CreateTimeSeries = __CreateTimeSeries_JComboBox.getSelected();
+	String TimeSeriesLocationID = __TimeSeriesLocationID_JComboBox.getSelected();
+	String Alias = __Alias_JTextField.getText().trim();
 	//String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
 	__error_wait = false;
 	if ( (Profile != null) && !Profile.isEmpty() ) {
@@ -275,10 +307,7 @@ private void checkInput () {
 	if ( (Region != null) && !Region.isEmpty() ) {
 		props.set ( "Region", Region );
 	}
-	//if ( (Bucket != null) && !Bucket.isEmpty() ) {
-		//props.set ( "Bucket", Bucket );
-	//}
-	// Cost Explorer.
+	// Cost Explorer Query.
 	if ( (InputStart != null) && !InputStart.isEmpty()) {
 		props.set ( "InputStart", InputStart );
 	}
@@ -300,14 +329,30 @@ private void checkInput () {
 	if ( (GroupByTag2 != null) && !GroupByTag2.isEmpty() ) {
 		props.set ( "GroupByTag2", GroupByTag2 );
 	}
-	if ( (GroupBy3 != null) && !GroupBy3.isEmpty() ) {
-		props.set ( "GroupBy3", GroupBy3 );
-	}
-	if ( (GroupByTag3 != null) && !GroupByTag3.isEmpty() ) {
-		props.set ( "GroupByTag3", GroupByTag3 );
-	}
+	//if ( (GroupBy3 != null) && !GroupBy3.isEmpty() ) {
+	//	props.set ( "GroupBy3", GroupBy3 );
+	//}
+	//if ( (GroupByTag3 != null) && !GroupByTag3.isEmpty() ) {
+	//	props.set ( "GroupByTag3", GroupByTag3 );
+	//}
 	if ( (Metric != null) && !Metric.isEmpty() ) {
 		props.set ( "Metric", Metric );
+	}
+	// Cost Explorer Filter.
+	if ( (FilterAvailabilityZones != null) && !FilterAvailabilityZones.isEmpty()) {
+		props.set ( "FilterAvailabilityZones", FilterAvailabilityZones );
+	}
+	if ( (FilterInstanceTypes != null) && !FilterInstanceTypes.isEmpty()) {
+		props.set ( "FilterInstanceTypes", FilterInstanceTypes );
+	}
+	if ( (FilterRegions != null) && !FilterRegions.isEmpty()) {
+		props.set ( "FilterRegions", FilterRegions );
+	}
+	if ( (FilterServices != null) && !FilterServices.isEmpty()) {
+		props.set ( "FilterServices", FilterServices );
+	}
+	if ( (FilterTags != null) && !FilterTags.isEmpty()) {
+		props.set ( "FilterTags", FilterTags );
 	}
 	// Output.
     if ( (OutputTableID != null) && !OutputTableID.isEmpty() ) {
@@ -318,6 +363,19 @@ private void checkInput () {
     }
     if ( (AppendOutput != null) && !AppendOutput.isEmpty() ) {
         props.set ( "AppendOutput", AppendOutput );
+    }
+    if ( (OutputTableRowCountProperty != null) && !OutputTableRowCountProperty.isEmpty() ) {
+        props.set ( "OutputTableRowCountProperty", OutputTableRowCountProperty );
+    }
+	// Time series.
+    if ( (CreateTimeSeries != null) && !CreateTimeSeries.isEmpty() ) {
+        props.set ( "CreateTimeSeries", CreateTimeSeries );
+    }
+    if ( (TimeSeriesLocationID != null) && !TimeSeriesLocationID.isEmpty() ) {
+        props.set ( "TimeSeriesLocationID", TimeSeriesLocationID );
+    }
+    if ( (Alias != null) && !Alias.isEmpty() ) {
+        props.set ( "Alias", Alias );
     }
     /*
 	if ( IfInputNotFound.length() > 0 ) {
@@ -342,8 +400,7 @@ private void commitEdits () {
 	// General.
 	String Profile = __Profile_JComboBox.getSelected();
 	String Region = getSelectedRegion();
-	//String Bucket = __Bucket_JComboBox.getSelected();
-	// Cost Explorer.
+	// Cost Explorer Query.
 	String InputStart = __InputStart_JTextField.getText().trim();
 	String InputEnd = __InputEnd_JTextField.getText().trim();
 	String Granularity = __Granularity_JComboBox.getSelected();
@@ -351,20 +408,30 @@ private void commitEdits () {
 	String GroupByTag1 = __GroupByTag1_JTextField.getText().trim();
 	String GroupBy2 = __GroupBy2_JComboBox.getSelected();
 	String GroupByTag2 = __GroupByTag2_JTextField.getText().trim();
-	String GroupBy3 = __GroupBy3_JComboBox.getSelected();
-	String GroupByTag3 = __GroupByTag3_JTextField.getText().trim();
+	//String GroupBy3 = __GroupBy3_JComboBox.getSelected();
+	//String GroupByTag3 = __GroupByTag3_JTextField.getText().trim();
 	String Metric = __Metric_JComboBox.getSelected();
-	// Output
+	// Cost Explorer Filter.
+	String FilterAvailabilityZones = __FilterAvailabilityZones_JTextField.getText().trim();
+	String FilterInstanceTypes = __FilterInstanceTypes_JTextField.getText().trim();
+	String FilterRegions = __FilterRegions_JTextField.getText().trim();
+	String FilterServices = __FilterServices_JTextField.getText().trim();
+	String FilterTags = __FilterTags_JTextField.getText().trim();
+	// Output.
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
     String OutputFile = __OutputFile_JTextField.getText().trim();
 	String AppendOutput = __AppendOutput_JComboBox.getSelected();
+    String OutputTableRowCountProperty = __OutputTableRowCountProperty_JTextField.getText().trim();
+	// Time series.
+	String CreateTimeSeries = __CreateTimeSeries_JComboBox.getSelected();
+	String TimeSeriesLocationID = __TimeSeriesLocationID_JComboBox.getSelected();
+	String Alias = __Alias_JTextField.getText().trim();
 	//String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
 
     // General.
 	__command.setCommandParameter ( "Profile", Profile );
 	__command.setCommandParameter ( "Region", Region );
-	//__command.setCommandParameter ( "Bucket", Bucket );
-	// Cost Explorer.
+	// Cost Explorer Query.
 	__command.setCommandParameter ( "InputStart", InputStart );
 	__command.setCommandParameter ( "InputEnd", InputEnd );
 	__command.setCommandParameter ( "Granularity", Granularity );
@@ -372,13 +439,24 @@ private void commitEdits () {
 	__command.setCommandParameter ( "GroupByTag1", GroupByTag1 );
 	__command.setCommandParameter ( "GroupBy2", GroupBy2 );
 	__command.setCommandParameter ( "GroupByTag2", GroupByTag2 );
-	__command.setCommandParameter ( "GroupBy3", GroupBy3 );
-	__command.setCommandParameter ( "GroupByTag3", GroupByTag3 );
+	//__command.setCommandParameter ( "GroupBy3", GroupBy3 );
+	//__command.setCommandParameter ( "GroupByTag3", GroupByTag3 );
 	__command.setCommandParameter ( "Metric", Metric );
+	// Cost Explorer Filter.
+	__command.setCommandParameter ( "FilterAvailabilityZones", FilterAvailabilityZones );
+	__command.setCommandParameter ( "FilterInstanceTypes", FilterInstanceTypes );
+	__command.setCommandParameter ( "FilterRegions", FilterRegions );
+	__command.setCommandParameter ( "FilterServices", FilterServices );
+	__command.setCommandParameter ( "FilterTags", FilterTags );
 	// Output.
 	__command.setCommandParameter ( "OutputTableID", OutputTableID );
 	__command.setCommandParameter ( "OutputFile", OutputFile );
 	__command.setCommandParameter ( "AppendOutput", AppendOutput );
+	__command.setCommandParameter ( "OutputTableRowCountProperty", OutputTableRowCountProperty );
+	// Time Series.
+	__command.setCommandParameter ( "CreateTimeSeries", CreateTimeSeries );
+	__command.setCommandParameter ( "TimeSeriesLocationID", TimeSeriesLocationID );
+	__command.setCommandParameter ( "Alias", Alias );
 	//__command.setCommandParameter ( "IfInputNotFound", IfInputNotFound );
 }
 
@@ -595,37 +673,23 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
 		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 	__RegionDefault_JTextField.setEditable(false);
 
-	/*
-    JGUIUtil.addComponent(main_JPanel, new JLabel ( "Bucket:"),
-		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-	__Bucket_JComboBox = new SimpleJComboBox ( false );
-	__Bucket_JComboBox.setToolTipText("AWS S3 bucket.");
-	// Choices will be populated when refreshed, based on profile.
-	__Bucket_JComboBox.addActionListener ( this );
-    JGUIUtil.addComponent(main_JPanel, __Bucket_JComboBox,
-		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(main_JPanel, new JLabel(
-		"Required (except for ListBuckets command) - S3 bucket."),
-		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-		*/
-
     __main_JTabbedPane = new JTabbedPane ();
     __main_JTabbedPane.addChangeListener(this);
     JGUIUtil.addComponent(main_JPanel, __main_JTabbedPane,
         0, ++y, 7, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    // Panel for general 'Cost Explorer' parameters.
+    // Panel for general 'Cost Explorer' query parameters.
     int yCostExplorer = -1;
     JPanel costExplorer_JPanel = new JPanel();
     costExplorer_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "Cost Explorer", costExplorer_JPanel );
+    __main_JTabbedPane.addTab ( "Cost Explorer Query", costExplorer_JPanel );
 
-    JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ("Read AWS Cost Explorer data.  See AWS console Billing and Cost Management / Cost Explorer."),
+    JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ("Query AWS Cost Explorer data.  See AWS console Billing and Cost Management / Cost Explorer."),
 		0, ++yCostExplorer, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ("Some choices may be limited based on AWS Billing configuration "
    		+ "(e.g., daily data are only available for 14 previous days)."),
 		0, ++yCostExplorer, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ("Multiple 'Group by' can be specified, for example to group by service and a tag."),
+    JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ("Up to two 'Group by' can be specified, for example to group by service and a tag."),
 		0, ++yCostExplorer, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ("See the 'Output' tab to specify the output table and/or file for the output."),
 		0, ++yCostExplorer, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -643,12 +707,12 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
         3, yCostExplorer, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Input end:"),
-        0, ++yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+        0, ++yCostExplorer, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __InputEnd_JTextField = new JTextField (20);
     __InputEnd_JTextField.setToolTipText("Input end for billing data, with daily precision, can use ${Property} syntax.");
     __InputEnd_JTextField.addKeyListener (this);
     JGUIUtil.addComponent(costExplorer_JPanel, __InputEnd_JTextField,
-        1, yCostExplorer, 6, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+        1, yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Optional - overrides the global input end."),
         3, yCostExplorer, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
@@ -683,12 +747,12 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
 		3, yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Group by tag (1):"),
-        0, ++yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+        0, ++yCostExplorer, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __GroupByTag1_JTextField = new JTextField (20);
     __GroupByTag1_JTextField.setToolTipText("If GroupBy1=Tag, specify the tag name to group by, can use ${Property} syntax.");
     __GroupByTag1_JTextField.addKeyListener (this);
     JGUIUtil.addComponent(costExplorer_JPanel, __GroupByTag1_JTextField,
-        1, yCostExplorer, 6, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+        1, yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Optional - used with GroupBy1=Tag."),
         3, yCostExplorer, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
@@ -706,15 +770,16 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
 		3, yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Group by tag (2):"),
-        0, ++yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+        0, ++yCostExplorer, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __GroupByTag2_JTextField = new JTextField (20);
     __GroupByTag2_JTextField.setToolTipText("If GroupBy2=Tag, specify the tag name to group by, can use ${Property} syntax.");
     __GroupByTag2_JTextField.addKeyListener (this);
     JGUIUtil.addComponent(costExplorer_JPanel, __GroupByTag2_JTextField,
-        1, yCostExplorer, 6, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+        1, yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Optional - used with GroupBy2=Tag."),
         3, yCostExplorer, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
+    /*
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Group by (3):"),
 		0, ++yCostExplorer, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__GroupBy3_JComboBox = new SimpleJComboBox ( false );
@@ -729,16 +794,17 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
 		3, yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Group by tag (3):"),
-        0, ++yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+        0, ++yCostExplorer, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
     __GroupByTag3_JTextField = new JTextField (20);
     __GroupByTag3_JTextField.setToolTipText("If GroupBy3=Tag, specify the tag name to group by, can use ${Property} syntax.");
     __GroupByTag3_JTextField.addKeyListener (this);
     JGUIUtil.addComponent(costExplorer_JPanel, __GroupByTag3_JTextField,
-        1, yCostExplorer, 6, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+        1, yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Optional - used with GroupBy3=Tag."),
         3, yCostExplorer, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+    */
 
-    JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Aggregate costs by (metric):"),
+    JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Metric (aggregate costs by):"),
 		0, ++yCostExplorer, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__Metric_JComboBox = new SimpleJComboBox ( false );
 	__Metric_JComboBox.setToolTipText("How to aggregate the output (metric).");
@@ -752,6 +818,75 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel(
 		"Optional - output metric (default=" + AwsBillingMetricType.UNBLENDED_COSTS + ")."),
 		3, yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    // Panel for general 'Cost Explorer' filter parameters.
+    int yFilter = -1;
+    JPanel filter_JPanel = new JPanel();
+    filter_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "Cost Explorer Filters", filter_JPanel );
+
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ("Filter Cost Explorer data.  See AWS console Billing and Cost Management / Cost Explorer."),
+		0, ++yFilter, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ("A limited number of filters have been implemented."),
+		0, ++yFilter, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ("The filter groups are ANDed with values in a group ORed."),
+		0, ++yFilter, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ("See the 'Output' tab to specify the output table and/or file for the output."),
+		0, ++yFilter, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(filter_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yFilter, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ( "Filter to availability zone(s):"),
+        0, ++yFilter, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __FilterAvailabilityZones_JTextField = new JTextField (30);
+    __FilterAvailabilityZones_JTextField.setToolTipText("One or more availability zones (e.g., us-west-1a) to filter output, separated by commas, can use ${Property} syntax.");
+    __FilterAvailabilityZones_JTextField.addKeyListener (this);
+    JGUIUtil.addComponent(filter_JPanel, __FilterAvailabilityZones_JTextField,
+        1, yFilter, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ( "Optional - availability zone(s) to filter output."),
+        3, yFilter, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ( "Filter to instance type(s):"),
+        0, ++yFilter, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __FilterInstanceTypes_JTextField = new JTextField (30);
+    __FilterInstanceTypes_JTextField.setToolTipText("One or more instance types (e.g., t2.xlarge) to filter output, separated by commas, can use ${Property} syntax.");
+    __FilterInstanceTypes_JTextField.addKeyListener (this);
+    JGUIUtil.addComponent(filter_JPanel, __FilterInstanceTypes_JTextField,
+        1, yFilter, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ( "Optional - instance type(s) to filter output."),
+        3, yFilter, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ( "Filter to region(s):"),
+        0, ++yFilter, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __FilterRegions_JTextField = new JTextField (30);
+    __FilterRegions_JTextField.setToolTipText("One or more regions (e.g., us-west-1) to filter output, separated by commas, can use ${Property} syntax.");
+    __FilterRegions_JTextField.addKeyListener (this);
+    JGUIUtil.addComponent(filter_JPanel, __FilterRegions_JTextField,
+        1, yFilter, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ( "Optional - region(s) to filter output."),
+        3, yFilter, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ( "Filter to services(s):"),
+        0, ++yFilter, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __FilterServices_JTextField = new JTextField (30);
+    __FilterServices_JTextField.setToolTipText("One or more services (e.g., Amazon Simple Storage Service) to filter output, separated by commas, can use ${Property} syntax.");
+    __FilterServices_JTextField.addKeyListener (this);
+    JGUIUtil.addComponent(filter_JPanel, __FilterServices_JTextField,
+        1, yFilter, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ( "Optional - services(s) to filter output."),
+        3, yFilter, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ( "Filter to tag(s):"),
+        0, ++yFilter, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __FilterTags_JTextField = new JTextField (30);
+    // TODO Enable later once API is understood.
+    __FilterTags_JTextField.setEnabled(false);
+    __FilterTags_JTextField.setToolTipText("One or more tags to filter output, separated by commas, can use ${Property} syntax.");
+    __FilterTags_JTextField.addKeyListener (this);
+    JGUIUtil.addComponent(filter_JPanel, __FilterTags_JTextField,
+        1, yFilter, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ( "Optional - tag(s) to filter output (CURRENTLY DISABLED)."),
+        3, yFilter, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
     // Panel for output.
     int yOutput = -1;
@@ -829,6 +964,16 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
 		"Optional - append to output (default=" + __command._False + ")."),
 		3, yOutput, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("Row count property:"),
+        0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __OutputTableRowCountProperty_JTextField = new JTextField (20);
+    __OutputTableRowCountProperty_JTextField.setToolTipText("Property name for output table row count.");
+    __OutputTableRowCountProperty_JTextField.addKeyListener (this);
+    JGUIUtil.addComponent(output_JPanel, __OutputTableRowCountProperty_JTextField,
+        1, yOutput, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Optional - property for output table row count."),
+        3, yOutput, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
     // Panel for 'Time Series' parameters.
     int yts = -1;
     JPanel ts_JPanel = new JPanel();
@@ -839,10 +984,63 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
 		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(ts_JPanel, new JLabel ("The time series interval will match the granularity."),
 		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(ts_JPanel, new JLabel ("Time series identifiers use the Cost Explorer Dimension and metric."),
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ("Time series identifiers use the Cost Explorer data as follows by default:"),
+		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ("  - group by tag name is used for the location type and tag value as the location ID"
+    	+ " (missing tag is shown using Unknown)"),
+		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ("  - group by (dimension(s)) are used at the front of the data type, separated with dashes"),
+		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ("  - metric is used at the end of the data type, separated with dash"),
 		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(ts_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ( "Create time series?:" ),
+        0, ++yts, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __CreateTimeSeries_JComboBox = new SimpleJComboBox ( false ); // Don't allow edit.
+    __CreateTimeSeries_JComboBox.setToolTipText("Create time series for the results?");
+    List<String> createTimeSeriesChoices = new ArrayList<>();
+    createTimeSeriesChoices.add("");
+    createTimeSeriesChoices.add(__command._False);
+    createTimeSeriesChoices.add(__command._True);
+    __CreateTimeSeries_JComboBox.setData ( createTimeSeriesChoices );
+    __CreateTimeSeries_JComboBox.addItemListener ( this );
+    __CreateTimeSeries_JComboBox.getJTextComponent().addKeyListener ( this );
+    JGUIUtil.addComponent(ts_JPanel, __CreateTimeSeries_JComboBox,
+        1, yts, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel( "Optional - whether to create time series (default=" + __command._False + ")."),
+        3, yts, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ( "Time series location ID:" ),
+        0, ++yts, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __TimeSeriesLocationID_JComboBox = new SimpleJComboBox ( false ); // Don't allow edit.
+    __TimeSeriesLocationID_JComboBox.setToolTipText("Location ID for time series.");
+    List<String> locationIdChoices = new ArrayList<>();
+    locationIdChoices.add("");
+    locationIdChoices.add(__command._Auto);
+    locationIdChoices.add(__command._GroupBy1);
+    locationIdChoices.add(__command._GroupBy2);
+    //locationIdChoices.add(__command._GroupBy3);
+    __TimeSeriesLocationID_JComboBox.setData ( locationIdChoices );
+    __TimeSeriesLocationID_JComboBox.addItemListener ( this );
+    __TimeSeriesLocationID_JComboBox.getJTextComponent().addKeyListener ( this );
+    JGUIUtil.addComponent(ts_JPanel, __TimeSeriesLocationID_JComboBox,
+        1, yts, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel( "Optional - location ID for time series (default=" + __command._Auto + ")."),
+        3, yts, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(ts_JPanel, new JLabel("Alias to assign:"),
+        0, ++yts, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __Alias_JTextField = new TSFormatSpecifiersJPanel(10);
+    __Alias_JTextField.setToolTipText("Use %L for location, %T for data type, %I for interval.");
+    __Alias_JTextField.addKeyListener ( this );
+    __Alias_JTextField.getDocument().addDocumentListener(this);
+    __Alias_JTextField.setToolTipText("%L for location, %T for data type.");
+    JGUIUtil.addComponent(ts_JPanel, __Alias_JTextField,
+        1, yts, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ("Optional - use %L for location, etc. (default=no alias)."),
+        3, yts, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
     JGUIUtil.addComponent(main_JPanel, new JLabel ( "Command:" ),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
@@ -892,10 +1090,8 @@ public void itemStateChanged ( ItemEvent e ) {
 	Object o = e.getSource();
     if ( o == this.__Profile_JComboBox ) {
     	this.awsSession.setProfile(this.__Profile_JComboBox.getSelected());
-        //AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Bucket_JComboBox, true );
 	}
 	else if ( o == this.__Region_JComboBox ) {
-        //AwsToolkit.getInstance().uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Bucket_JComboBox, true );
 	}
 	refresh();
 }
@@ -942,8 +1138,7 @@ private void refresh () {
 	// General.
 	String Profile = "";
 	String Region = "";
-	String Bucket = "";
-	// Cost Explorer.
+	// Cost Explorer Query.
 	String InputStart = "";
 	String InputEnd = "";
 	String Granularity = "";
@@ -951,13 +1146,24 @@ private void refresh () {
 	String GroupByTag1 = "";
 	String GroupBy2 = "";
 	String GroupByTag2 = "";
-	String GroupBy3 = "";
-	String GroupByTag3 = "";
+	//String GroupBy3 = "";
+	//String GroupByTag3 = "";
 	String Metric = "";
+	// Cost Explorer Filter.
+	String FilterAvailabilityZones = "";
+	String FilterInstanceTypes = "";
+	String FilterRegions = "";
+	String FilterServices = "";
+	String FilterTags = "";
 	// Output.
 	String OutputTableID = "";
 	String OutputFile = "";
 	String AppendOutput = "";
+	String OutputTableRowCountProperty = "";
+	// Time series.
+	String CreateTimeSeries = "";
+	String TimeSeriesLocationID = "";
+	String Alias = "";
 	//String IfInputNotFound = "";
     PropList parameters = null;
 
@@ -969,8 +1175,7 @@ private void refresh () {
         // General.
 		Profile = parameters.getValue ( "Profile" );
 		Region = parameters.getValue ( "Region" );
-		Bucket = parameters.getValue ( "Bucket" );
-		// Cost Explorer.
+		// Cost Explorer Query.
 		InputStart = parameters.getValue ( "InputStart" );
 		InputEnd = parameters.getValue ( "InputEnd" );
 		Granularity = parameters.getValue ( "Granularity" );
@@ -978,13 +1183,24 @@ private void refresh () {
 		GroupByTag1 = parameters.getValue ( "GroupByTag1" );
 		GroupBy2 = parameters.getValue ( "GroupBy2" );
 		GroupByTag2 = parameters.getValue ( "GroupByTag2" );
-		GroupBy3 = parameters.getValue ( "GroupBy3" );
-		GroupByTag3 = parameters.getValue ( "GroupByTag3" );
+		//GroupBy3 = parameters.getValue ( "GroupBy3" );
+		//GroupByTag3 = parameters.getValue ( "GroupByTag3" );
 		Metric = parameters.getValue ( "Metric" );
-		// Output
+		// Cost Explorer Filter.
+		FilterAvailabilityZones = parameters.getValue ( "FilterAvailabilityZones" );
+		FilterInstanceTypes = parameters.getValue ( "FilterInstanceTypes" );
+		FilterRegions = parameters.getValue ( "FilterRegions" );
+		FilterServices = parameters.getValue ( "FilterServices" );
+		FilterTags = parameters.getValue ( "Tags" );
+		// Output.
 		OutputTableID = parameters.getValue ( "OutputTableID" );
 		OutputFile = parameters.getValue ( "OutputFile" );
 		AppendOutput = parameters.getValue ( "AppendOutput" );
+		OutputTableRowCountProperty = parameters.getValue ( "OutputTableRowCountProperty" );
+		// Time Series.
+		CreateTimeSeries = parameters.getValue ( "CreateTimeSeries" );
+		TimeSeriesLocationID = parameters.getValue ( "TimeSeriesLocationID" );
+		Alias = parameters.getValue ( "Alias" );
 		//IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
 		if ( JGUIUtil.isSimpleJComboBoxItem(__Profile_JComboBox, Profile,JGUIUtil.NONE, null, null ) ) {
 			__Profile_JComboBox.select ( Profile );
@@ -1053,27 +1269,6 @@ private void refresh () {
             Message.printWarning ( 1, routine, "Existing command references an invalid\n"+
                 "Region parameter \"" + Region + "\".  Select a\ndifferent value or Cancel." );
         }
-        // Populate the bucket choices, which depends on the above profile and region.
-        /*
-        awsToolkit.uiPopulateBucketChoices( this.awsSession, getSelectedRegion(), __Bucket_JComboBox, true );
-		if ( JGUIUtil.isSimpleJComboBoxItem(__Bucket_JComboBox, Bucket,JGUIUtil.NONE, null, null ) ) {
-			__Bucket_JComboBox.select ( Bucket );
-		}
-		else {
-            if ( (Bucket == null) || Bucket.equals("") ) {
-				// New command...select the default.
-            	if ( __Bucket_JComboBox.getItemCount() > 0 ) {
-            		__Bucket_JComboBox.select ( 0 );
-            	}
-			}
-			else {
-				// Bad user command.
-				Message.printWarning ( 1, routine,
-				"Existing command references an invalid\n"+
-				"Bucket parameter \"" + Bucket + "\".  Select a value or Cancel." );
-			}
-		}
-		*/
 		if ( InputStart != null ) {
 			__InputStart_JTextField.setText ( InputStart );
 		}
@@ -1137,6 +1332,7 @@ private void refresh () {
 		if ( GroupByTag2 != null ) {
 			__GroupByTag2_JTextField.setText ( GroupByTag2 );
 		}
+		/*
 		if ( JGUIUtil.isSimpleJComboBoxItem(__GroupBy3_JComboBox, GroupBy3,JGUIUtil.NONE, null, null ) ) {
 			__GroupBy3_JComboBox.select ( GroupBy3 );
 		}
@@ -1157,6 +1353,7 @@ private void refresh () {
 		if ( GroupByTag3 != null ) {
 			__GroupByTag3_JTextField.setText ( GroupByTag3 );
 		}
+		*/
 		if ( JGUIUtil.isSimpleJComboBoxItem(__Metric_JComboBox, Metric,JGUIUtil.NONE, null, null ) ) {
 			__Metric_JComboBox.select ( Metric );
 		}
@@ -1173,6 +1370,21 @@ private void refresh () {
 				"Existing command references an invalid\n"+
 				"Metric parameter \"" + Metric + "\".  Select a value or Cancel." );
 			}
+		}
+		if ( FilterAvailabilityZones != null ) {
+			__FilterAvailabilityZones_JTextField.setText ( FilterAvailabilityZones );
+		}
+		if ( FilterInstanceTypes != null ) {
+			__FilterInstanceTypes_JTextField.setText ( FilterInstanceTypes );
+		}
+		if ( FilterRegions != null ) {
+			__FilterRegions_JTextField.setText ( FilterRegions );
+		}
+		if ( FilterServices != null ) {
+			__FilterServices_JTextField.setText ( FilterServices );
+		}
+		if ( FilterTags != null ) {
+			__FilterTags_JTextField.setText ( FilterTags );
 		}
         if ( OutputTableID == null ) {
             // Select default.
@@ -1211,6 +1423,51 @@ private void refresh () {
 				"AppendOutput parameter \"" + AppendOutput + "\".  Select a value or Cancel." );
 			}
 		}
+		if ( OutputTableRowCountProperty != null ) {
+			__OutputTableRowCountProperty_JTextField.setText ( OutputTableRowCountProperty );
+		}
+		// Time series.
+        if ( CreateTimeSeries == null ) {
+            // Select default.
+            __CreateTimeSeries_JComboBox.select ( 0 );
+        }
+        else {
+            if ( JGUIUtil.isSimpleJComboBoxItem( __CreateTimeSeries_JComboBox,CreateTimeSeries, JGUIUtil.NONE, null, null ) ) {
+                __CreateTimeSeries_JComboBox.select ( CreateTimeSeries );
+            }
+            else {
+                // Creating new table so add in the first position.
+                if ( __CreateTimeSeries_JComboBox.getItemCount() == 0 ) {
+                    __CreateTimeSeries_JComboBox.add(CreateTimeSeries);
+                }
+                else {
+                    __CreateTimeSeries_JComboBox.insert(CreateTimeSeries, 0);
+                }
+                __CreateTimeSeries_JComboBox.select(0);
+            }
+        }
+        if ( TimeSeriesLocationID == null ) {
+            // Select default.
+            __TimeSeriesLocationID_JComboBox.select ( 0 );
+        }
+        else {
+            if ( JGUIUtil.isSimpleJComboBoxItem( __TimeSeriesLocationID_JComboBox,TimeSeriesLocationID, JGUIUtil.NONE, null, null ) ) {
+                __TimeSeriesLocationID_JComboBox.select ( TimeSeriesLocationID );
+            }
+            else {
+                // Creating new table so add in the first position.
+                if ( __TimeSeriesLocationID_JComboBox.getItemCount() == 0 ) {
+                    __TimeSeriesLocationID_JComboBox.add(TimeSeriesLocationID);
+                }
+                else {
+                    __TimeSeriesLocationID_JComboBox.insert(TimeSeriesLocationID, 0);
+                }
+                __TimeSeriesLocationID_JComboBox.select(0);
+            }
+        }
+	    if ( Alias != null ) {
+		    __Alias_JTextField.setText ( Alias );
+	    }
         /*
 		if ( JGUIUtil.isSimpleJComboBoxItem(__IfInputNotFound_JComboBox, IfInputNotFound,JGUIUtil.NONE, null, null ) ) {
 			__IfInputNotFound_JComboBox.select ( IfInputNotFound );
@@ -1237,11 +1494,7 @@ private void refresh () {
 		Profile = "";
 	}
 	Region = getSelectedRegion();
-	//Bucket = __Bucket_JComboBox.getSelected();
-	if ( Bucket == null ) {
-		Bucket = "";
-	}
-	// Cost Explorer.
+	// Cost Explorer Query.
 	InputStart = __InputStart_JTextField.getText().trim();
 	InputEnd = __InputEnd_JTextField.getText().trim();
 	Granularity = __Granularity_JComboBox.getSelected();
@@ -1249,20 +1502,30 @@ private void refresh () {
 	GroupByTag1 = __GroupByTag1_JTextField.getText().trim();
 	GroupBy2 = __GroupBy2_JComboBox.getSelected();
 	GroupByTag2 = __GroupByTag2_JTextField.getText().trim();
-	GroupBy3 = __GroupBy3_JComboBox.getSelected();
-	GroupByTag3 = __GroupByTag3_JTextField.getText().trim();
+	//GroupBy3 = __GroupBy3_JComboBox.getSelected();
+	//GroupByTag3 = __GroupByTag3_JTextField.getText().trim();
 	Metric = __Metric_JComboBox.getSelected();
-	// Output
+	// Cost Explorer Filter.
+	FilterAvailabilityZones = __FilterAvailabilityZones_JTextField.getText().trim();
+	FilterInstanceTypes = __FilterInstanceTypes_JTextField.getText().trim();
+	FilterRegions = __FilterRegions_JTextField.getText().trim();
+	FilterServices = __FilterServices_JTextField.getText().trim();
+	FilterTags = __FilterTags_JTextField.getText().trim();
+	// Output.
 	OutputTableID = __OutputTableID_JComboBox.getSelected();
 	OutputFile = __OutputFile_JTextField.getText().trim();
 	AppendOutput = __AppendOutput_JComboBox.getSelected();
+	OutputTableRowCountProperty = __OutputTableRowCountProperty_JTextField.getText().trim();
+	// Time series.
+	CreateTimeSeries = __CreateTimeSeries_JComboBox.getSelected();
+	TimeSeriesLocationID = __TimeSeriesLocationID_JComboBox.getSelected();
+	Alias = __Alias_JTextField.getText().trim();
 	//IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
     // General.
 	PropList props = new PropList ( __command.getCommandName() );
 	props.add ( "Profile=" + Profile );
 	props.add ( "Region=" + Region );
-	props.add ( "Bucket=" + Bucket );
-	// Cost Explorer.
+	// Cost Explorer Query.
 	props.add ( "InputStart=" + InputStart );
 	props.add ( "InputEnd=" + InputEnd );
 	props.add ( "Granularity=" + Granularity );
@@ -1270,13 +1533,24 @@ private void refresh () {
 	props.add ( "GroupByTag1=" + GroupByTag1 );
 	props.add ( "GroupBy2=" + GroupBy2 );
 	props.add ( "GroupByTag2=" + GroupByTag2 );
-	props.add ( "GroupBy3=" + GroupBy3 );
-	props.add ( "GroupByTag3=" + GroupByTag3 );
+	//props.add ( "GroupBy3=" + GroupBy3 );
+	//props.add ( "GroupByTag3=" + GroupByTag3 );
 	props.add ( "Metric=" + Metric );
+	// Cost Explorer Filter.
+	props.add ( "FilterAvailabilityZones=" + FilterAvailabilityZones );
+	props.add ( "FilterInstanceTypes=" + FilterInstanceTypes );
+	props.add ( "FilterRegions=" + FilterRegions );
+	props.add ( "FilterServices=" + FilterServices );
+	props.add ( "FilterTags=" + FilterTags );
 	// Output.
 	props.add ( "OutputTableID=" + OutputTableID );
 	props.add ( "OutputFile=" + OutputFile );
 	props.add ( "AppendOutput=" + AppendOutput );
+	props.add ( "OutputTableRowCountProperty=" + OutputTableRowCountProperty );
+	// Time series.
+	props.add ( "CreateTimeSeries=" + CreateTimeSeries );
+	props.add ( "TimeSeriesLocationID=" + TimeSeriesLocationID );
+	props.add ( "Alias=" + Alias );
 	//props.add ( "IfInputNotFound=" + IfInputNotFound );
 	__command_JTextArea.setText( __command.toString(props).trim() );
 	// Set the default values as FYI.
