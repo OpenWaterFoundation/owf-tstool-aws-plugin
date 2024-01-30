@@ -30,7 +30,6 @@ import java.util.Map;
 
 import javax.swing.JFrame;
 
-import org.openwaterfoundation.tstool.plugin.aws.AwsSession;
 import org.openwaterfoundation.tstool.plugin.aws.AwsToolkit;
 
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
@@ -38,6 +37,9 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.costexplorer.CostExplorerClient;
 import software.amazon.awssdk.services.costexplorer.model.CostExplorerException;
 import software.amazon.awssdk.services.costexplorer.model.DateInterval;
+import software.amazon.awssdk.services.costexplorer.model.Dimension;
+import software.amazon.awssdk.services.costexplorer.model.DimensionValues;
+import software.amazon.awssdk.services.costexplorer.model.Expression;
 import software.amazon.awssdk.services.costexplorer.model.GetCostAndUsageRequest;
 import software.amazon.awssdk.services.costexplorer.model.GetCostAndUsageResponse;
 import software.amazon.awssdk.services.costexplorer.model.Group;
@@ -45,9 +47,11 @@ import software.amazon.awssdk.services.costexplorer.model.GroupDefinition;
 import software.amazon.awssdk.services.costexplorer.model.GroupDefinitionType;
 import software.amazon.awssdk.services.costexplorer.model.MetricValue;
 import software.amazon.awssdk.services.costexplorer.model.ResultByTime;
+import software.amazon.awssdk.services.pricing.model.Filter;
 import rti.tscommandprocessor.core.TSCommandProcessor;
 import rti.tscommandprocessor.core.TSCommandProcessorUtil;
-
+import RTi.TS.TS;
+import RTi.TS.TSUtil;
 import RTi.Util.IO.AbstractCommand;
 import RTi.Util.IO.CommandDiscoverable;
 import RTi.Util.IO.CommandException;
@@ -66,8 +70,6 @@ import RTi.Util.IO.PropList;
 
 import RTi.Util.Message.Message;
 import RTi.Util.Message.MessageUtil;
-
-import RTi.Util.String.StringUtil;
 
 import RTi.Util.Table.DataTable;
 import RTi.Util.Table.TableField;
@@ -97,6 +99,14 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	protected final String _Fail = "Fail";
 
 	/**
+	 * Data members used for TimeSeriesLocationID parameter values.
+	 */
+	protected final String _Auto = "Auto";
+	protected final String _GroupBy1 = "GroupBy1";
+	protected final String _GroupBy2 = "GroupBy2";
+	//protected final String _GroupBy3 = "GroupBy3";
+
+	/**
 	Output file that is created by this command.
 	*/
 	private File __OutputFile_File = null;
@@ -115,6 +125,161 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	}
 
 	/**
+	 * Add a record of data to time series.
+	 * This may result in creating a new time series or adding a record to an existing time series.
+	 * @param tslist the list of existing time series (will be modified as needed)
+	 * @param inputStart the starting date for the data
+	 * @param inputEnd the ending date for the data
+	 */
+	private void addTimeSeriesData ( List<TS> tslist, DateTime inputStart, DateTime inputEnd,
+		DateTime costDate, AwsBillingGranularityType granularity,
+    	AwsBillingDimensionType groupBy1, String groupByTag1, String groupItem1,
+    	AwsBillingDimensionType groupBy2, String groupByTag2, String groupItem2,
+    	//AwsBillingDimensionType groupBy3, String groupByTag3, String groupItem3,
+    	String metricName, Double costAmount, String costUnit,
+    	String timeSeriesLocationID
+	) throws Exception {
+		// Create a time series identifier string using the input.
+		if ( groupItem1.isEmpty() ) {
+			groupItem1 = "Unknown";
+		}
+		if ( groupItem2.isEmpty() ) {
+			groupItem2 = "Unknown";
+		}
+		/*
+		if ( groupItem3.isEmpty() ) {
+			groupItem3 = "Unknown";
+		}
+		*/
+		StringBuilder tsidBuilder = new StringBuilder();
+		// Add the location:
+		// - tag is preferred if tag is specified as any Group By
+		// - if no tag, use the first Group by
+		boolean tagFound = false;
+		if ( timeSeriesLocationID.equals(this._Auto) ) {
+			// Default behavior for location identifier.
+			if ( (groupByTag1 != null) && !groupByTag1.isEmpty() ) {
+				tsidBuilder.append(groupByTag1);
+				tsidBuilder.append(":");
+				tsidBuilder.append(groupItem1);
+				tagFound = true;
+			}
+			else if ( (groupByTag2 != null) && !groupByTag2.isEmpty() ) {
+				tsidBuilder.append(groupByTag2);
+				tsidBuilder.append(":");
+				tsidBuilder.append(groupItem2);
+				tagFound = true;
+			}
+			/*
+			else if ( (groupByTag3 != null) && !groupByTag3.isEmpty() ) {
+				tsidBuilder.append(groupByTag3);
+				tsidBuilder.append(":");
+				tsidBuilder.append(groupItem3);
+				tagFound = true;
+			}
+			*/
+			if ( ! tagFound ) {
+				// No tag so use the first Group by for the location, typically something terse like region or instance type.
+				if ( groupBy1 != null ) {
+					tsidBuilder.append(groupBy1.toString());
+					tsidBuilder.append(":");
+					tsidBuilder.append(groupItem1);
+					tagFound = true;
+				}
+			}
+		}
+		else if ( timeSeriesLocationID.equals(this._GroupBy1) ) {
+			if ( groupBy1 != null ) {
+				tsidBuilder.append(groupBy1.toString());
+				tsidBuilder.append(":");
+				tsidBuilder.append(groupItem1);
+			}
+			else {
+				tsidBuilder.append("Unknown");
+			}
+		}
+		else if ( timeSeriesLocationID.equals(this._GroupBy2) ) {
+			if ( groupBy2 != null ) {
+				tsidBuilder.append(groupBy2.toString());
+				tsidBuilder.append(":");
+				tsidBuilder.append(groupItem2);
+			}
+			else {
+				tsidBuilder.append("Unknown");
+			}
+		}
+		/*
+		else if ( timeSeriesLocationID.equals(this._GroupBy3) ) {
+			if ( groupBy3 != null ) {
+				tsidBuilder.append(groupBy3.toString());
+				tsidBuilder.append(":");
+				tsidBuilder.append(groupItem3);
+			}
+			else {
+				tsidBuilder.append("Unknown");
+			}
+		}
+		*/
+		// Add the data source.
+		tsidBuilder.append(".");
+		tsidBuilder.append("AWS");
+		// Add the data type.
+		tsidBuilder.append(".");
+		if ( timeSeriesLocationID.equals(this._Auto) ) {
+			tsidBuilder.append(groupItem1);
+			tsidBuilder.append("-");
+			tsidBuilder.append(metricName);
+		}
+		else if ( timeSeriesLocationID.equals(this._GroupBy1) ) {
+			// Use the other group by.
+			tsidBuilder.append(groupItem2);
+			tsidBuilder.append("-");
+			tsidBuilder.append(metricName);
+		}
+		else if ( timeSeriesLocationID.equals(this._GroupBy2) ) {
+			// Use the other group by.
+			tsidBuilder.append(groupItem1);
+			tsidBuilder.append("-");
+			tsidBuilder.append(metricName);
+		}
+		// Add the data interval.
+		tsidBuilder.append(".");
+		tsidBuilder.append(granularity.getInterval());
+		// Get the TSID string to use below.
+		String tsid = tsidBuilder.toString();
+
+		// Search the exiting time series for a matching time series identifier.
+		TS ts = null;
+		for ( TS ts0 : tslist ) {
+			if ( tsid.equals(ts0.getIdentifierString()) ) {
+				// Found a matching time series.
+				ts = ts0;
+				break;
+			}
+		}
+
+		if ( ts == null ) {
+			// Need to create a new time series.
+			ts = TSUtil.newTimeSeries(tsid, true);
+			ts.setIdentifier(tsid);
+			ts.setDate1(inputStart);
+			ts.setDate1Original(inputStart);
+			ts.setDate2(inputEnd);
+			ts.setDate2Original(inputEnd);
+			ts.setDataUnits(costUnit);
+			ts.setDataUnitsOriginal(costUnit);
+			ts.allocateDataSpace();
+
+			// Add the time series to the list of output time series.
+			tslist.add(ts);
+		}
+
+		// Set the data value for the single cost explorer data value.
+		ts.setDataValue ( costDate, costAmount );
+
+	}
+
+	/**
 	Check the command parameter for valid values, combination, etc.
 	@param parameters The parameters for the command.
 	@param command_tag an indicator to be used when printing messages, to allow a cross-reference to the original commands.
@@ -123,10 +288,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	*/
 	public void checkCommandParameters ( PropList parameters, String command_tag, int warning_level )
 	throws InvalidCommandParameterException {
+		// General.
 		String Profile = parameters.getValue ( "Profile" );
 		String Region = parameters.getValue ( "Region" );
-		// General.
-    	//String Bucket = parameters.getValue ( "Bucket" );
 		// Cost Explorer.
     	String InputStart = parameters.getValue ( "InputStart" );
     	String InputEnd = parameters.getValue ( "InputEnd" );
@@ -135,13 +299,17 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	String GroupByTag1 = parameters.getValue ( "GroupByTag1" );
     	String GroupBy2 = parameters.getValue ( "GroupBy2" );
     	String GroupByTag2 = parameters.getValue ( "GroupByTag2" );
-    	String GroupBy3 = parameters.getValue ( "GroupBy3" );
-    	String GroupByTag3 = parameters.getValue ( "GroupByTag3" );
+    	//String GroupBy3 = parameters.getValue ( "GroupBy3" );
+    	//String GroupByTag3 = parameters.getValue ( "GroupByTag3" );
     	String Metric = parameters.getValue ( "Metric" );
     	// Output.
-    	String OutputTableID = parameters.getValue ( "OutputTableID" );
-    	String OutputFile = parameters.getValue ( "OutputFile" );
+    	//String OutputTableID = parameters.getValue ( "OutputTableID" );
+    	//String OutputFile = parameters.getValue ( "OutputFile" );
     	String AppendOutput = parameters.getValue ( "AppendOutput" );
+    	// Time series.
+    	String CreateTimeSeries = parameters.getValue ( "CreateTimeSeries" );
+    	String TimeSeriesLocationID = parameters.getValue ( "TimeSeriesLocationID" );
+
 		String warning = "";
 		String message;
 
@@ -253,6 +421,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			}
 		}
 
+		/*
 		if ( (GroupBy3 != null) && !GroupBy3.isEmpty() ) {
 			AwsBillingDimensionType dimension = AwsBillingDimensionType.valueOfIgnoreCase(GroupBy3);
 			if ( dimension == null ) {
@@ -281,6 +450,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 					message, "Specify GroupBy3 or clear the GroupByTag3."));
 			}
 		}
+		*/
 
 		if ( (Metric != null) && !Metric.isEmpty() ) {
 			AwsBillingMetricType aggregateCostsBy = AwsBillingMetricType.valueOfIgnoreCase(Metric);
@@ -290,6 +460,28 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 				status.addToLog(CommandPhaseType.INITIALIZATION,
 					new CommandLogRecord(CommandStatusType.FAILURE,
 					message, "Specify as one of: " + AwsBillingMetricType.getChoicesAsCsv()));
+			}
+		}
+
+		// Time series.
+		if ( (CreateTimeSeries != null) && !CreateTimeSeries.equals("") ) {
+			if ( !CreateTimeSeries.equalsIgnoreCase(_False) && !CreateTimeSeries.equalsIgnoreCase(_True) ) {
+				message = "The CreateTimeSeries parameter \"" + CreateTimeSeries + "\" is invalid.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Specify the parameter as " + _False + " (default), or " + _True + "."));
+			}
+		}
+
+		if ( (TimeSeriesLocationID != null) && !TimeSeriesLocationID.equals("") ) {
+			if ( !TimeSeriesLocationID.equalsIgnoreCase(_Auto) && !TimeSeriesLocationID.equalsIgnoreCase(_GroupBy1) &&
+				!TimeSeriesLocationID.equalsIgnoreCase(_GroupBy2) ) { //&& !TimeSeriesLocationID.equalsIgnoreCase(_GroupBy3) ) {
+				message = "The TimeSeriesLocationID parameter \"" + TimeSeriesLocationID + "\" is invalid.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Specify the parameter as " + _Auto + " (default), " + _GroupBy1 + ", or " + _GroupBy2 + "." )); //", or " + _GroupBy3 + "."));
 			}
 		}
 
@@ -303,31 +495,12 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			}
 		}
 
-		// Additional checks specific to a command.
-
-		// The output table or file is needed for lists:
-		// - some internal logic such as counts uses the table
-		/*
-		if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
-			(s3Command == AwsS3CommandType.LIST_OBJECTS) ) {
-			// Must specify table and/or file.
-			if ( ((OutputTableID == null) || OutputTableID.isEmpty()) && ((OutputFile == null) || OutputFile.isEmpty()) ) {
-				message = "The output table and/or file must be specified.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Specify the output table ID and or file name."));
-			}
-		}
-		*/
-
 		// Check for invalid parameters.
-		List<String> validList = new ArrayList<>(16);
+		List<String> validList = new ArrayList<>(23);
 		// General.
 		validList.add ( "Profile" );
 		validList.add ( "Region" );
-		//validList.add ( "Bucket" );
-		// Cost Explorer.
+		// Cost Explorer Query.
 		validList.add ( "InputStart" );
 		validList.add ( "InputEnd" );
 		validList.add ( "Granularity" );
@@ -335,13 +508,24 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		validList.add ( "GroupByTag1" );
 		validList.add ( "GroupBy2" );
 		validList.add ( "GroupByTag2" );
-		validList.add ( "GroupBy3" );
-		validList.add ( "GroupByTag3" );
+		//validList.add ( "GroupBy3" );
+		//validList.add ( "GroupByTag3" );
 		validList.add ( "Metric" );
-		// Output
+		// Cost Explorer Filter.
+		validList.add ( "FilterAvailabilityZones" );
+		validList.add ( "FilterInstanceTypes" );
+		validList.add ( "FilterRegions" );
+		validList.add ( "FilterServices" );
+		validList.add ( "FilterTags" );
+		// Output.
 		validList.add ( "OutputTableID" );
 		validList.add ( "OutputFile" );
 		validList.add ( "AppendOutput" );
+		validList.add ( "OutputTableRowCountProperty" );
+		// Time series.
+		validList.add ( "CreateTimeSeries" );
+		validList.add ( "TimeSeriesLocationID" );
+		validList.add ( "Alias" );
 		//
 		validList.add ( "IfInputNotFound" );
 		warning = TSCommandProcessorUtil.validateParameterNames ( validList, this, warning );
@@ -353,7 +537,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		}
 		status.refreshPhaseSeverity(CommandPhaseType.INITIALIZATION,CommandStatusType.SUCCESS);
 	}
-	
+
 	/**
 	 * Clean up a Group By key to be usable in output.
 	 * For example, when a Group By is used with a tag "SystemId",
@@ -391,24 +575,30 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	private int doCostExplorer (
 		CommandProcessor processor,
 		CostExplorerClient costExplorer,
-		DataTable table,
+		DataTable table, String outputTableRowCountProperty,
 		int dateCol, int granularityCol,
 		int groupBy1Col, int groupByTag1Col, int groupItem1Col,
 		int groupBy2Col, int groupByTag2Col, int groupItem2Col,
-		int groupBy3Col, int groupByTag3Col, int groupItem3Col,
+		//int groupBy3Col, int groupByTag3Col, int groupItem3Col,
 		int metricCol, int amountCol, int unitsCol,
 		DateTime inputStart, DateTime inputEnd,
 		AwsBillingGranularityType granularity,
 		AwsBillingDimensionType groupBy1, String groupByTag1,
 		AwsBillingDimensionType groupBy2, String groupByTag2,
-		AwsBillingDimensionType groupBy3, String groupByTag3,
+		//AwsBillingDimensionType groupBy3, String groupByTag3,
 		AwsBillingMetricType metric,
+		List<String> filterAvailabilityZones,
+		List<String> filterInstanceTypes,
+		List<String> filterRegions,
+		List<String> filterServices,
+		List<String> filterTags,
+		boolean createTimeSeries, String timeSeriesLocationId, List<TS> tslist,
 		CommandStatus status, int logLevel, int warningCount, String commandTag ) throws Exception {
 		String routine = getClass().getSimpleName() + ".doCostExplorer";
 		String message;
 
    		// Create a request builder that handles the input parameters.
-    	GetCostAndUsageRequest.Builder builder = GetCostAndUsageRequest
+    	GetCostAndUsageRequest.Builder costAndUsageRequestBuilder = GetCostAndUsageRequest
     		.builder()
     		// Add filters:
     		// - see:  https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/services/costexplorer/model/GetCostAndUsageRequest.Builder.html
@@ -424,7 +614,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     			.start(inputStart.toString())
     			.end(inputEnd.toString())
     			.build());
-    	
+
    		// Add additional query parameters.
    		List<GroupDefinition> groupDefinitions = new ArrayList<>();
    		if ( groupBy1 != null ) {
@@ -467,6 +657,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    				);
    			}
    		}
+   		/*
    		if ( groupBy3 != null ) {
    			if ( groupBy3 == AwsBillingDimensionType.TAG ) {
    				// The group definition is defined by a tag.
@@ -487,16 +678,97 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    				);
    			}
    		}
+   		*/
    		if ( !groupDefinitions.isEmpty() ) {
-  				builder = builder.groupBy(groupDefinitions);
+  			costAndUsageRequestBuilder = costAndUsageRequestBuilder.groupBy(groupDefinitions);
    		}
-   	
+
+   		// Add filters using an Expression:
+   		// - use OR within a list of filters
+   		// - use AND for the groups
+   		List<Filter> filters = new ArrayList<>();
+   		int filterGroupCount = 0;
+   		Expression.Builder expressionBuilder = null;
+   		if ( filterAvailabilityZones.size() > 0 ) {
+   			// Create dimension values instance for availability zone.
+   			DimensionValues dimensionValues = DimensionValues.builder()
+   				.key(Dimension.AZ)
+   				.values(filterAvailabilityZones)
+   				.build();
+   			// Add the dimensions to the expression.
+   			if ( expressionBuilder == null ) {
+   				// First filter group so can just add the dimensions.
+   				expressionBuilder = Expression.builder();
+   				expressionBuilder.dimensions(dimensionValues);
+   			}
+   		}
+   		if ( filterRegions.size() > 0 ) {
+   			// Create dimension values instance for region.
+   			DimensionValues dimensionValues = DimensionValues.builder()
+   				.key(Dimension.REGION)
+   				.values(filterRegions)
+   				.build();
+   			// Add the dimensions to the expression.
+   			if ( expressionBuilder == null ) {
+   				// First expression so can just add the dimensions.
+   				expressionBuilder = Expression.builder();
+   				expressionBuilder.dimensions(dimensionValues);
+   			}
+   			else {
+   				// Expression builder was previously created so just add more values.
+   				expressionBuilder.dimensions(dimensionValues);
+   			}
+   		}
+   		if ( filterServices.size() > 0 ) {
+   			// Create dimension values instance for service.
+   			DimensionValues dimensionValues = DimensionValues.builder()
+   				// The service can be specified two ways:
+   				// - SERVICE is the longer name such as "Amazon Simple Storage Solution", as shown in the table output
+  				// - SERVICE_CODE is the shorter name such as "AmazonS3"
+   				.key(Dimension.SERVICE)
+   				.values(filterServices)
+   				.build();
+   			// Add the dimensions to the expression.
+   			if ( expressionBuilder == null ) {
+   				// First expression so can just add the dimensions.
+   				expressionBuilder = Expression.builder();
+   				expressionBuilder.dimensions(dimensionValues);
+   			}
+   			else {
+   				// Expression builder was previously created so just add more values.
+   				expressionBuilder.dimensions(dimensionValues);
+   			}
+   		}
+   		if ( filterInstanceTypes.size() > 0 ) {
+   			// Create dimension values instance for region.
+   			DimensionValues dimensionValues = DimensionValues.builder()
+   				.key(Dimension.INSTANCE_TYPE)
+   				.values(filterInstanceTypes)
+   				.build();
+   			// Add the dimensions to the expression.
+   			if ( expressionBuilder == null ) {
+   				// First expression so can just add the dimensions.
+   				expressionBuilder = Expression.builder();
+   				expressionBuilder.dimensions(dimensionValues);
+   			}
+   			else {
+   				// Expression builder was previously created so just add more values.
+   				expressionBuilder.dimensions(dimensionValues);
+   			}
+   		}
+   		if ( expressionBuilder != null ) {
+   			// Have an expression to add to the query.
+   			Expression expression = expressionBuilder.build();
+ 			costAndUsageRequestBuilder = costAndUsageRequestBuilder
+				.filter(expression);
+   		}
+
    		// Build the request.
-   		GetCostAndUsageRequest request = builder.build();
+   		GetCostAndUsageRequest request = costAndUsageRequestBuilder.build();
 
     	// Get the response.
     	GetCostAndUsageResponse response = costExplorer.getCostAndUsage(request);
-    	
+
     	// Output to the log file:
     	// - convert to debug later if it is too much
     	for ( ResultByTime resultByTime : response.resultsByTime() ) {
@@ -537,9 +809,20 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	TableRecord rec = null;
     	boolean allowDuplicates = false;
 
-		// Output to table.
-   		if ( table != null ) {
-   			Message.printStatus(2, routine, "Transferring Cost Explorer results to table.");
+		boolean doTable = false;
+		if ( table != null ) {
+			doTable = true;
+		}
+
+		// Process the output:
+		// - process the table and time series together
+   		if ( doTable || createTimeSeries ) {
+   			if ( doTable ) {
+   				Message.printStatus(2, routine, "Transferring Cost Explorer results to table.");
+   			}
+   			if ( createTimeSeries ) {
+   				Message.printStatus(2, routine, "Transferring Cost Explorer results to time series.");
+   			}
    			for ( ResultByTime resultByTime : response.resultsByTime() ) {
    				Message.printStatus(2, routine, "Time period: " + resultByTime.timePeriod());
    				Message.printStatus(2, routine, "  Estimated?: " + resultByTime.estimated());
@@ -580,43 +863,68 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     						String groupCostAmount = entry.getValue().amount();
     						String groupCostUnit = entry.getValue().unit();
     						Message.printStatus(2, routine, "    Metric \"" + groupMetricName + "\" amount = " + groupCostAmount + " " + groupCostUnit );
-    						// Initialize to null for checks below.
-    						rec = null;
-    						/* For now always add new records.
-    						if ( !allowDuplicates ) {
-    							// Try to match the bucket name, which is the unique identifier.
-    							rec = table.getRecord ( bucketNameCol, bucketName );
-    						}
-    						*/
-    						if ( rec == null ) {
-    							// Create a new empty record.
-    							rec = table.addRecord(table.emptyRecord());
-    						}
-    						// Set the data in the record.
-    						rec.setFieldValue(dateCol, costDate);
-    						rec.setFieldValue(granularityCol, granularity.toString());
-    						rec.setFieldValue(groupBy1Col, groupBy1.toString() );
-    						if ( groupByTag1Col > 0 ) {
-    							rec.setFieldValue(groupByTag1Col, groupByTag1 );
-    						}
-    						rec.setFieldValue(groupItem1Col, cleanGroupKey(group.keys().get(0)));
-    						if ( groupBy2Col > 0 ) {
-    							rec.setFieldValue(groupBy2Col, groupBy2.toString() );
-    							if ( groupByTag2Col > 0 ) {
-    								rec.setFieldValue(groupByTag2Col, groupByTag2 );
+    						String groupItem1 = cleanGroupKey(group.keys().get(0));
+    						String groupItem2 = "";
+    						String groupItem3 = "";
+   							if ( groupBy2Col > 0 ) {
+   								groupItem2 = cleanGroupKey(group.keys().get(1));
+   							}
+   							/*
+   							if ( groupBy3Col > 0 ) {
+   								groupItem3 = cleanGroupKey(group.keys().get(2));
+   							}
+   							*/
+    						if ( doTable ) {
+    							// Initialize to null for checks below.
+    							rec = null;
+    							/* For now always add new records.
+    							if ( !allowDuplicates ) {
+    								// Try to match the bucket name, which is the unique identifier.
+    								rec = table.getRecord ( bucketNameCol, bucketName );
     							}
-    							rec.setFieldValue(groupItem2Col, cleanGroupKey(group.keys().get(1)));
-    						}
-    						if ( groupBy3Col > 0 ) {
-    							rec.setFieldValue(groupBy3Col, groupBy3.toString() );
-    							if ( groupByTag3Col > 0 ) {
-    								rec.setFieldValue(groupByTag3Col, groupByTag3 );
+    							*/
+    							if ( rec == null ) {
+    								// Create a new empty record.
+    								rec = table.addRecord(table.emptyRecord());
     							}
-    							rec.setFieldValue(groupItem3Col, cleanGroupKey(group.keys().get(2)));
+    							// Set the data in the record.
+    							rec.setFieldValue(dateCol, costDate);
+    							rec.setFieldValue(granularityCol, granularity.toString());
+    							rec.setFieldValue(groupBy1Col, groupBy1.toString() );
+    							if ( groupByTag1Col > 0 ) {
+    								rec.setFieldValue(groupByTag1Col, groupByTag1 );
+    							}
+    							rec.setFieldValue(groupItem1Col, groupItem1 );
+    							if ( groupBy2Col > 0 ) {
+    								rec.setFieldValue(groupBy2Col, groupBy2.toString() );
+    								if ( groupByTag2Col > 0 ) {
+    									rec.setFieldValue(groupByTag2Col, groupByTag2 );
+    								}
+    								rec.setFieldValue(groupItem2Col, groupItem2);
+    							}
+    							/*
+    							if ( groupBy3Col > 0 ) {
+    								rec.setFieldValue(groupBy3Col, groupBy3.toString() );
+    								if ( groupByTag3Col > 0 ) {
+    									rec.setFieldValue(groupByTag3Col, groupByTag3 );
+    								}
+    								rec.setFieldValue(groupItem3Col, groupItem3);
+    							}
+    							*/
+    							rec.setFieldValue(metricCol, groupMetricName);
+    							rec.setFieldValue(amountCol, Double.valueOf(groupCostAmount) );
+    							rec.setFieldValue(unitsCol, groupCostUnit);
     						}
-    						rec.setFieldValue(metricCol, groupMetricName);
-    						rec.setFieldValue(amountCol, Double.valueOf(groupCostAmount) );
-    						rec.setFieldValue(unitsCol, groupCostUnit);
+    						if  ( createTimeSeries ) {
+    							addTimeSeriesData ( tslist, inputStart, inputEnd,
+    								costDate, granularity,
+    								groupBy1, groupByTag1, groupItem1,
+    								groupBy2, groupByTag2, groupItem2,
+    								//groupBy3, groupByTag3, groupItem3,
+    								groupMetricName, Double.valueOf(groupCostAmount), groupCostUnit,
+    								timeSeriesLocationId
+    							);
+    						}
     					}
     				}
     			}
@@ -633,43 +941,60 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     					String totalCostUnit = entry.getValue().unit();
    						Message.printStatus(2, routine, "Resource \"" + totalMetricName + "\" cost = " + totalCostAmount + " " + totalCostUnit );
 
-   						// Initialize to null for checks below.
-   						rec = null;
-   						/* For now always add new records.
-   						if ( !allowDuplicates ) {
-   							// Try to match the bucket name, which is the unique identifier.
-   							rec = table.getRecord ( bucketNameCol, bucketName );
-   						}
-   						*/
-   						if ( rec == null ) {
-   							// Create a new empty record.
-   							rec = table.addRecord(table.emptyRecord());
-   						}
-   						// Set the data in the record.
-   						rec.setFieldValue(dateCol, costDate);
-   						rec.setFieldValue(granularityCol, granularity.toString());
-   						rec.setFieldValue(groupBy1Col, groupBy1.toString() );
-   						if ( groupByTag1Col > 0 ) {
-   							rec.setFieldValue(groupByTag1Col, groupByTag1 );
-   						}
-   						//rec.setFieldValue(groupItem1Col, resultByTime.total().k);
-   						if ( groupBy2Col > 0 ) {
-   							rec.setFieldValue(groupBy2Col, groupBy2.toString() );
-   							if ( groupByTag2Col > 0 ) {
-   								rec.setFieldValue(groupByTag2Col, groupByTag2 );
+   						String groupItem1 = "";
+   						String groupItem2 = "";
+   						//String groupItem3 = "";
+   						if ( doTable ) {
+   							// Initialize to null for checks below.
+   							rec = null;
+   							/* For now always add new records.
+   							if ( !allowDuplicates ) {
+   								// Try to match the bucket name, which is the unique identifier.
+   								rec = table.getRecord ( bucketNameCol, bucketName );
    							}
-   							//rec.setFieldValue(groupItem2Col, itemName);
-   						}
-   						if ( groupBy3Col > 0 ) {
-   							rec.setFieldValue(groupBy3Col, groupBy3.toString() );
-   							if ( groupByTag3Col > 0 ) {
-   								rec.setFieldValue(groupByTag3Col, groupByTag3 );
+   							*/
+   							if ( rec == null ) {
+   								// Create a new empty record.
+   								rec = table.addRecord(table.emptyRecord());
    							}
-   							//rec.setFieldValue(groupItem3Col, itemName);
+   							// Set the data in the record.
+   							rec.setFieldValue(dateCol, costDate);
+   							rec.setFieldValue(granularityCol, granularity.toString());
+   							rec.setFieldValue(groupBy1Col, groupBy1.toString() );
+   							if ( groupByTag1Col > 0 ) {
+   								rec.setFieldValue(groupByTag1Col, groupByTag1 );
+   							}
+   							//rec.setFieldValue(groupItem1Col, resultByTime.total().k);
+   							if ( groupBy2Col > 0 ) {
+   								rec.setFieldValue(groupBy2Col, groupBy2.toString() );
+   								if ( groupByTag2Col > 0 ) {
+   									rec.setFieldValue(groupByTag2Col, groupByTag2 );
+   								}
+   								//rec.setFieldValue(groupItem2Col, itemName);
+   							}
+   							/*
+   							if ( groupBy3Col > 0 ) {
+   								rec.setFieldValue(groupBy3Col, groupBy3.toString() );
+   								if ( groupByTag3Col > 0 ) {
+   									rec.setFieldValue(groupByTag3Col, groupByTag3 );
+   								}
+   								//rec.setFieldValue(groupItem3Col, itemName);
+   							}
+   							*/
+   							rec.setFieldValue(metricCol, totalMetricName);
+   							rec.setFieldValue(amountCol, Double.valueOf(totalCostAmount) );
+   							rec.setFieldValue(unitsCol, totalCostUnit);
    						}
-   						rec.setFieldValue(metricCol, totalMetricName);
-   						rec.setFieldValue(amountCol, Double.valueOf(totalCostAmount) );
-   						rec.setFieldValue(unitsCol, totalCostUnit);
+   						if  ( createTimeSeries ) {
+   							addTimeSeriesData ( tslist, inputStart, inputEnd,
+   								costDate, granularity,
+   								groupBy1, groupByTag1, groupItem1,
+   								groupBy2, groupByTag2, groupItem2,
+   								//groupBy3, groupByTag3, groupItem3,
+   								totalMetricName, Double.valueOf(totalCostAmount), totalCostUnit,
+   								timeSeriesLocationId
+   							);
+   						}
    					}
     			}
     			else {
@@ -678,21 +1003,20 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    			}
     	}
 
-   		/*
-    	// Set the property indicating the number of buckets.
-        if ( (listBucketsCountProperty != null) && !listBucketsCountProperty.equals("") ) {
-          	int bucketCount = 0;
+    	// Set the property indicating the number of rows in the table.
+        if ( (outputTableRowCountProperty != null) && !outputTableRowCountProperty.equals("") ) {
+          	int rowCount = 0;
           	if ( table != null ) {
-          		bucketCount = table.getNumberOfRecords();
+          		rowCount = table.getNumberOfRecords();
           	}
            	PropList requestParams = new PropList ( "" );
-           	requestParams.setUsingObject ( "PropertyName", listBucketsCountProperty );
-           	requestParams.setUsingObject ( "PropertyValue", new Integer(bucketCount) );
+           	requestParams.setUsingObject ( "PropertyName", outputTableRowCountProperty );
+           	requestParams.setUsingObject ( "PropertyValue", new Integer(rowCount) );
            	try {
                	processor.processRequest( "SetProperty", requestParams);
            	}
            	catch ( Exception e ) {
-               	message = "Error requesting SetProperty(Property=\"" + listBucketsCountProperty + "\") from processor.";
+               	message = "Error requesting SetProperty(Property=\"" + outputTableRowCountProperty + "\") from processor.";
                	Message.printWarning(logLevel,
                    	MessageUtil.formatMessageTag( commandTag, ++warningCount),
                    	routine, message );
@@ -701,7 +1025,6 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
                        	message, "Report the problem to software support." ) );
            	}
         }
-        */
 
         // Return the updated warning count.
         return warningCount;
@@ -759,7 +1082,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	private File getOutputFile () {
     	return __OutputFile_File;
 	}
-	
+
 	/**
 	 * Get the service name for Group.keys().
 	 * @param keys keys from Group.keys() call
@@ -857,11 +1180,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			region = AwsToolkit.getInstance().getDefaultRegionForCostExplorer();
 			Message.printStatus(2, routine, "Region was not specified.  Using default region for Cost Explorer: " + region);
 		}
-		// Bucket must be final because of lambda use below.
-		//String bucket0 = parameters.getValue ( "Bucket" );
-		//final String bucket = TSCommandProcessorUtil.expandParameterValue(processor,this,bucket0);
 
-    	// Cost Explorer.
+    	// Cost Explorer Query.
 
 		String InputStart = parameters.getValue("InputStart");
 		if ( (InputStart == null) || InputStart.isEmpty() ) {
@@ -897,6 +1217,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		}
     	String GroupByTag2 = parameters.getValue ( "GroupByTag2" );
 
+    	/*
     	String GroupBy3 = parameters.getValue ( "GroupBy3" );
 		GroupBy3 = TSCommandProcessorUtil.expandParameterValue(processor,this,GroupBy3);
 		AwsBillingDimensionType groupBy3 = null;
@@ -904,6 +1225,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			groupBy3 = AwsBillingDimensionType.valueOfIgnoreCase(GroupBy3);
 		}
     	String GroupByTag3 = parameters.getValue ( "GroupByTag3" );
+    	*/
 
     	String Metric = parameters.getValue ( "Metric" );
 		if ( (Metric == null) || Metric.isEmpty() ) {
@@ -911,6 +1233,83 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		}
 		Metric = TSCommandProcessorUtil.expandParameterValue(processor,this,Metric);
 		AwsBillingMetricType metric = AwsBillingMetricType.valueOfIgnoreCase(Metric);
+
+    	// Cost Explorer Filter.
+
+    	String FilterAvailabilityZones = parameters.getValue ( "FilterAvailabilityZones" );
+		FilterAvailabilityZones = TSCommandProcessorUtil.expandParameterValue(processor,this,FilterAvailabilityZones);
+		List<String> filterAvailabilityZones = new ArrayList<>();
+		if ( (FilterAvailabilityZones != null) && !FilterAvailabilityZones.isEmpty() ) {
+			if ( !FilterAvailabilityZones.contains(",") ) {
+				filterAvailabilityZones.add(FilterAvailabilityZones.trim());
+			}
+			else {
+				String [] parts = FilterAvailabilityZones.split(",");
+				for ( String part : parts ) {
+					filterAvailabilityZones.add(part.trim());
+				}
+			}
+		}
+
+    	String FilterInstanceTypes = parameters.getValue ( "FilterInstanceTypes" );
+		FilterInstanceTypes = TSCommandProcessorUtil.expandParameterValue(processor,this,FilterInstanceTypes);
+		List<String> filterInstanceTypes = new ArrayList<>();
+		if ( (FilterInstanceTypes != null) && !FilterInstanceTypes.isEmpty() ) {
+			if ( !FilterInstanceTypes.contains(",") ) {
+				filterInstanceTypes.add(FilterInstanceTypes.trim());
+			}
+			else {
+				String [] parts = FilterInstanceTypes.split(",");
+				for ( String part : parts ) {
+					filterInstanceTypes.add(part.trim());
+				}
+			}
+		}
+
+    	String FilterRegions = parameters.getValue ( "FilterRegions" );
+		FilterRegions = TSCommandProcessorUtil.expandParameterValue(processor,this,FilterRegions);
+		List<String> filterRegions = new ArrayList<>();
+		if ( (FilterRegions != null) && !FilterRegions.isEmpty() ) {
+			if ( !FilterRegions.contains(",") ) {
+				filterRegions.add(FilterRegions.trim());
+			}
+			else {
+				String [] parts = FilterRegions.split(",");
+				for ( String part : parts ) {
+					filterRegions.add(part.trim());
+				}
+			}
+		}
+
+    	String FilterServices = parameters.getValue ( "FilterServices" );
+		FilterServices = TSCommandProcessorUtil.expandParameterValue(processor,this,FilterServices);
+		List<String> filterServices = new ArrayList<>();
+		if ( (FilterServices != null) && !FilterServices.isEmpty() ) {
+			if ( !FilterServices.contains(",") ) {
+				filterServices.add(FilterServices.trim());
+			}
+			else {
+				String [] parts = FilterServices.split(",");
+				for ( String part : parts ) {
+					filterServices.add(part.trim());
+				}
+			}
+		}
+
+    	String FilterTags = parameters.getValue ( "FilterTags" );
+		FilterTags = TSCommandProcessorUtil.expandParameterValue(processor,this,FilterTags);
+		List<String> filterTags = new ArrayList<>();
+		if ( (FilterTags != null) && !FilterTags.isEmpty() ) {
+			if ( !FilterTags.contains(",") ) {
+				filterTags.add(FilterTags.trim());
+			}
+			else {
+				String [] parts = FilterTags.split(",");
+				for ( String part : parts ) {
+					filterTags.add(part.trim());
+				}
+			}
+		}
 
     	// Output.
 		boolean doTable = false;
@@ -927,15 +1326,33 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		if ( (OutputFile != null) && !OutputFile.isEmpty() ) {
 			doOutputFile = true;
 		}
+		String CreateTimeSeries = parameters.getValue ( "CreateTimeSeries" );
+		boolean createTimeSeries = false;
+		if ( (CreateTimeSeries == null) || CreateTimeSeries.equals("")) {
+	    	CreateTimeSeries = _False; // Default.
+		}
+		if ( CreateTimeSeries.equalsIgnoreCase(_True) ) {
+			createTimeSeries = true;
+		}
+
+		String TimeSeriesLocationID = parameters.getValue ( "TimeSeriesLocationID" );
+		TimeSeriesLocationID = TSCommandProcessorUtil.expandParameterValue(processor,this,TimeSeriesLocationID);
+		if ( (TimeSeriesLocationID == null) || TimeSeriesLocationID.isEmpty() ) {
+			TimeSeriesLocationID = this._Auto;
+		}
+
+        String Alias = parameters.getValue ( "Alias" ); // Expanded dynamically below.
+
 		String IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
 		if ( (IfInputNotFound == null) || IfInputNotFound.equals("")) {
-	    	IfInputNotFound = _Warn; // Default
+	    	IfInputNotFound = _Warn; // Default.
 		}
 		String AppendOutput = parameters.getValue ( "AppendOutput" );
 		boolean appendOutput = false;
 		if ( (AppendOutput != null) && AppendOutput.equalsIgnoreCase(_True)) {
 			appendOutput = true;
 		}
+		String OutputTableRowCountProperty = parameters.getValue ( "OutputTableRowCountProperty" );
 
 		// Get the period to process:
 		// - correct the dates to appropriate precision if necessary
@@ -1049,8 +1466,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         		int groupBy2Col = -1;
         		int groupByTag2Col = -1;
         		int groupItem2Col = -1;
-        		int groupBy3Col = -1;
-        		int groupByTag3Col = -1;
+        		//int groupBy3Col = -1;
+        		//int groupByTag3Col = -1;
         		int groupItem3Col = -1;
         		int metricCol = -1;
         		int amountCol = -1;
@@ -1078,6 +1495,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	        				}
    	        				columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "GroupItem2", -1) );
    	        			}
+   	        			/*
    	        			if ( groupBy3 != null ) {
    	        				columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "GroupBy3", -1) );
    	        				if ( groupBy3 == AwsBillingDimensionType.TAG ) {
@@ -1085,6 +1503,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	        				}
    	        				columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "GroupItem3", -1) );
    	        			}
+   	        			*/
    	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Metric", -1) );
    	        			columnList.add ( new TableField(TableField.DATA_TYPE_DOUBLE, "Amount", -1, 2) );
    	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Units", -1) );
@@ -1106,6 +1525,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	        				}
    	        				groupItem2Col = table.getFieldIndex("GroupItem2");
    	        			}
+   	        			/*
    	        			if ( groupBy3 != null ) {
    	        				groupBy3Col = table.getFieldIndex("GroupBy3");
    	        				if ( groupBy3 == AwsBillingDimensionType.TAG ) {
@@ -1113,6 +1533,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	        				}
    	        				groupItem3Col = table.getFieldIndex("GroupItem3");
    	        			}
+   	        			*/
    	        			metricCol = table.getFieldIndex("Metric");
    	        			amountCol = table.getFieldIndex("Amount");
    	        			unitsCol = table.getFieldIndex("Units");
@@ -1162,6 +1583,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	        				}
    	        				groupItem2Col = table.getFieldIndex("GroupItem2");
    	        			}
+   	        			/*
    	        			if ( groupBy3 != null ) {
    	        				groupBy3Col = table.getFieldIndex("GroupBy3");
    	        				if ( groupBy3 == AwsBillingDimensionType.TAG ) {
@@ -1169,6 +1591,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	        				}
    	        				groupItem3Col = table.getFieldIndex("GroupItem3");
    	        			}
+   	        			*/
    	        			metricCol = table.getFieldIndex("Metric");
    	        			amountCol = table.getFieldIndex("Amount");
    	        			unitsCol = table.getFieldIndex("Units");
@@ -1202,6 +1625,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	            				groupItem2Col = table.addField(new TableField(TableField.DATA_TYPE_STRING, "GroupItem2", -1), "");
    	        				}
    	        			}
+   	        			/*
    	        			if ( groupBy3 != null ) {
    	        				if ( groupBy3Col < 0 ) {
    	            				groupBy3Col = table.addField(new TableField(TableField.DATA_TYPE_STRING, "GroupBy3", -1), "");
@@ -1211,10 +1635,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	            					groupByTag3Col = table.addField(new TableField(TableField.DATA_TYPE_STRING, "GroupByTag3", -1), "");
    	        					}
    	        				}
-   	        				if ( groupItem2Col < 0 ) {
+   	        				if ( groupItem3Col < 0 ) {
    	            				groupItem3Col = table.addField(new TableField(TableField.DATA_TYPE_STRING, "GroupItem3", -1), "");
    	        				}
    	        			}
+   	        			*/
    	        			if ( metricCol < 0 ) {
    	            			metricCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "Metric", -1), "");
    	        			}
@@ -1231,20 +1656,25 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	    		// CostExplorerClient:
    	    		//    https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/services/costexplorer/CostExplorerClient.html
 
+	    		// Time series to be created.
+	    		List<TS> tslist = new ArrayList<>();
     	    	warningCount = doCostExplorer (
     	    		processor,
     	    		costExplorer,
-    	    		table, dateCol, granularityCol,
+    	    		table, OutputTableRowCountProperty,
+    	    		dateCol, granularityCol,
     	    		groupBy1Col, groupByTag1Col, groupItem1Col,
     	    		groupBy2Col, groupByTag2Col, groupItem2Col,
-    	    		groupBy3Col, groupByTag3Col, groupItem3Col,
+    	    		//groupBy3Col, groupByTag3Col, groupItem3Col,
     	    		metricCol, amountCol, unitsCol,
     	    		InputStart_DateTime, InputEnd_DateTime,
     	    		granularity,
     	    		groupBy1, GroupByTag1,
     	    		groupBy2, GroupByTag2,
-    	    		groupBy3, GroupByTag3,
+    	    		//groupBy3, GroupByTag3,
     	    		metric,
+    	    		filterAvailabilityZones, filterInstanceTypes, filterRegions, filterServices, filterTags,
+    	    		createTimeSeries, TimeSeriesLocationID, tslist,
     	    		status, logLevel, warningCount, commandTag );
 
 	        	// Create the output file:
@@ -1281,6 +1711,33 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
                 		   	message, "Use an output file with 'csv' file extension." ) );
 	    		   	}
 	    	   	}
+
+	    	   	if ( createTimeSeries && (tslist.size() > 0) ) {
+   				   	// Add the time series to the processor:
+	    	   		// - also set the alias here since it depends on command status, etc.
+    	   			if ( commandPhase == CommandPhaseType.RUN ) {
+    	   				if ( (Alias != null) && !Alias.isEmpty() ) {
+	    	   				// Expand the alias before setting.
+    	   					for ( TS ts : tslist ) {
+    	   						ts.setAlias ( TSCommandProcessorUtil.expandTimeSeriesMetadataString (
+    	   							processor, ts, Alias, status, commandPhase) );
+    	   					}
+    	   				}
+	    	   		}
+
+            	   	int wc2 = TSCommandProcessorUtil.appendTimeSeriesListToResultsList ( processor, this, tslist );
+            	   	if ( wc2 > 0 ) {
+                	   	message = "Error adding AWS Cost Explorer time series after read.";
+                	   	Message.printWarning ( warningLevel,
+                    	   	MessageUtil.formatMessageTag(commandTag,
+                    	   	++warningCount), routine, message );
+                    	   	status.addToLog ( commandPhase,
+                        	   	new CommandLogRecord(CommandStatusType.FAILURE,
+                            	   	message, "Report the problem to software support." ) );
+                	   	throw new CommandException ( message );
+            	   	}
+   			   	}
+
 	    	}
 	    	else if ( commandPhase == CommandPhaseType.DISCOVERY ) {
    	        		if ( (table == null) && (OutputTableID != null) && !OutputTableID.isEmpty() ) {
@@ -1341,6 +1798,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
 	/**
 	Set the table that is read by this class in discovery mode.
+	@param table data table with output
 	*/
 	private void setDiscoveryTable ( DataTable table ) {
     	this.discoveryOutputTable = table;
@@ -1356,8 +1814,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			// General.
 			"Profile",
 			"Region",
-			//"Bucket",
-			// Cost Explorer.
+			// Cost Explorer Query.
 			"InputStart",
 			"InputEnd",
 			"Granularity",
@@ -1365,13 +1822,24 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			"GroupByTag1",
 			"GroupBy2",
 			"GroupByTag2",
-			"GroupBy3",
-			"GroupByTag3",
+			//"GroupBy3",
+			//"GroupByTag3",
 			"Metric",
+			// Cost Explorer Filter.
+			"FilterAvailabilityZones",
+			"FilterInstanceTypes",
+			"FilterRegions",
+			"FilterServices",
+			"FilterTags",
 			// Output.
 			"OutputTableID",
 			"OutputFile",
-			"AppendOutput"
+			"AppendOutput",
+			"OutputTableRowCountProperty",
+			// Time series.
+			"CreateTimeSeries",
+			"TimeSeriesLocationID",
+			"Alias"
 		};
 		return this.toString(parameters, parameterOrder);
 	}

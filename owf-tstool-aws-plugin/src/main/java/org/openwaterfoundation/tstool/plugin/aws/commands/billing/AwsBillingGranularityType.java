@@ -37,17 +37,17 @@ public enum AwsBillingGranularityType {
 	/**
 	Daily granularity.
 	*/
-	DAILY ( "Daily", Granularity.DAILY ),
+	DAILY ( "Daily", Granularity.DAILY, "Day" ),
 
 	/**
 	Hourly granularity.
 	*/
-	HOURLY ( "Hourly", Granularity.HOURLY ),
+	HOURLY ( "Hourly", Granularity.HOURLY, "Hour" ),
 
 	/**
 	Monthly granularity.
 	*/
-	MONTHLY ( "Monthly", Granularity.MONTHLY );
+	MONTHLY ( "Monthly", Granularity.MONTHLY, "Month" );
 
 	/**
 	The description, useful for UI notes.
@@ -60,12 +60,18 @@ public enum AwsBillingGranularityType {
 	private Granularity granularity;
 
 	/**
+	The data interval used with time series identifiers.
+	*/
+	private String interval;
+
+	/**
 	Construct an enumeration value.
 	@param displayName name that can be displayed for the type
 	*/
-	private AwsBillingGranularityType ( String displayName, Granularity granularity ) {
+	private AwsBillingGranularityType ( String displayName, Granularity granularity, String interval ) {
     	this.displayName = displayName;
     	this.granularity = granularity;
+    	this.interval = interval;
 	}
 
 	/**
@@ -115,9 +121,18 @@ public enum AwsBillingGranularityType {
 	
 	/**
 	 * Return the AWS SDK Granularity.
+	 * @return the AWS SDK Granularity
 	 */
 	public Granularity getGranularity () {
 		return this.granularity;
+	}
+
+	/**
+	 * Return the data interval used with time series identifiers.
+	 * @return the data interval used with time series identifiers
+	 */
+	public String getInterval () {
+		return this.interval;
 	}
 
 	/**

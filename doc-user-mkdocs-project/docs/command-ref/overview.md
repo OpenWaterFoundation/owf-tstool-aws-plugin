@@ -28,6 +28,7 @@ TSTool AWS Plugin Commands - AWS Integration
 
 | **Command**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | **Description** |
 | -- | -- |
+| [`AwsBilling`](AwsBilling/AwsBilling.md) | AWS billing and cost management integration, which provides features to query AWS costs as tabular and time series data. |
 | [`AwsS3`](AwsS3/AwsS3.md) | AWS S3 service integration, which provides features to manage cloud storage files. |
 | [`AwsCloudFront`](AwsCloudFront/AwsCloudFront.md) | AWS CloudFront integration, which provides features to manage content deliver network (CDN) files. |
 
@@ -50,7 +51,7 @@ TSTool AWS Plugin Commands - Dataset Commands
 | **Command** | **Description** |
 | -- | -- |
 | [`AwsS3Catalog`](AwsS3Catalog/AwsS3Catalog.md) | AWS S3 catalog page generator for a collection of landing pages. |
-| [`AwsS3LandingPage`](AwsS3Catalog/AwsS3LandingPage.md) | AWS S3 landing page generator for datasets and other products. |
+| [`AwsS3LandingPage`](AwsS3LandingPage/AwsS3LandingPage.md) | AWS S3 landing page generator for datasets and other products. |
 
 ### Dataset Concepts ###
 

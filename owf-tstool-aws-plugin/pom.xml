@@ -54,6 +54,11 @@
       <artifactId>costexplorer</artifactId>
     </dependency>
     <dependency>
+      <!-- Needed for Cost Explorer Filter class -->
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>pricing</artifactId>
+    </dependency>
+    <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>s3</artifactId>
     </dependency>

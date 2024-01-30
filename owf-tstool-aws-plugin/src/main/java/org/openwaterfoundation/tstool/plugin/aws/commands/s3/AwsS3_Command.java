@@ -3399,13 +3399,16 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	    	else if ( commandPhase == CommandPhaseType.DISCOVERY ) {
    	        	if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
    	        		(s3Command == AwsS3CommandType.LIST_OBJECTS) ) {
-   	        		if ( (table == null) && (OutputTableID != null) && !OutputTableID.isEmpty() ) {
-	               		// Did not find table so is being created in this command.
-	               		// Create an empty table and set the ID.
-	               		table = new DataTable();
-	               		table.setTableID ( OutputTableID );
-	           		}
-	           		setDiscoveryTable ( table );
+   	        		if ( (OutputTableID != null) && !OutputTableID.isEmpty() ) {
+   	        			// Have a user-specified table identifier, may use ${Property}.
+   	        			if ( table == null ) {
+	               			// Did not find table so is being created in this command.
+	               			// Create an empty table and set the ID.
+	               			table = new DataTable();
+   	        			}
+               			table.setTableID ( OutputTableID );
+	           			setDiscoveryTable ( table );
+   	        		}
    	        	}
 	    	}
 
@@ -3485,6 +3488,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
 	/**
 	Set the output file that is created by this command.  This is only used internally.
+	@param file the output file used in discovery mode
 	*/
 	private void setOutputFile ( File file ) {
     	__OutputFile_File = file;
@@ -3492,6 +3496,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
 	/**
 	Set the table that is read by this class in discovery mode.
+	@param table the output table used in discovery mode
 	*/
 	private void setDiscoveryTable ( DataTable table ) {
     	this.discoveryOutputTable = table;
