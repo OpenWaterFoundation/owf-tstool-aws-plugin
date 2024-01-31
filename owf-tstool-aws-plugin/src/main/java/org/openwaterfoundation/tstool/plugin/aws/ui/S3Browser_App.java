@@ -23,6 +23,7 @@ NoticeEnd */
 package org.openwaterfoundation.tstool.plugin.aws.ui;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.List;
 
 import javax.swing.JFrame;
@@ -44,7 +45,7 @@ import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 public class S3Browser_App implements Runnable {
 
 	private static String title = "Aws - S3 Browser";
-	
+
 	private static String PROGRAM_NAME = "S3 Browser";
 	private static String PROGRAM_VERSION = "1.0.0 (2023-01-16)";
 
@@ -64,7 +65,7 @@ public class S3Browser_App implements Runnable {
     		SwingUtilities.invokeLater(this);
     	}
 	}
-	
+
 	/**
 	 * Launch the S3 as a separate process.
 	 * This allows running from TSTool.
@@ -115,6 +116,28 @@ public class S3Browser_App implements Runnable {
 		// Launch the browser application depending on whether command parameters or a single command line:
 		// - TODO smalers 2023-01-09 the single line does better with quotes
 		List<String> pluginClasspathList = IOUtil.getApplicationPluginClasspath();
+		// The list may contain many jar files and exceed the Windows command line limit:
+		// - this is usually due to many jar files in plugin 'dep/' folders
+		// - replace any jar paths that include '/dep/' with path ending in '/dep/*' and then remove duplicates
+		// - TODO smalers 2024-01-31 if this works, maybe add to the IOUtil method
+		for ( int i = 0; i < pluginClasspathList.size(); i++ ) {
+			String pluginClasspath = pluginClasspathList.get(i);
+			// Handle POSIX-style paths.
+			int pos = pluginClasspath.indexOf("/dep/" );
+			if ( pos > 0 ) {
+				pluginClasspath = pluginClasspath.substring(0, pos) + "/dep/*";
+				pluginClasspathList.set(i, pluginClasspath);
+			}
+			// Handle Windows-style paths.
+			pos = pluginClasspath.indexOf("\\dep\\" );
+			if ( pos > 0 ) {
+				pluginClasspath = pluginClasspath.substring(0, pos) + "\\dep\\*";
+				pluginClasspathList.set(i, pluginClasspath);
+			}
+		}
+		// Have to sort to make the 'removeDuplicates' work, hopefully this does not cause an issue.
+		Collections.sort(pluginClasspathList, String.CASE_INSENSITIVE_ORDER);
+		StringUtil.removeDuplicates(pluginClasspathList, false, true);
 		StringBuilder pluginClasspath = new StringBuilder();
 		if ( pluginClasspathList.size() > 0 ) {
 			for ( String path : pluginClasspathList ) {
@@ -184,8 +207,8 @@ public class S3Browser_App implements Runnable {
 	@param logFile log file to open
 	*/
 	private static void openLogFile ( String logFile ) {
-		String routine = "S3Browser_App.openLogFile";
-		
+		String routine = S3Browser_App.class.getSimpleName() + ".openLogFile";
+
 		File f = new File(logFile);
 		if ( !f.getParentFile().exists() ) {
 			Message.printWarning ( 1, routine, "Error opening log file \"" + logFile +
@@ -225,10 +248,10 @@ public class S3Browser_App implements Runnable {
 	@param status Program exit status.
 	*/
 	public static void quitProgram ( int status ) {
-		String	routine = "S3Browser_App.quitProgram";
-	
+		String routine = S3Browser_App.class.getSimpleName() + ".quitProgram";
+
 		Message.printStatus ( 1, routine, "Exiting with status " + status + "." );
-	
+
 		System.err.print( "STOP " + status + "\n" );
 		Message.closeLogFile ();
 		System.exit ( status );
@@ -244,7 +267,7 @@ public class S3Browser_App implements Runnable {
      * @param args command line arguments, currently allowed are --profile Profile and --region Region.
      */
     public static void main ( String args[] ) {
-    	String routine = "S3Browser_App.main";
+    	String routine = S3Browser_App.class.getSimpleName() + ".main";
 
     	IOUtil.setProgramData ( PROGRAM_NAME, PROGRAM_VERSION, args );
 	   	JGUIUtil.setAppNameForWindows("S3 Browser");
@@ -257,7 +280,7 @@ public class S3Browser_App implements Runnable {
     	String bucket = null;
     	int terminalDebugLevel = 0;
     	int logDebugLevel = 0;
-    	
+
     	int iargMax = args.length - 1;
     	for ( int iarg = 0; iarg < args.length; iarg++ ) {
     		String arg = args[iarg];
@@ -316,7 +339,7 @@ public class S3Browser_App implements Runnable {
     			}
     		}
     	}
-    	
+
     	// Open the log file:
     	// - TODO smalers 2023-01-09 this will be an issue if more than one S3 browser is run at the same time
     	if ( logFile == null ) {
@@ -340,13 +363,13 @@ public class S3Browser_App implements Runnable {
 
     	try {
     		// Handle credentials.
-	
+
     		AwsSession awsSession = new AwsSession(profile);
 	   		ProfileCredentialsProvider credentialsProvider0 = null;
 	   		credentialsProvider0 = ProfileCredentialsProvider.create(profile);
 	   		ProfileCredentialsProvider credentialsProvider = credentialsProvider0;
 	   		awsSession.setProfileCredentialsProvider(credentialsProvider);
-	   		
+
 	   		Message.printStatus(2, routine, "Starting the user interface.");
     		new S3Browser_JFrame ( S3Browser_App.title, awsSession, region, bucket );
     	}
