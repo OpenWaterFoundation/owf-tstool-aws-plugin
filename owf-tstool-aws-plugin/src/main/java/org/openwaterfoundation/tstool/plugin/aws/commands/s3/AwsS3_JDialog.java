@@ -223,9 +223,6 @@ public void actionPerformed( ActionEvent event ) {
         }
     }
     else if ( o == this.__browseS3_JButton ) {
-        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
-    	//boolean modal = true;
-    	//boolean modal = false;
     	try {
     		String title = null;
     		Message.printStatus(2, routine, "Calling launchBrowser with session.profile=" + awsSession.getProfile()
