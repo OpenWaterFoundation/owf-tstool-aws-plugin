@@ -336,6 +336,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			}
 		}
 
+		/* Check at runtime.
 		if ( (InputStart == null) || InputStart.isEmpty() ) {
 			message = "The input start is required.";
 			warning += "\n" + message;
@@ -351,6 +352,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 				new CommandLogRecord(CommandStatusType.FAILURE,
 				message, "Specify the input end as YYYY-MM-DD or a ${Property}."));
 		}
+		*/
 
 		if ( (Granularity != null) && !Granularity.isEmpty() ) {
 			AwsBillingGranularityType granularity = AwsBillingGranularityType.valueOfIgnoreCase(Granularity);
@@ -1396,6 +1398,23 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			catch ( InvalidCommandParameterException e ) {
 				// Warning will have been added above.
 				++warningCount;
+			}
+
+			// Make sure that input start and end are specified at runtime, after evaluation global data.
+			if ( InputStart_DateTime == null ) {
+				message = "The input start must be specified.";
+		  		Message.printWarning(warningLevel,
+			  		MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+		  		status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.FAILURE,
+			  		message, "Specify the input start for this command or set the global input period start." ) );
+			}
+
+			if ( InputEnd_DateTime == null ) {
+				message = "The input end must be specified.";
+		  		Message.printWarning(warningLevel,
+			  		MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+		  		status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.FAILURE,
+			  		message, "Specify the input end for this command or set the global input period end." ) );
 			}
 		}
 
