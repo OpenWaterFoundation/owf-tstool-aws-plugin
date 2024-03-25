@@ -170,7 +170,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	/**
 	 * Add a path to the CloudFront invalidation list.
 	 * The path is added only if not already in the list.
-	 * The * wildcard should be added by the calling code.
+	 * The * wildcard can be added by the calling code if appropriate.
 	 * @param cloudFrontPaths the full list of CloudFront paths
 	 * @param cloudFrontPath single CloudFront path to add.
 	 * A leading / is added if not present.
@@ -1203,7 +1203,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
   	   						isDeleted[i] = true;
   	   						// If invalidating CloudFront, invalidate the parent folder.
   	   						if ( invalidateCloudFront ) {
-  	   							addCloudFrontPath(cloudFrontPaths, getKeyParentFolder(deleted.key() + "*"));
+  	   							//addCloudFrontPath(cloudFrontPaths, getKeyParentFolder(deleted.key() + "*"));
+  	   							addCloudFrontPath(cloudFrontPaths, getKeyParentFolder(deleted.key() ));
   	   						}
   	   						break;
   	   					}
@@ -1870,7 +1871,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
   						// If invalidating CloudFront, invalidate the file:
     					// - TODO smalers 2023-02-07 need to figure out how to invalidate only successful uploaded folders
    						if ( invalidateCloudFront ) {
-   							addCloudFrontPath(cloudFrontPaths, uploadKey + "*");
+   							//addCloudFrontPath(cloudFrontPaths, uploadKey + "*");
+   							addCloudFrontPath(cloudFrontPaths, uploadKey );
    						}
     				}
     			}
@@ -1967,7 +1969,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
   						// If invalidating CloudFront, invalidate the folder:
     					// - TODO smalers 2023-02-07 need to figure out how to invalidate only successful uploaded folders
    						if ( invalidateCloudFront ) {
-   							addCloudFrontPath(cloudFrontPaths, uploadKey + "*");
+   							//addCloudFrontPath(cloudFrontPaths, uploadKey + "*");
+   							addCloudFrontPath(cloudFrontPaths, uploadKey );
    						}
     				}
     			}
