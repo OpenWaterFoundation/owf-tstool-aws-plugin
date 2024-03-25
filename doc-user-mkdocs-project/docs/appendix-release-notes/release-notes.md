@@ -7,6 +7,7 @@ See the [TSTool release notes](http://opencdss.state.co.us/tstool/latest/doc-use
 Plugin release notes are listed below.
 The repository issue for release note item is shown where applicable.
 
+*   [Version 1.5.1](#version-151)
 *   [Version 1.5.0](#version-150)
 *   [Version 1.4.2](#version-142)
 *   [Version 1.4.1](#version-141)
@@ -18,6 +19,16 @@ The repository issue for release note item is shown where applicable.
 *   [Version 1.0.0](#version-100)
 
 ----------
+
+## Version 1.5.1 ##
+
+**Maintenance release to fix CloudFront invalidation issue.**
+
+*   ![bug](bug.png) [#46] Update the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command:
+    +   Paths that are invalidated previously had `*` automatically appended.
+        This resulted in hitting the limit of 15 paths with wildcards.
+        The wildcard is no longer automatically added.
+        If necessary, use the [`AwsCloudFront`](../command-ref/AwsCloudFront/AwsCloudFront.md) command for more control of invalidations.
 
 ## Version 1.5.0 ##
 

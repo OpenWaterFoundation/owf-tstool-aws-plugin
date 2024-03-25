@@ -365,13 +365,18 @@ Command Parameters - Output
 ### CloudFront Command Parameters ###
 
 Command parameters are provided to allow changed S3 files to be invalidated in a CloudFront distribution,
-which simplifies invalidation.
+which simplifies invalidation by not requiring a separate
+[`AwsCloudFront`](../AwsCloudFront/AwsCloudFront.md) command.
+
 CloudFront invalidation uses "paths" to specify URL resources to invalidate.
 The paths must match S3 object keys in order for this command's invalidation to work.
 A leading `/` will be added to the paths if not present
 (e.g., S3 file `folder/folder2/file.ext` becomes CloudFront path `/folder1/folder2/file.ext`).
 CloudFront paths for invalidation can use `*` wildcards,
 for example to invalidate all files in a folder that has been deleted or uploaded.
+However, this command does not automatically add `*` wildcard.
+There is a limit of 15 paths with wildcards.
+Use the [`AwsCloudFront`](../AwsCloudFront/AwsCloudFront.md) command for more control of invalidations.
 
 By default, CloudFront paths associated with S3 files will not
 be invalidated on CloudFront (`InvalidateCloudFront=False`)

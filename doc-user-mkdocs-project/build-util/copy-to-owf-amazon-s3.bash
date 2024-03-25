@@ -109,7 +109,7 @@ getPluginVersion() {
 
   # Maven folder structure results in duplicate 'owf-tstool-aws-plugin'?
   # TODO smalers 2022-05-19 need to enable this.
-  srcFile="${repoFolder}/owf-tstool-aws-plugin/src/main/java/org/openwaterfoundation/tstool/plugin/aws/PluginMeta.java"  
+  srcFile="${repoFolder}/owf-tstool-aws-plugin/src/main/java/org/openwaterfoundation/tstool/plugin/aws/PluginMeta.java"
   # Get the version from the code
   # line looks like:
   #  public static final String VERSION = "1.0.0 (2022-05-27)";
@@ -344,95 +344,95 @@ if [ -n "${pluginVersion}" ]; then
   # Upload documentation to the versioned folder.
   echo "Uploading documentation to:  ${s3VersionFolder}"
   read -p "Continue [Y/n/q]? " answer
-  if [ -z "${answer}" -o "${answer}" = "y" -o "${answer}" = "Y" ]; then 
+  if [ -z "${answer}" -o "${answer}" = "y" -o "${answer}" = "Y" ]; then
     echo ${awsExe} s3 sync ../site ${s3VersionFolder} ${dryrun} --delete --profile "${awsProfile}"
     ${awsExe} s3 sync ../site ${s3VersionFolder} ${dryrun} --delete --profile "${awsProfile}"
     exitStatusVersion=$?
-  elif [ "${answer}" = "q" ]; then 
-    exit 0
-  fi
 
-  # Also invalidate the CloudFront distribution so that new version will be displayed:
-  # - see:  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
-  # - save the output to a temporary file and then extract the invalidation ID progress can be checked
-  # Determine the distribution ID:
-  # The distribution list contains a line like the following (the actual distribution ID is not included here):
-  # ITEMS   arn:aws:cloudfront::132345689123:distribution/E1234567891234    software.openwaterfoundation.org  something.cloudfront.net    True    HTTP2   E1234567891334  True    2022-01-06T19:02:50.640Z        PriceClass_100Deployed
-  tmpFile=$(mktemp)
-  subdomain="software.openwaterfoundation.org"
-  cloudFrontDistributionId=$(${awsExe} cloudfront list-distributions --output text --profile "${awsProfile}" | grep ${subdomain} | grep "arn" | awk '{print $2}' | cut -d ':' -f 6 | cut -d '/' -f 2)
-  if [ -z "${cloudFrontDistributionId}" ]; then
-    logError "Unable to find CloudFront distribution ID."
-    exit 1
-  else
-    logInfo "Found CloudFront distribution ID: ${cloudFrontDistributionId}"
-  fi
-  # Invalidate for CloudFront so that new version will be displayed:
-  # - see:  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
-  # - TODO smalers 2020-04-13 for some reason invalidating /index.html does not work, have to do /index.html*
-  #logInfo "Invalidating files so that CloudFront will make new files available..."
-  #logInfo "Running: ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths \"/tstool-aws-plugin/${pluginVersion}/doc-user/*\" --output json --profile \"${awsProfile}\""
-  if [ "${operatingSystem}" = "mingw" ]; then
-    # The following is needed to avoid MinGW mangling the paths, just in case a path without * is used:
-    # - tried to use a variable for the prefix but that did not work
-    MSYS_NO_PATHCONV=1 ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/${pluginVersion}/doc-user/*" --output json --profile "${awsProfile}" | tee ${tmpFile}
-  else
-    ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/${pluginVersion}/doc-user/*" --output json --profile "${awsProfile}" | tee ${tmpFile}
-  fi
-  errorCode=${PIPESTATUS[0]}
-  if [ ${errorCode} -ne 0 ]; then
-    logError " "
-    logError "Error invalidating CloudFront file(s)."
-    exit 1
-  else
-    logInfo "Success invalidating CloudFront file(s)."
-    invalidationId=$(cat ${tmpFile} | grep '"Id":' | cut -d ':' -f 2 | tr -d ' ' | tr -d '"' | tr -d ',')
-    # Wait on the invalidation.
-    waitOnInvalidation ${cloudFrontDistributionId} ${invalidationId}
+    # Also invalidate the CloudFront distribution so that new version will be displayed:
+    # - see:  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
+    # - save the output to a temporary file and then extract the invalidation ID progress can be checked
+    # Determine the distribution ID:
+    # The distribution list contains a line like the following (the actual distribution ID is not included here):
+    # ITEMS   arn:aws:cloudfront::132345689123:distribution/E1234567891234    software.openwaterfoundation.org  something.cloudfront.net    True    HTTP2   E1234567891334  True    2022-01-06T19:02:50.640Z        PriceClass_100Deployed
+    tmpFile=$(mktemp)
+    subdomain="software.openwaterfoundation.org"
+    cloudFrontDistributionId=$(${awsExe} cloudfront list-distributions --output text --profile "${awsProfile}" | grep ${subdomain} | grep "arn" | awk '{print $2}' | cut -d ':' -f 6 | cut -d '/' -f 2)
+    if [ -z "${cloudFrontDistributionId}" ]; then
+      logError "Unable to find CloudFront distribution ID."
+      exit 1
+    else
+      logInfo "Found CloudFront distribution ID: ${cloudFrontDistributionId}"
+    fi
+    # Invalidate for CloudFront so that new version will be displayed:
+    # - see:  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
+    # - TODO smalers 2020-04-13 for some reason invalidating /index.html does not work, have to do /index.html*
+    #logInfo "Invalidating files so that CloudFront will make new files available..."
+    #logInfo "Running: ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths \"/tstool-aws-plugin/${pluginVersion}/doc-user/*\" --output json --profile \"${awsProfile}\""
+    if [ "${operatingSystem}" = "mingw" ]; then
+      # The following is needed to avoid MinGW mangling the paths, just in case a path without * is used:
+      # - tried to use a variable for the prefix but that did not work
+      MSYS_NO_PATHCONV=1 ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/${pluginVersion}/doc-user/*" --output json --profile "${awsProfile}" | tee ${tmpFile}
+    else
+      ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/${pluginVersion}/doc-user/*" --output json --profile "${awsProfile}" | tee ${tmpFile}
+    fi
+    errorCode=${PIPESTATUS[0]}
+    if [ ${errorCode} -ne 0 ]; then
+      logError " "
+      logError "Error invalidating CloudFront file(s)."
+      exit 1
+    else
+      logInfo "Success invalidating CloudFront file(s)."
+      invalidationId=$(cat ${tmpFile} | grep '"Id":' | cut -d ':' -f 2 | tr -d ' ' | tr -d '"' | tr -d ',')
+      # Wait on the invalidation.
+      waitOnInvalidation ${cloudFrontDistributionId} ${invalidationId}
+    fi
+  elif [ "${answer}" = "q" ]; then
+    exit 0
   fi
 fi
 
-read -p "Also copy documentation to 'latest' [y/n/q]? " answer
+read -p "Copy documentation to 'latest' [y/n/q]? " answer
 exitStatusLatest=0
-if [ "${answer}" = "y" ]; then 
+if [ "${answer}" = "y" ]; then
   echo "Uploading documentation to:  ${s3LatestFolder}"
   read -p "Continue [Y/n/q]? " answer
-  if [ -z "${answer}" -o "${answer}" = "y" -o "${answer}" = "Y" ]; then 
+  if [ -z "${answer}" -o "${answer}" = "y" -o "${answer}" = "Y" ]; then
     ${awsExe} s3 sync ../site ${s3LatestFolder} ${dryrun} --delete --profile "${awsProfile}"
     exitStatusLatest=$?
-  elif [ "${answer}" = "q" ]; then 
-    exit 0
-  fi
 
-  # Also invalidate the CloudFront distribution so that new version will be displayed:
-  # - see:  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
-  # - save the output to a temporary file and then extract the invalidation ID progress can be checked
-  # Determine the distribution ID:
-  # The distribution list contains a line like the following (the actual distribution ID is not included here):
-  # ITEMS   arn:aws:cloudfront::132345689123:distribution/E1234567891234    software.openwaterfoundation.org  something.cloudfront.net    True    HTTP2   E1234567891334  True    2022-01-06T19:02:50.640Z        PriceClass_100Deployed
-  tmpFile=$(mktemp)
-  subdomain="software.openwaterfoundation.org"
-  cloudFrontDistributionId=$(${awsExe} cloudfront list-distributions --output text --profile "${awsProfile}" | grep ${subdomain} | grep "arn" | awk '{print $2}' | cut -d ':' -f 6 | cut -d '/' -f 2)
-  if [ -z "${cloudFrontDistributionId}" ]; then
-    logError "Unable to find CloudFront distribution ID."
-    exit 1
-  else
-    logInfo "Found CloudFront distribution ID: ${distributionId}"
-  fi
-  logInfo "Invalidating files so that CloudFront will make new files available..."
-  logInfo "Running: ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths \"/tstool-aws-plugin/latest/doc-user/*\" --output json --profile \"${awsProfile}\""
-  ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/latest/doc-user/*" --output json --profile "${awsProfile}" | tee ${tmpFile}
-  errorCode=${PIPESTATUS[0]}
-  if [ ${errorCode} -ne 0 ]; then
-    logError " "
-    logError "Error invalidating CloudFront file(s)."
-    exit 1
-  else
-    logInfo "Success invalidating CloudFront file(s)."
-    invalidationId=$(cat ${tmpFile} | grep '"Id":' | cut -d ':' -f 2 | tr -d ' ' | tr -d '"' | tr -d ',')
-    # Wait on the invalidation.
-    waitOnInvalidation ${cloudFrontDistributionId} ${invalidationId}
-  fi
+    # Also invalidate the CloudFront distribution so that new version will be displayed:
+    # - see:  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
+    # - save the output to a temporary file and then extract the invalidation ID progress can be checked
+    # Determine the distribution ID:
+    # The distribution list contains a line like the following (the actual distribution ID is not included here):
+    # ITEMS   arn:aws:cloudfront::132345689123:distribution/E1234567891234    software.openwaterfoundation.org  something.cloudfront.net    True    HTTP2   E1234567891334  True    2022-01-06T19:02:50.640Z        PriceClass_100Deployed
+    tmpFile=$(mktemp)
+    subdomain="software.openwaterfoundation.org"
+    cloudFrontDistributionId=$(${awsExe} cloudfront list-distributions --output text --profile "${awsProfile}" | grep ${subdomain} | grep "arn" | awk '{print $2}' | cut -d ':' -f 6 | cut -d '/' -f 2)
+    if [ -z "${cloudFrontDistributionId}" ]; then
+      logError "Unable to find CloudFront distribution ID."
+      exit 1
+    else
+      logInfo "Found CloudFront distribution ID: ${distributionId}"
+    fi
+    logInfo "Invalidating files so that CloudFront will make new files available..."
+    logInfo "Running: ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths \"/tstool-aws-plugin/latest/doc-user/*\" --output json --profile \"${awsProfile}\""
+    ${awsExe} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/tstool-aws-plugin/latest/doc-user/*" --output json --profile "${awsProfile}" | tee ${tmpFile}
+    errorCode=${PIPESTATUS[0]}
+    if [ ${errorCode} -ne 0 ]; then
+      logError " "
+      logError "Error invalidating CloudFront file(s)."
+      exit 1
+    else
+      logInfo "Success invalidating CloudFront file(s)."
+      invalidationId=$(cat ${tmpFile} | grep '"Id":' | cut -d ':' -f 2 | tr -d ' ' | tr -d '"' | tr -d ',')
+      # Wait on the invalidation.
+      waitOnInvalidation ${cloudFrontDistributionId} ${invalidationId}
+    fi
+    elif [ "${answer}" = "q" ]; then
+      exit 0
+    fi
 fi
 
 exitStatus=$(( ${exitStatusVersion} + ${exitStatusLatest} ))
