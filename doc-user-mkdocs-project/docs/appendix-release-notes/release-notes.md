@@ -7,6 +7,7 @@ See the [TSTool release notes](http://opencdss.state.co.us/tstool/latest/doc-use
 Plugin release notes are listed below.
 The repository issue for release note item is shown where applicable.
 
+*   [Version 1.5.2](#version-152)
 *   [Version 1.5.1](#version-151)
 *   [Version 1.5.0](#version-150)
 *   [Version 1.4.2](#version-142)
@@ -19,6 +20,20 @@ The repository issue for release note item is shown where applicable.
 *   [Version 1.0.0](#version-100)
 
 ----------
+
+## Version 1.5.2 ##
+
+**Maintenance release to improve the [`AwsBilling`](../command-ref/AwsBilling/AwsBilling.md) command.**
+
+*   ![change](change.png) Update the [`AwsBilling`](../command-ref/AwsBilling/AwsBilling.md) command:
+    +   [#51] Grouped data or total data can be read, but not both with one command.
+        This change reflects the features of the AWS API.
+        Command parameter names were renamed to be more explicit.
+    +   [#48] New parameters are available to output service properties,
+        useful to check that tags are defined as expected:
+        -   `EBSSnapshotsTableID` - lists EBS snapshots
+        -   `EC2PropertiesTableID` - lists EC2 and related service properties
+        -   `EC2ImagesTableID` - lists EC2 images (Amazon Machine Images, AMI)
 
 ## Version 1.5.1 ##
 
