@@ -82,8 +82,10 @@ implements ActionListener, ChangeListener, DocumentListener, ItemListener, KeyLi
 private final String __AddWorkingDirectory = "Abs";
 private final String __RemoveWorkingDirectory = "Rel";
 
-private SimpleJButton __browseOutput_JButton = null;
-private SimpleJButton __pathOutput_JButton = null;
+private SimpleJButton __browseGroupedFile_JButton = null;
+private SimpleJButton __pathGroupedFile_JButton = null;
+private SimpleJButton __browseTotalFile_JButton = null;
+private SimpleJButton __pathTotalFile_JButton = null;
 private SimpleJButton __cancel_JButton = null;
 private SimpleJButton __ok_JButton = null;
 private SimpleJButton __help_JButton = null;
@@ -99,6 +101,7 @@ private JLabel __RegionDefaultNote_JLabel = null; // To explain the default.
 // Cost Explorer Query tab.
 private JTextField __InputStart_JTextField = null;
 private JTextField __InputEnd_JTextField = null;
+private SimpleJComboBox __TimeChunk_JComboBox = null;
 private SimpleJComboBox __Granularity_JComboBox = null;
 private SimpleJComboBox __GroupBy1_JComboBox = null;
 private JTextField __GroupByTag1_JTextField = null;
@@ -116,16 +119,30 @@ private JTextField __FilterRegions_JTextField = null;
 private JTextField __FilterServices_JTextField = null;
 private JTextField __FilterTags_JTextField = null;
 
-// Output tab.
-private SimpleJComboBox __OutputTableID_JComboBox = null;
-private JTextField __OutputFile_JTextField = null;
+// 'Output Cost Tables' tab.
+private SimpleJComboBox __GroupedTableID_JComboBox = null;
+private JTextField __GroupedTableFile_JTextField = null;
+private JTextField __GroupedTableRowCountProperty_JTextField = null;
+private SimpleJComboBox __TotalTableID_JComboBox = null;
+private JTextField __TotalTableFile_JTextField = null;
+private JTextField __TotalTableRowCountProperty_JTextField = null;
 private SimpleJComboBox __AppendOutput_JComboBox = null;
-private JTextField __OutputTableRowCountProperty_JTextField = null;
 
-// Time Series tab.
-private SimpleJComboBox __CreateTimeSeries_JComboBox = null;
-private SimpleJComboBox __TimeSeriesLocationID_JComboBox = null;
-private TSFormatSpecifiersJPanel __Alias_JTextField = null;
+// Output Time Series tab.
+private SimpleJComboBox __CreateGroupedTimeSeries_JComboBox = null;
+private SimpleJComboBox __GroupedTimeSeriesLocationID_JComboBox = null;
+private SimpleJComboBox __GroupedTimeSeriesDataType_JComboBox = null;
+private TSFormatSpecifiersJPanel __GroupedTimeSeriesAlias_JTextField = null;
+private JTextField __TimeSeriesMissingGroupBy_JTextField = null;
+private SimpleJComboBox __CreateTotalTimeSeries_JComboBox = null;
+private JTextField __TotalTimeSeriesLocationID_JTextField = null;
+private SimpleJComboBox __TotalTimeSeriesDataType_JComboBox = null;
+private TSFormatSpecifiersJPanel __TotalTimeSeriesAlias_JTextField = null;
+
+// 'Output Service Properties' tab.
+private SimpleJComboBox __EC2PropertiesTableID_JComboBox = null;
+private SimpleJComboBox __EBSSnapshotsTableID_JComboBox = null;
+private SimpleJComboBox __EC2ImagesTableID_JComboBox = null;
 
 private JTextArea __command_JTextArea = null;
 private String __working_dir = null;
@@ -164,7 +181,7 @@ public void actionPerformed( ActionEvent event ) {
 
 	Object o = event.getSource();
 
-    if ( o == __browseOutput_JButton ) {
+    if ( o == __browseGroupedFile_JButton ) {
         String last_directory_selected = JGUIUtil.getLastFileDialogDirectory();
         JFileChooser fc = null;
         if ( last_directory_selected != null ) {
@@ -173,7 +190,7 @@ public void actionPerformed( ActionEvent event ) {
         else {
             fc = JFileChooserFactory.createJFileChooser(__working_dir );
         }
-        fc.setDialogTitle( "Select Output File");
+        fc.setDialogTitle( "Select Output File for Grouped Table");
 
         if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             String directory = fc.getSelectedFile().getParent();
@@ -187,7 +204,40 @@ public void actionPerformed( ActionEvent event ) {
             if (path != null) {
 				// Convert path to relative path by default.
 				try {
-					__OutputFile_JTextField.setText(IOUtil.toRelativePath(__working_dir, path));
+					__GroupedTableFile_JTextField.setText(IOUtil.toRelativePath(__working_dir, path));
+				}
+				catch ( Exception e ) {
+					Message.printWarning ( 1, routine, "Error converting file to relative path." );
+				}
+                JGUIUtil.setLastFileDialogDirectory(directory);
+                refresh();
+            }
+        }
+    }
+    else if ( o == __browseTotalFile_JButton ) {
+        String last_directory_selected = JGUIUtil.getLastFileDialogDirectory();
+        JFileChooser fc = null;
+        if ( last_directory_selected != null ) {
+            fc = JFileChooserFactory.createJFileChooser(last_directory_selected );
+        }
+        else {
+            fc = JFileChooserFactory.createJFileChooser(__working_dir );
+        }
+        fc.setDialogTitle( "Select Output File for Total Table");
+
+        if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            String directory = fc.getSelectedFile().getParent();
+            String filename = fc.getSelectedFile().getName();
+            String path = fc.getSelectedFile().getPath();
+
+            if (filename == null || filename.equals("")) {
+                return;
+            }
+
+            if (path != null) {
+				// Convert path to relative path by default.
+				try {
+					__TotalTableFile_JTextField.setText(IOUtil.toRelativePath(__working_dir, path));
 				}
 				catch ( Exception e ) {
 					Message.printWarning ( 1, routine, "Error converting file to relative path." );
@@ -210,18 +260,30 @@ public void actionPerformed( ActionEvent event ) {
 			response ( true );
 		}
 	}
-    else if ( o == __pathOutput_JButton ) {
-        if ( __pathOutput_JButton.getText().equals(__AddWorkingDirectory) ) {
-            __OutputFile_JTextField.setText (IOUtil.toAbsolutePath(__working_dir,__OutputFile_JTextField.getText() ) );
+    else if ( o == __pathGroupedFile_JButton ) {
+        if ( __pathGroupedFile_JButton.getText().equals(__AddWorkingDirectory) ) {
+            __GroupedTableFile_JTextField.setText (IOUtil.toAbsolutePath(__working_dir,__GroupedTableFile_JTextField.getText() ) );
         }
-        else if ( __pathOutput_JButton.getText().equals(__RemoveWorkingDirectory) ) {
+        else if ( __pathGroupedFile_JButton.getText().equals(__RemoveWorkingDirectory) ) {
             try {
-                __OutputFile_JTextField.setText ( IOUtil.toRelativePath ( __working_dir,
-                        __OutputFile_JTextField.getText() ) );
+                __GroupedTableFile_JTextField.setText ( IOUtil.toRelativePath ( __working_dir, __GroupedTableFile_JTextField.getText() ) );
             }
             catch ( Exception e ) {
-                Message.printWarning ( 1,"AwsS3_JDialog",
-                "Error converting output file name to relative path." );
+                Message.printWarning ( 1,"AwsBilling_JDialog", "Error converting output file name to relative path." );
+            }
+        }
+        refresh ();
+    }
+    else if ( o == __pathTotalFile_JButton ) {
+        if ( __pathTotalFile_JButton.getText().equals(__AddWorkingDirectory) ) {
+            __TotalTableFile_JTextField.setText (IOUtil.toAbsolutePath(__working_dir,__TotalTableFile_JTextField.getText() ) );
+        }
+        else if ( __pathTotalFile_JButton.getText().equals(__RemoveWorkingDirectory) ) {
+            try {
+                __TotalTableFile_JTextField.setText ( IOUtil.toRelativePath ( __working_dir, __TotalTableFile_JTextField.getText() ) );
+            }
+            catch ( Exception e ) {
+                Message.printWarning ( 1,"AwsBilling_JDialog", "Error converting output file name to relative path." );
             }
         }
         refresh ();
@@ -276,6 +338,7 @@ private void checkInput () {
 	// Cost Explorer Query.
 	String InputStart = __InputStart_JTextField.getText().trim();
 	String InputEnd = __InputEnd_JTextField.getText().trim();
+	String TimeChunk = __TimeChunk_JComboBox.getSelected();
 	String Granularity = __Granularity_JComboBox.getSelected();
 	String GroupBy1 = __GroupBy1_JComboBox.getSelected();
 	String GroupByTag1 = __GroupByTag1_JTextField.getText().trim();
@@ -290,15 +353,29 @@ private void checkInput () {
 	String FilterRegions = __FilterRegions_JTextField.getText().trim();
 	String FilterServices = __FilterServices_JTextField.getText().trim();
 	String FilterTags = __FilterTags_JTextField.getText().trim();
-	// Output.
-	String OutputTableID = __OutputTableID_JComboBox.getSelected();
-	String OutputFile = __OutputFile_JTextField.getText().trim();
+	// Output Cost Tables.
+	String GroupedTableID = __GroupedTableID_JComboBox.getSelected();
+	String GroupedTableFile = __GroupedTableFile_JTextField.getText().trim();
+	String GroupedTableRowCountProperty = __GroupedTableRowCountProperty_JTextField.getText().trim();
+	String TotalTableID = __TotalTableID_JComboBox.getSelected();
+	String TotalTableFile = __TotalTableFile_JTextField.getText().trim();
+	String TotalTableRowCountProperty = __TotalTableRowCountProperty_JTextField.getText().trim();
 	String AppendOutput = __AppendOutput_JComboBox.getSelected();
-	String OutputTableRowCountProperty = __OutputTableRowCountProperty_JTextField.getText().trim();
-	// Time series.
-	String CreateTimeSeries = __CreateTimeSeries_JComboBox.getSelected();
-	String TimeSeriesLocationID = __TimeSeriesLocationID_JComboBox.getSelected();
-	String Alias = __Alias_JTextField.getText().trim();
+	// Output Time series.
+	String CreateGroupedTimeSeries = __CreateGroupedTimeSeries_JComboBox.getSelected();
+	String GroupedTimeSeriesLocationID = __GroupedTimeSeriesLocationID_JComboBox.getSelected();
+	String GroupedTimeSeriesDataType = __GroupedTimeSeriesDataType_JComboBox.getSelected();
+	String GroupedTimeSeriesAlias = __GroupedTimeSeriesAlias_JTextField.getText().trim();
+	String TimeSeriesMissingGroupBy = __TimeSeriesMissingGroupBy_JTextField.getText().trim();
+	String CreateTotalTimeSeries = __CreateTotalTimeSeries_JComboBox.getSelected();
+	String TotalTimeSeriesLocationID = __TotalTimeSeriesLocationID_JTextField.getText().trim();
+	String TotalTimeSeriesDataType = __TotalTimeSeriesDataType_JComboBox.getSelected();
+	String TotalTimeSeriesAlias = __TotalTimeSeriesAlias_JTextField.getText().trim();
+	// Output Service Properties.
+	String EC2PropertiesTableID = __EC2PropertiesTableID_JComboBox.getSelected();
+	String EBSSnapshotsTableID = __EBSSnapshotsTableID_JComboBox.getSelected();
+	String EC2ImagesTableID = __EC2ImagesTableID_JComboBox.getSelected();
+
 	//String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
 	__error_wait = false;
 	if ( (Profile != null) && !Profile.isEmpty() ) {
@@ -313,6 +390,9 @@ private void checkInput () {
 	}
 	if ( (InputEnd != null) && !InputEnd.isEmpty() ) {
 		props.set ( "InputEnd", InputEnd );
+	}
+	if ( (TimeChunk != null) && !TimeChunk.isEmpty() ) {
+		props.set ( "TimeChunk", TimeChunk );
 	}
 	if ( (Granularity != null) && !Granularity.isEmpty() ) {
 		props.set ( "Granularity", Granularity );
@@ -354,28 +434,65 @@ private void checkInput () {
 	if ( (FilterTags != null) && !FilterTags.isEmpty()) {
 		props.set ( "FilterTags", FilterTags );
 	}
-	// Output.
-    if ( (OutputTableID != null) && !OutputTableID.isEmpty() ) {
-        props.set ( "OutputTableID", OutputTableID );
+	// Output Cost Tables.
+    if ( (GroupedTableID != null) && !GroupedTableID.isEmpty() ) {
+        props.set ( "GroupedTableID", GroupedTableID );
     }
-    if ( (OutputFile != null) && !OutputFile.isEmpty() ) {
-        props.set ( "OutputFile", OutputFile );
+    if ( (GroupedTableFile != null) && !GroupedTableFile.isEmpty() ) {
+        props.set ( "GroupedTableFile", GroupedTableFile );
+    }
+    if ( (GroupedTableRowCountProperty != null) && !GroupedTableRowCountProperty.isEmpty() ) {
+        props.set ( "GroupedTableRowCountProperty", GroupedTableRowCountProperty );
+    }
+    if ( (TotalTableID != null) && !TotalTableID.isEmpty() ) {
+        props.set ( "TotalTableID", TotalTableID );
+    }
+    if ( (TotalTableFile != null) && !TotalTableFile.isEmpty() ) {
+        props.set ( "TotalTableFile", TotalTableFile );
+    }
+    if ( (TotalTableRowCountProperty != null) && !TotalTableRowCountProperty.isEmpty() ) {
+        props.set ( "TotalTableRowCountProperty", TotalTableRowCountProperty );
     }
     if ( (AppendOutput != null) && !AppendOutput.isEmpty() ) {
         props.set ( "AppendOutput", AppendOutput );
     }
-    if ( (OutputTableRowCountProperty != null) && !OutputTableRowCountProperty.isEmpty() ) {
-        props.set ( "OutputTableRowCountProperty", OutputTableRowCountProperty );
+	// Output Time series.
+    if ( (CreateGroupedTimeSeries != null) && !CreateGroupedTimeSeries.isEmpty() ) {
+        props.set ( "CreateGroupedTimeSeries", CreateGroupedTimeSeries );
     }
-	// Time series.
-    if ( (CreateTimeSeries != null) && !CreateTimeSeries.isEmpty() ) {
-        props.set ( "CreateTimeSeries", CreateTimeSeries );
+    if ( (GroupedTimeSeriesLocationID != null) && !GroupedTimeSeriesLocationID.isEmpty() ) {
+        props.set ( "GroupedTimeSeriesLocationID", GroupedTimeSeriesLocationID );
     }
-    if ( (TimeSeriesLocationID != null) && !TimeSeriesLocationID.isEmpty() ) {
-        props.set ( "TimeSeriesLocationID", TimeSeriesLocationID );
+    if ( (GroupedTimeSeriesDataType != null) && !GroupedTimeSeriesDataType.isEmpty() ) {
+        props.set ( "GroupedTimeSeriesDataType", GroupedTimeSeriesDataType );
     }
-    if ( (Alias != null) && !Alias.isEmpty() ) {
-        props.set ( "Alias", Alias );
+    if ( (GroupedTimeSeriesAlias != null) && !GroupedTimeSeriesAlias.isEmpty() ) {
+        props.set ( "GroupedTimeSeriesAlias", GroupedTimeSeriesAlias );
+    }
+    if ( (TimeSeriesMissingGroupBy != null) && !TimeSeriesMissingGroupBy.isEmpty() ) {
+        props.set ( "TimeSeriesMissingGroupBy", TimeSeriesMissingGroupBy );
+    }
+    if ( (CreateTotalTimeSeries != null) && !CreateTotalTimeSeries.isEmpty() ) {
+        props.set ( "CreateTotalTimeSeries", CreateTotalTimeSeries );
+    }
+    if ( (TotalTimeSeriesLocationID != null) && !TotalTimeSeriesLocationID.isEmpty() ) {
+        props.set ( "TotalTimeSeriesLocationID", TotalTimeSeriesLocationID );
+    }
+    if ( (TotalTimeSeriesDataType != null) && !TotalTimeSeriesDataType.isEmpty() ) {
+        props.set ( "TotalTimeSeriesDataType", TotalTimeSeriesDataType );
+    }
+    if ( (TotalTimeSeriesAlias != null) && !TotalTimeSeriesAlias.isEmpty() ) {
+        props.set ( "TotalTimeSeriesAlias", TotalTimeSeriesAlias );
+    }
+	// Output Service Properties.
+    if ( (EC2PropertiesTableID != null) && !EC2PropertiesTableID.isEmpty() ) {
+        props.set ( "EC2PropertiesTableID", EC2PropertiesTableID );
+    }
+    if ( (EBSSnapshotsTableID != null) && !EBSSnapshotsTableID.isEmpty() ) {
+        props.set ( "EBSSnapshotsTableID", EBSSnapshotsTableID );
+    }
+    if ( (EC2ImagesTableID != null) && !EC2ImagesTableID.isEmpty() ) {
+        props.set ( "EC2ImagesTableID", EC2ImagesTableID );
     }
     /*
 	if ( IfInputNotFound.length() > 0 ) {
@@ -403,6 +520,7 @@ private void commitEdits () {
 	// Cost Explorer Query.
 	String InputStart = __InputStart_JTextField.getText().trim();
 	String InputEnd = __InputEnd_JTextField.getText().trim();
+	String TimeChunk = __TimeChunk_JComboBox.getSelected();
 	String Granularity = __Granularity_JComboBox.getSelected();
 	String GroupBy1 = __GroupBy1_JComboBox.getSelected();
 	String GroupByTag1 = __GroupByTag1_JTextField.getText().trim();
@@ -417,15 +535,28 @@ private void commitEdits () {
 	String FilterRegions = __FilterRegions_JTextField.getText().trim();
 	String FilterServices = __FilterServices_JTextField.getText().trim();
 	String FilterTags = __FilterTags_JTextField.getText().trim();
-	// Output.
-	String OutputTableID = __OutputTableID_JComboBox.getSelected();
-    String OutputFile = __OutputFile_JTextField.getText().trim();
+	// Output Cost Tables.
+	String GroupedTableID = __GroupedTableID_JComboBox.getSelected();
+    String GroupedTableFile = __GroupedTableFile_JTextField.getText().trim();
+    String GroupedTableRowCountProperty = __GroupedTableRowCountProperty_JTextField.getText().trim();
+	String TotalTableID = __TotalTableID_JComboBox.getSelected();
+    String TotalTableFile = __TotalTableFile_JTextField.getText().trim();
+    String TotalTableRowCountProperty = __TotalTableRowCountProperty_JTextField.getText().trim();
 	String AppendOutput = __AppendOutput_JComboBox.getSelected();
-    String OutputTableRowCountProperty = __OutputTableRowCountProperty_JTextField.getText().trim();
-	// Time series.
-	String CreateTimeSeries = __CreateTimeSeries_JComboBox.getSelected();
-	String TimeSeriesLocationID = __TimeSeriesLocationID_JComboBox.getSelected();
-	String Alias = __Alias_JTextField.getText().trim();
+	// Output Time series.
+	String CreateGroupedTimeSeries = __CreateGroupedTimeSeries_JComboBox.getSelected();
+	String GroupedTimeSeriesLocationID = __GroupedTimeSeriesLocationID_JComboBox.getSelected();
+	String GroupedTimeSeriesDataType = __GroupedTimeSeriesDataType_JComboBox.getSelected();
+	String GroupedTimeSeriesAlias = __GroupedTimeSeriesAlias_JTextField.getText().trim();
+	String TimeSeriesMissingGroupBy = __TimeSeriesMissingGroupBy_JTextField.getText().trim();
+	String CreateTotalTimeSeries = __CreateTotalTimeSeries_JComboBox.getSelected();
+	String TotalTimeSeriesLocationID = __TotalTimeSeriesLocationID_JTextField.getText().trim();
+	String TotalTimeSeriesDataType = __TotalTimeSeriesDataType_JComboBox.getSelected();
+	String TotalTimeSeriesAlias = __TotalTimeSeriesAlias_JTextField.getText().trim();
+	// Output Service Properties.
+	String EC2PropertiesTableID = __EC2PropertiesTableID_JComboBox.getSelected();
+	String EBSSnapshotsTableID = __EBSSnapshotsTableID_JComboBox.getSelected();
+	String EC2ImagesTableID = __EC2ImagesTableID_JComboBox.getSelected();
 	//String IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
 
     // General.
@@ -434,6 +565,7 @@ private void commitEdits () {
 	// Cost Explorer Query.
 	__command.setCommandParameter ( "InputStart", InputStart );
 	__command.setCommandParameter ( "InputEnd", InputEnd );
+	__command.setCommandParameter ( "TimeChunk", TimeChunk );
 	__command.setCommandParameter ( "Granularity", Granularity );
 	__command.setCommandParameter ( "GroupBy1", GroupBy1 );
 	__command.setCommandParameter ( "GroupByTag1", GroupByTag1 );
@@ -448,15 +580,28 @@ private void commitEdits () {
 	__command.setCommandParameter ( "FilterRegions", FilterRegions );
 	__command.setCommandParameter ( "FilterServices", FilterServices );
 	__command.setCommandParameter ( "FilterTags", FilterTags );
-	// Output.
-	__command.setCommandParameter ( "OutputTableID", OutputTableID );
-	__command.setCommandParameter ( "OutputFile", OutputFile );
+	// Output Cost Tables.
+	__command.setCommandParameter ( "GroupedTableID", GroupedTableID );
+	__command.setCommandParameter ( "GroupedTableFile", GroupedTableFile );
+	__command.setCommandParameter ( "GroupedTableRowCountProperty", GroupedTableRowCountProperty );
+	__command.setCommandParameter ( "TotalTableID", TotalTableID );
+	__command.setCommandParameter ( "TotalTableFile", TotalTableFile );
+	__command.setCommandParameter ( "TotalTableRowCountProperty", TotalTableRowCountProperty );
 	__command.setCommandParameter ( "AppendOutput", AppendOutput );
-	__command.setCommandParameter ( "OutputTableRowCountProperty", OutputTableRowCountProperty );
-	// Time Series.
-	__command.setCommandParameter ( "CreateTimeSeries", CreateTimeSeries );
-	__command.setCommandParameter ( "TimeSeriesLocationID", TimeSeriesLocationID );
-	__command.setCommandParameter ( "Alias", Alias );
+	// Output Time Series.
+	__command.setCommandParameter ( "CreateGroupedTimeSeries", CreateGroupedTimeSeries );
+	__command.setCommandParameter ( "GroupedTimeSeriesLocationID", GroupedTimeSeriesLocationID );
+	__command.setCommandParameter ( "GroupedTimeSeriesDataType", GroupedTimeSeriesDataType );
+	__command.setCommandParameter ( "GroupedTimeSeriesAlias", GroupedTimeSeriesAlias );
+	__command.setCommandParameter ( "TimeSeriesMissingGroupBy", TimeSeriesMissingGroupBy );
+	__command.setCommandParameter ( "CreateTotalTimeSeries", CreateTotalTimeSeries );
+	__command.setCommandParameter ( "TotalTimeSeriesLocationID", TotalTimeSeriesLocationID );
+	__command.setCommandParameter ( "TotalTimeSeriesDataType", TotalTimeSeriesDataType );
+	__command.setCommandParameter ( "TotalTimeSeriesAlias", TotalTimeSeriesAlias );
+	// Output Service Properties.
+	__command.setCommandParameter ( "EC2PropertiesTableID", EC2PropertiesTableID );
+	__command.setCommandParameter ( "EBSSnapshotsTableID", EBSSnapshotsTableID );
+	__command.setCommandParameter ( "EC2ImagesTableID", EC2ImagesTableID );
 	//__command.setCommandParameter ( "IfInputNotFound", IfInputNotFound );
 }
 
@@ -698,7 +843,7 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
 
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ("Input start:"),
         0, ++yCostExplorer, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __InputStart_JTextField = new JTextField (20);
+    __InputStart_JTextField = new JTextField (40);
     __InputStart_JTextField.setToolTipText("Input start for billing data, with daily precision, can use ${Property} syntax.");
     __InputStart_JTextField.addKeyListener (this);
     JGUIUtil.addComponent(costExplorer_JPanel, __InputStart_JTextField,
@@ -708,13 +853,34 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
 
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Input end:"),
         0, ++yCostExplorer, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __InputEnd_JTextField = new JTextField (20);
+    __InputEnd_JTextField = new JTextField (40);
     __InputEnd_JTextField.setToolTipText("Input end for billing data, with daily precision, can use ${Property} syntax.");
     __InputEnd_JTextField.addKeyListener (this);
     JGUIUtil.addComponent(costExplorer_JPanel, __InputEnd_JTextField,
         1, yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Optional - overrides the global input end."),
         3, yCostExplorer, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+    JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Time chunk:"),
+		0, ++yCostExplorer, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__TimeChunk_JComboBox = new SimpleJComboBox ( false );
+	__TimeChunk_JComboBox.setToolTipText("Time chunk to break up queries (default is full period).");
+	List<String> timeChunkChoices = new ArrayList<>();
+	timeChunkChoices.add("");
+	// Use multiple of days to simplify handling of time chunking.
+	timeChunkChoices.add("30Day");
+	timeChunkChoices.add("60Day");
+	timeChunkChoices.add("90Day");
+	timeChunkChoices.add("180Day");
+	timeChunkChoices.add("365Day");
+	__TimeChunk_JComboBox.setData(timeChunkChoices);
+	__TimeChunk_JComboBox.select ( 0 );
+	__TimeChunk_JComboBox.addItemListener ( this );
+    JGUIUtil.addComponent(costExplorer_JPanel, __TimeChunk_JComboBox,
+		1, yCostExplorer, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(costExplorer_JPanel, new JLabel(
+		"Optional - time chunk for queries (default=full period)."),
+		3, yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Granularity:"),
 		0, ++yCostExplorer, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
@@ -743,7 +909,8 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
     JGUIUtil.addComponent(costExplorer_JPanel, __GroupBy1_JComboBox,
 		1, yCostExplorer, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel(
-		"Optional - dimension by which to group output (default=" + AwsBillingDimensionType.SERVICE + ")."),
+		//"Optional - dimension by which to group output (default=" + AwsBillingDimensionType.SERVICE + ")."),
+		"Optional - dimension by which to group output (default=no grouping)."),
 		3, yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Group by tag (1):"),
@@ -779,31 +946,6 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Optional - used with GroupBy2=Tag."),
         3, yCostExplorer, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
-    /*
-    JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Group by (3):"),
-		0, ++yCostExplorer, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-	__GroupBy3_JComboBox = new SimpleJComboBox ( false );
-	__GroupBy3_JComboBox.setToolTipText("How to group (aggregate) the output by a Dimension.");
-	__GroupBy3_JComboBox.setData(groupByChoices);
-	__GroupBy3_JComboBox.select ( 0 );
-	__GroupBy3_JComboBox.addItemListener ( this );
-    JGUIUtil.addComponent(costExplorer_JPanel, __GroupBy3_JComboBox,
-		1, yCostExplorer, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(costExplorer_JPanel, new JLabel(
-		"Optional - dimension by which to group output (default=no group by 3)."),
-		3, yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-
-    JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Group by tag (3):"),
-        0, ++yCostExplorer, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __GroupByTag3_JTextField = new JTextField (20);
-    __GroupByTag3_JTextField.setToolTipText("If GroupBy3=Tag, specify the tag name to group by, can use ${Property} syntax.");
-    __GroupByTag3_JTextField.addKeyListener (this);
-    JGUIUtil.addComponent(costExplorer_JPanel, __GroupByTag3_JTextField,
-        1, yCostExplorer, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Optional - used with GroupBy3=Tag."),
-        3, yCostExplorer, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
-    */
-
     JGUIUtil.addComponent(costExplorer_JPanel, new JLabel ( "Metric (aggregate costs by):"),
 		0, ++yCostExplorer, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__Metric_JComboBox = new SimpleJComboBox ( false );
@@ -831,7 +973,9 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
 		0, ++yFilter, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(filter_JPanel, new JLabel ("The filter groups are ANDed with values in a group ORed."),
 		0, ++yFilter, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(filter_JPanel, new JLabel ("See the 'Output' tab to specify the output table and/or file for the output."),
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ("See the 'Output Cost Tables' and 'Output Time Series' tabs to specify output formats."),
+		0, ++yFilter, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(filter_JPanel, new JLabel ("See the documentation for possible values or use a group by and then filter on group values."),
 		0, ++yFilter, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(filter_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yFilter, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -888,64 +1032,121 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
     JGUIUtil.addComponent(filter_JPanel, new JLabel ( "Optional - tag(s) to filter output (CURRENTLY DISABLED)."),
         3, yFilter, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
-    // Panel for output.
+    // Panel for output tables.
     int yOutput = -1;
     JPanel output_JPanel = new JPanel();
     output_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "Output", output_JPanel );
+    __main_JTabbedPane.addTab ( "Output Cost Tables", output_JPanel );
 
     JGUIUtil.addComponent(output_JPanel, new JLabel (
-    	"The following parameters are used to specify the output for Cost Explorer results."),
+    	"The following parameters are used to specify the output cost tables for Cost Explorer results."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel ("An output table and/or file can be created."),
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("Grouped or total data table(s) and/or file(s) can be created."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel ("An existing table will be appended to if found."),
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("An existing table will be appended to if found and AppendOutput=True."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JLabel ("The output file uses the specified table (or a temporary table) to create the output file."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JLabel ("Specify the output file name with extension to indicate the format: csv"),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel ("See also other commands to write tables."),
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("See also other commands to write tables in different formats."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Output Table ID:" ),
+    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Grouped table ID:" ),
         0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __OutputTableID_JComboBox = new SimpleJComboBox ( 12, true ); // Allow edit.
-    __OutputTableID_JComboBox.setToolTipText("Table for output, can use ${Property} notation.");
+    __GroupedTableID_JComboBox = new SimpleJComboBox ( 12, true ); // Allow edit.
+    __GroupedTableID_JComboBox.setToolTipText("Table for output, can use ${Property} notation.");
     tableIDChoices.add(0,""); // Add blank to ignore table.
-    __OutputTableID_JComboBox.setData ( tableIDChoices );
-    __OutputTableID_JComboBox.addItemListener ( this );
-    __OutputTableID_JComboBox.getJTextComponent().addKeyListener ( this );
-    //__OutputTableID_JComboBox.setMaximumRowCount(tableIDChoices.size());
-    JGUIUtil.addComponent(output_JPanel, __OutputTableID_JComboBox,
+    __GroupedTableID_JComboBox.setData ( tableIDChoices );
+    __GroupedTableID_JComboBox.addItemListener ( this );
+    __GroupedTableID_JComboBox.getJTextComponent().addKeyListener ( this );
+    //__GroupedTableID_JComboBox.setMaximumRowCount(tableIDChoices.size());
+    JGUIUtil.addComponent(output_JPanel, __GroupedTableID_JComboBox,
         1, yOutput, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel( "Optional - table for output."),
+    JGUIUtil.addComponent(output_JPanel, new JLabel( "Optional - table for grouped output."),
         3, yOutput, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(output_JPanel, new JLabel ("Output file:" ),
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("Grouped table output file:" ),
         0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __OutputFile_JTextField = new JTextField ( 50 );
-    __OutputFile_JTextField.setToolTipText("Output file, can use ${Property} notation.");
-    __OutputFile_JTextField.addKeyListener ( this );
+    __GroupedTableFile_JTextField = new JTextField ( 50 );
+    __GroupedTableFile_JTextField.setToolTipText("Grouped table output file, can use ${Property} notation.");
+    __GroupedTableFile_JTextField.addKeyListener ( this );
     // Output file layout fights back with other rows so put in its own panel.
-	JPanel OutputFile_JPanel = new JPanel();
-	OutputFile_JPanel.setLayout(new GridBagLayout());
-    JGUIUtil.addComponent(OutputFile_JPanel, __OutputFile_JTextField,
+	JPanel GroupedTableFile_JPanel = new JPanel();
+	GroupedTableFile_JPanel.setLayout(new GridBagLayout());
+    JGUIUtil.addComponent(GroupedTableFile_JPanel, __GroupedTableFile_JTextField,
 		0, 0, 1, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
-	__browseOutput_JButton = new SimpleJButton ( "...", this );
-	__browseOutput_JButton.setToolTipText("Browse for file");
-    JGUIUtil.addComponent(OutputFile_JPanel, __browseOutput_JButton,
+	__browseGroupedFile_JButton = new SimpleJButton ( "...", this );
+	__browseGroupedFile_JButton.setToolTipText("Browse for file");
+    JGUIUtil.addComponent(GroupedTableFile_JPanel, __browseGroupedFile_JButton,
 		1, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.CENTER);
 	if ( __working_dir != null ) {
 		// Add the button to allow conversion to/from relative path.
-		__pathOutput_JButton = new SimpleJButton( __RemoveWorkingDirectory,this);
-		JGUIUtil.addComponent(OutputFile_JPanel, __pathOutput_JButton,
+		__pathGroupedFile_JButton = new SimpleJButton( __RemoveWorkingDirectory,this);
+		JGUIUtil.addComponent(GroupedTableFile_JPanel, __pathGroupedFile_JButton,
 			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 	}
-	JGUIUtil.addComponent(output_JPanel, OutputFile_JPanel,
+	JGUIUtil.addComponent(output_JPanel, GroupedTableFile_JPanel,
 		1, yOutput, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("Grouped table row count property:"),
+        0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __GroupedTableRowCountProperty_JTextField = new JTextField (40);
+    __GroupedTableRowCountProperty_JTextField.setToolTipText("Property name for grouped table row count.");
+    __GroupedTableRowCountProperty_JTextField.addKeyListener (this);
+    JGUIUtil.addComponent(output_JPanel, __GroupedTableRowCountProperty_JTextField,
+        1, yOutput, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Optional - property for output table row count."),
+        3, yOutput, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Total table ID:" ),
+        0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __TotalTableID_JComboBox = new SimpleJComboBox ( 12, true ); // Allow edit.
+    __TotalTableID_JComboBox.setToolTipText("Table for output, can use ${Property} notation.");
+    //tableIDChoices.add(0,""); // Add blank to ignore table.
+    __TotalTableID_JComboBox.setData ( tableIDChoices );
+    __TotalTableID_JComboBox.addItemListener ( this );
+    __TotalTableID_JComboBox.getJTextComponent().addKeyListener ( this );
+    //__TotalTableID_JComboBox.setMaximumRowCount(tableIDChoices.size());
+    JGUIUtil.addComponent(output_JPanel, __TotalTableID_JComboBox,
+        1, yOutput, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(output_JPanel, new JLabel( "Optional - table for totalized output."),
+        3, yOutput, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("Total table output file:" ),
+        0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __TotalTableFile_JTextField = new JTextField ( 50 );
+    __TotalTableFile_JTextField.setToolTipText("Total table output file, can use ${Property} notation.");
+    __TotalTableFile_JTextField.addKeyListener ( this );
+    // Output file layout fights back with other rows so put in its own panel.
+	JPanel TotalTableFile_JPanel = new JPanel();
+	TotalTableFile_JPanel.setLayout(new GridBagLayout());
+    JGUIUtil.addComponent(TotalTableFile_JPanel, __TotalTableFile_JTextField,
+		0, 0, 1, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+	__browseTotalFile_JButton = new SimpleJButton ( "...", this );
+	__browseTotalFile_JButton.setToolTipText("Browse for file");
+    JGUIUtil.addComponent(TotalTableFile_JPanel, __browseTotalFile_JButton,
+		1, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.CENTER);
+	if ( __working_dir != null ) {
+		// Add the button to allow conversion to/from relative path.
+		__pathTotalFile_JButton = new SimpleJButton( __RemoveWorkingDirectory,this);
+		JGUIUtil.addComponent(TotalTableFile_JPanel, __pathTotalFile_JButton,
+			2, 0, 1, 1, 0.0, 0.0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	}
+	JGUIUtil.addComponent(output_JPanel, TotalTableFile_JPanel,
+		1, yOutput, 6, 1, 1.0, 0.0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(output_JPanel, new JLabel ("Total table row count property:"),
+        0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __TotalTableRowCountProperty_JTextField = new JTextField (40);
+    __TotalTableRowCountProperty_JTextField.setToolTipText("Property name for output table row count.");
+    __TotalTableRowCountProperty_JTextField.addKeyListener (this);
+    JGUIUtil.addComponent(output_JPanel, __TotalTableRowCountProperty_JTextField,
+        1, yOutput, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Optional - property for total table row count."),
+        3, yOutput, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Append output?:"),
 		0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
@@ -964,83 +1165,220 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
 		"Optional - append to output (default=" + __command._False + ")."),
 		3, yOutput, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(output_JPanel, new JLabel ("Row count property:"),
-        0, ++yOutput, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __OutputTableRowCountProperty_JTextField = new JTextField (20);
-    __OutputTableRowCountProperty_JTextField.setToolTipText("Property name for output table row count.");
-    __OutputTableRowCountProperty_JTextField.addKeyListener (this);
-    JGUIUtil.addComponent(output_JPanel, __OutputTableRowCountProperty_JTextField,
-        1, yOutput, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(output_JPanel, new JLabel ( "Optional - property for output table row count."),
-        3, yOutput, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
-
-    // Panel for 'Time Series' parameters.
+    // Panel for 'Output Time Series' parameters.
     int yts = -1;
     JPanel ts_JPanel = new JPanel();
     ts_JPanel.setLayout( new GridBagLayout() );
-    __main_JTabbedPane.addTab ( "Time Series", ts_JPanel );
+    __main_JTabbedPane.addTab ( "Output Time Series", ts_JPanel );
 
-    JGUIUtil.addComponent(ts_JPanel, new JLabel ("Indicate whether time series output should be created."),
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ("Indicate whether grouped or total time series output should be created."),
 		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(ts_JPanel, new JLabel ("The time series interval will match the granularity."),
 		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(ts_JPanel, new JLabel ("Time series identifiers use the Cost Explorer data as follows by default:"),
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ("Time series identifiers use the Cost Explorer data to create unique values:"),
 		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(ts_JPanel, new JLabel ("  - group by tag name is used for the location type and tag value as the location ID"
-    	+ " (missing tag is shown using Unknown)"),
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ("  - can use a built-in format"),
 		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(ts_JPanel, new JLabel ("  - group by (dimension(s)) are used at the front of the data type, separated with dashes"),
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ("  - use " + this.__command._Auto + " for default that is useful to review available data"),
 		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(ts_JPanel, new JLabel ("  - metric is used at the end of the data type, separated with dash"),
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ("  - or specify a string using GROUPBY1, GROUPBYTAG1, GROUPBY1VALUE, GROUPBY2, GROUPBYTAG2, GROUPBY2VALUE, "
+    		+ "which will be replaced with data"),
+		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ("  - missing group by values, such as missing tags, by default are indicated by 'Unknown'"),
+		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ("  - see the command documentation for details"),
 		0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(ts_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yts, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(ts_JPanel, new JLabel ( "Create time series?:" ),
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ( "Create grouped time series?:" ),
         0, ++yts, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __CreateTimeSeries_JComboBox = new SimpleJComboBox ( false ); // Don't allow edit.
-    __CreateTimeSeries_JComboBox.setToolTipText("Create time series for the results?");
-    List<String> createTimeSeriesChoices = new ArrayList<>();
-    createTimeSeriesChoices.add("");
-    createTimeSeriesChoices.add(__command._False);
-    createTimeSeriesChoices.add(__command._True);
-    __CreateTimeSeries_JComboBox.setData ( createTimeSeriesChoices );
-    __CreateTimeSeries_JComboBox.addItemListener ( this );
-    __CreateTimeSeries_JComboBox.getJTextComponent().addKeyListener ( this );
-    JGUIUtil.addComponent(ts_JPanel, __CreateTimeSeries_JComboBox,
+    __CreateGroupedTimeSeries_JComboBox = new SimpleJComboBox ( false ); // Don't allow edit.
+    __CreateGroupedTimeSeries_JComboBox.setToolTipText("Create grouped time series for the results?");
+    List<String> createGroupedTimeSeriesChoices = new ArrayList<>();
+    createGroupedTimeSeriesChoices.add("");
+    createGroupedTimeSeriesChoices.add(__command._False);
+    createGroupedTimeSeriesChoices.add(__command._True);
+    __CreateGroupedTimeSeries_JComboBox.setData ( createGroupedTimeSeriesChoices );
+    __CreateGroupedTimeSeries_JComboBox.addItemListener ( this );
+    __CreateGroupedTimeSeries_JComboBox.getJTextComponent().addKeyListener ( this );
+    JGUIUtil.addComponent(ts_JPanel, __CreateGroupedTimeSeries_JComboBox,
         1, yts, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(ts_JPanel, new JLabel( "Optional - whether to create time series (default=" + __command._False + ")."),
+    JGUIUtil.addComponent(ts_JPanel, new JLabel( "Optional - whether to create grouped time series (default=" + __command._False + ")."),
         3, yts, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(ts_JPanel, new JLabel ( "Time series location ID:" ),
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ( "Grouped time series location ID:" ),
         0, ++yts, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __TimeSeriesLocationID_JComboBox = new SimpleJComboBox ( false ); // Don't allow edit.
-    __TimeSeriesLocationID_JComboBox.setToolTipText("Location ID for time series.");
+    __GroupedTimeSeriesLocationID_JComboBox = new SimpleJComboBox ( 30, true ); // Do allow edit.
+    __GroupedTimeSeriesLocationID_JComboBox.setToolTipText(
+    	"Location ID for grouped time series, use a built-in format or can be a string containing "
+    	+ "GROUPBY1, GROUPBYTAG1, GROUPBY1VALUE, GROUPBY2, GROUPBYTAG2, GROUPBY2VALUE");
     List<String> locationIdChoices = new ArrayList<>();
     locationIdChoices.add("");
     locationIdChoices.add(__command._Auto);
     locationIdChoices.add(__command._GroupBy1);
     locationIdChoices.add(__command._GroupBy2);
     //locationIdChoices.add(__command._GroupBy3);
-    __TimeSeriesLocationID_JComboBox.setData ( locationIdChoices );
-    __TimeSeriesLocationID_JComboBox.addItemListener ( this );
-    __TimeSeriesLocationID_JComboBox.getJTextComponent().addKeyListener ( this );
-    JGUIUtil.addComponent(ts_JPanel, __TimeSeriesLocationID_JComboBox,
+    __GroupedTimeSeriesLocationID_JComboBox.setData ( locationIdChoices );
+    __GroupedTimeSeriesLocationID_JComboBox.addItemListener ( this );
+    __GroupedTimeSeriesLocationID_JComboBox.getJTextComponent().addKeyListener ( this );
+    JGUIUtil.addComponent(ts_JPanel, __GroupedTimeSeriesLocationID_JComboBox,
         1, yts, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
-    JGUIUtil.addComponent(ts_JPanel, new JLabel( "Optional - location ID for time series (default=" + __command._Auto + ")."),
+    JGUIUtil.addComponent(ts_JPanel, new JLabel( "Optional - location ID for grouped time series (default=" + __command._Auto + ")."),
         3, yts, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-    JGUIUtil.addComponent(ts_JPanel, new JLabel("Alias to assign:"),
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ( "Grouped time series data type:" ),
         0, ++yts, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __Alias_JTextField = new TSFormatSpecifiersJPanel(10);
-    __Alias_JTextField.setToolTipText("Use %L for location, %T for data type, %I for interval.");
-    __Alias_JTextField.addKeyListener ( this );
-    __Alias_JTextField.getDocument().addDocumentListener(this);
-    __Alias_JTextField.setToolTipText("%L for location, %T for data type.");
-    JGUIUtil.addComponent(ts_JPanel, __Alias_JTextField,
+    __GroupedTimeSeriesDataType_JComboBox = new SimpleJComboBox ( 30, true ); // Do allow edit.
+    __GroupedTimeSeriesDataType_JComboBox.setToolTipText(
+    	"Data type for grouped time series, use a built-in format or can be a string containing "
+    	+ "GROUPBY1, GROUPBYTAG1, GROUPBY1VALUE, GROUPBY2, GROUPBYTAG2, GROUPBY2VALUE");
+    List<String> dataTypeChoices = new ArrayList<>();
+    dataTypeChoices.add("");
+    dataTypeChoices.add(__command._Auto);
+    dataTypeChoices.add(__command._GroupBy1);
+    dataTypeChoices.add(__command._GroupBy2);
+    __GroupedTimeSeriesDataType_JComboBox.setData ( dataTypeChoices );
+    __GroupedTimeSeriesDataType_JComboBox.addItemListener ( this );
+    __GroupedTimeSeriesDataType_JComboBox.getJTextComponent().addKeyListener ( this );
+    JGUIUtil.addComponent(ts_JPanel, __GroupedTimeSeriesDataType_JComboBox,
+        1, yts, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel( "Optional - grouped time series data type (default=" + __command._Auto + ")."),
+        3, yts, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(ts_JPanel, new JLabel("Grouped time series alias to assign:"),
+        0, ++yts, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __GroupedTimeSeriesAlias_JTextField = new TSFormatSpecifiersJPanel(10);
+    __GroupedTimeSeriesAlias_JTextField.setToolTipText("Grouped time series alias, use %L for location, %T for data type, %I for interval.");
+    __GroupedTimeSeriesAlias_JTextField.addKeyListener ( this );
+    __GroupedTimeSeriesAlias_JTextField.getDocument().addDocumentListener(this);
+    JGUIUtil.addComponent(ts_JPanel, __GroupedTimeSeriesAlias_JTextField,
         1, yts, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
     JGUIUtil.addComponent(ts_JPanel, new JLabel ("Optional - use %L for location, etc. (default=no alias)."),
         3, yts, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ( "Group by missing value:"),
+        0, ++yts, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __TimeSeriesMissingGroupBy_JTextField = new JTextField (10);
+    __TimeSeriesMissingGroupBy_JTextField.setToolTipText("Data value to use for missing GroupBy values (e.g., Unknown), can use ${Property} syntax.");
+    __TimeSeriesMissingGroupBy_JTextField.addKeyListener (this);
+    JGUIUtil.addComponent(ts_JPanel, __TimeSeriesMissingGroupBy_JTextField,
+        1, yts, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ( "Optional - group by missing value (default=" + this.__command._Unknown + ")."),
+        3, yts, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ( "Create total time series?:" ),
+        0, ++yts, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __CreateTotalTimeSeries_JComboBox = new SimpleJComboBox ( false ); // Don't allow edit.
+    __CreateTotalTimeSeries_JComboBox.setToolTipText("Create grouped time series for the results?");
+    List<String> createTotalTimeSeriesChoices = new ArrayList<>();
+    createTotalTimeSeriesChoices.add("");
+    createTotalTimeSeriesChoices.add(__command._False);
+    createTotalTimeSeriesChoices.add(__command._True);
+    __CreateTotalTimeSeries_JComboBox.setData ( createTotalTimeSeriesChoices );
+    __CreateTotalTimeSeries_JComboBox.addItemListener ( this );
+    __CreateTotalTimeSeries_JComboBox.getJTextComponent().addKeyListener ( this );
+    JGUIUtil.addComponent(ts_JPanel, __CreateTotalTimeSeries_JComboBox,
+        1, yts, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel( "Optional - whether to create total time series (default=" + __command._False + ")."),
+        3, yts, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ( "Total time series location ID:" ),
+        0, ++yts, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __TotalTimeSeriesLocationID_JTextField = new JTextField ( 20 );
+    __TotalTimeSeriesLocationID_JTextField.setToolTipText( "Location ID for total time series." );
+    __TotalTimeSeriesLocationID_JTextField.addKeyListener ( this );
+    JGUIUtil.addComponent(ts_JPanel, __TotalTimeSeriesLocationID_JTextField,
+        1, yts, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel( "Optional - location ID for total time series (default=" + __command._Total + ")."),
+        3, yts, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ( "Total time series data type:" ),
+        0, ++yts, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __TotalTimeSeriesDataType_JComboBox = new SimpleJComboBox ( 30, true ); // Do allow edit.
+    __TotalTimeSeriesDataType_JComboBox.setToolTipText(
+    	"Data type for grouped time series, use a built-in format or can be a string containing "
+    	+ "GROUPBY1, GROUPBYTAG1, GROUPBY1VALUE, GROUPBY2, GROUPBYTAG2, GROUPBY2VALUE");
+    List<String> totalDataTypeChoices = new ArrayList<>();
+    totalDataTypeChoices.add("");
+    totalDataTypeChoices.add(__command._Auto);
+    __TotalTimeSeriesDataType_JComboBox.setData ( totalDataTypeChoices );
+    __TotalTimeSeriesDataType_JComboBox.addItemListener ( this );
+    __TotalTimeSeriesDataType_JComboBox.getJTextComponent().addKeyListener ( this );
+    JGUIUtil.addComponent(ts_JPanel, __TotalTimeSeriesDataType_JComboBox,
+        1, yts, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel( "Optional - total time series data type (default=" + __command._Auto + ")."),
+        3, yts, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(ts_JPanel, new JLabel("Total time series alias to assign:"),
+        0, ++yts, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __TotalTimeSeriesAlias_JTextField = new TSFormatSpecifiersJPanel(10);
+    __TotalTimeSeriesAlias_JTextField.setToolTipText("Total time series alias, use %L for location, %T for data type, %I for interval.");
+    __TotalTimeSeriesAlias_JTextField.addKeyListener ( this );
+    __TotalTimeSeriesAlias_JTextField.getDocument().addDocumentListener(this);
+    JGUIUtil.addComponent(ts_JPanel, __TotalTimeSeriesAlias_JTextField,
+        1, yts, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(ts_JPanel, new JLabel ("Optional - use %L for location, etc. (default=no alias)."),
+        3, yts, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+    // Panel for 'Output Service Properties' parameters.
+    int yProps = -1;
+    JPanel props_JPanel = new JPanel();
+    props_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "Output Service Properties", props_JPanel );
+
+    JGUIUtil.addComponent(props_JPanel, new JLabel (
+    	"The following parameters specify the output for service properties, focusing on high-cost services."),
+		0, ++yProps, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(props_JPanel, new JLabel ("For example, use the data to identify services that are not tagged."),
+		0, ++yProps, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(props_JPanel, new JLabel (
+    	"Zero or more Elastic Block Storage (EBS) snapshots and Amazon Machine Images (AMIs) may exist for an EC2 instance and are listed separately."),
+		0, ++yProps, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(props_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yProps, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(props_JPanel, new JLabel ( "EC2 properties table ID:" ),
+        0, ++yProps, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __EC2PropertiesTableID_JComboBox = new SimpleJComboBox ( 12, true ); // Allow edit.
+    __EC2PropertiesTableID_JComboBox.setToolTipText("Table for EC2 service properties, can use ${Property} notation.");
+    //ec2PropsTableIDChoices.add(0,""); // Add blank to ignore table.
+    __EC2PropertiesTableID_JComboBox.setData ( tableIDChoices );
+    __EC2PropertiesTableID_JComboBox.addItemListener ( this );
+    __EC2PropertiesTableID_JComboBox.getJTextComponent().addKeyListener ( this );
+    //__EC2PropertiesTableID_JComboBox.setMaximumRowCount(tableIDChoices.size());
+    JGUIUtil.addComponent(props_JPanel, __EC2PropertiesTableID_JComboBox,
+        1, yProps, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(props_JPanel, new JLabel( "Optional - table for EC2 service properties list."),
+        3, yProps, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(props_JPanel, new JLabel ( "EBS snapshots table ID:" ),
+        0, ++yProps, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __EBSSnapshotsTableID_JComboBox = new SimpleJComboBox ( 12, true ); // Allow edit.
+    __EBSSnapshotsTableID_JComboBox.setToolTipText("Table for EC2 snapshots, can use ${Property} notation.");
+    //tableIDChoices.add(0,""); // Add blank to ignore table.
+    __EBSSnapshotsTableID_JComboBox.setData ( tableIDChoices );
+    __EBSSnapshotsTableID_JComboBox.addItemListener ( this );
+    __EBSSnapshotsTableID_JComboBox.getJTextComponent().addKeyListener ( this );
+    //__EBSSnapshotsTableID_JComboBox.setMaximumRowCount(tableIDChoices.size());
+    JGUIUtil.addComponent(props_JPanel, __EBSSnapshotsTableID_JComboBox,
+        1, yProps, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(props_JPanel, new JLabel( "Optional - table for EC2 snapshots list."),
+        3, yProps, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(props_JPanel, new JLabel ( "EC2 images table ID:" ),
+        0, ++yProps, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __EC2ImagesTableID_JComboBox = new SimpleJComboBox ( 12, true ); // Allow edit.
+    __EC2ImagesTableID_JComboBox.setToolTipText("Table for EC2 images, can use ${Property} notation.");
+    //tableIDChoices.add(0,""); // Add blank to ignore table.
+    __EC2ImagesTableID_JComboBox.setData ( tableIDChoices );
+    __EC2ImagesTableID_JComboBox.addItemListener ( this );
+    __EC2ImagesTableID_JComboBox.getJTextComponent().addKeyListener ( this );
+    //__EC2ImagesTableID_JComboBox.setMaximumRowCount(tableIDChoices.size());
+    JGUIUtil.addComponent(props_JPanel, __EC2ImagesTableID_JComboBox,
+        1, yProps, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(props_JPanel, new JLabel( "Optional - table for EC2 images list."),
+        3, yProps, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     JGUIUtil.addComponent(main_JPanel, new JLabel ( "Command:" ),
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
@@ -1052,7 +1390,7 @@ private void initialize ( JFrame parent, AwsBilling_Command command, List<String
 	JGUIUtil.addComponent(main_JPanel, new JScrollPane(__command_JTextArea),
 		1, y, 8, 1, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
 
-	// South Panel: North
+	// Panel for buttons.
 	JPanel button_JPanel = new JPanel();
 	button_JPanel.setLayout(new FlowLayout(FlowLayout.CENTER));
         JGUIUtil.addComponent(main_JPanel, button_JPanel,
@@ -1141,6 +1479,7 @@ private void refresh () {
 	// Cost Explorer Query.
 	String InputStart = "";
 	String InputEnd = "";
+	String TimeChunk = "";
 	String Granularity = "";
 	String GroupBy1 = "";
 	String GroupByTag1 = "";
@@ -1155,15 +1494,28 @@ private void refresh () {
 	String FilterRegions = "";
 	String FilterServices = "";
 	String FilterTags = "";
-	// Output.
-	String OutputTableID = "";
-	String OutputFile = "";
+	// Output Cost Tables.
+	String GroupedTableID = "";
+	String GroupedTableFile = "";
+	String GroupedTableRowCountProperty = "";
+	String TotalTableID = "";
+	String TotalTableFile = "";
+	String TotalTableRowCountProperty = "";
 	String AppendOutput = "";
-	String OutputTableRowCountProperty = "";
-	// Time series.
-	String CreateTimeSeries = "";
-	String TimeSeriesLocationID = "";
-	String Alias = "";
+	// Output Time Series.
+	String CreateGroupedTimeSeries = "";
+	String GroupedTimeSeriesLocationID = "";
+	String GroupedTimeSeriesDataType = "";
+	String GroupedTimeSeriesAlias = "";
+	String TimeSeriesMissingGroupBy = "";
+	String CreateTotalTimeSeries = "";
+	String TotalTimeSeriesLocationID = "";
+	String TotalTimeSeriesDataType = "";
+	String TotalTimeSeriesAlias = "";
+	// Output Service Properties.
+	String EC2PropertiesTableID = "";
+	String EBSSnapshotsTableID = "";
+	String EC2ImagesTableID = "";
 	//String IfInputNotFound = "";
     PropList parameters = null;
 
@@ -1178,6 +1530,7 @@ private void refresh () {
 		// Cost Explorer Query.
 		InputStart = parameters.getValue ( "InputStart" );
 		InputEnd = parameters.getValue ( "InputEnd" );
+		TimeChunk = parameters.getValue ( "TimeChunk" );
 		Granularity = parameters.getValue ( "Granularity" );
 		GroupBy1 = parameters.getValue ( "GroupBy1" );
 		GroupByTag1 = parameters.getValue ( "GroupByTag1" );
@@ -1192,15 +1545,28 @@ private void refresh () {
 		FilterRegions = parameters.getValue ( "FilterRegions" );
 		FilterServices = parameters.getValue ( "FilterServices" );
 		FilterTags = parameters.getValue ( "Tags" );
-		// Output.
-		OutputTableID = parameters.getValue ( "OutputTableID" );
-		OutputFile = parameters.getValue ( "OutputFile" );
+		// Output Cost Tables.
+		GroupedTableID = parameters.getValue ( "GroupedTableID" );
+		GroupedTableFile = parameters.getValue ( "GroupedTableFile" );
+		GroupedTableRowCountProperty = parameters.getValue ( "GroupedTableRowCountProperty" );
+		TotalTableID = parameters.getValue ( "TotalTableID" );
+		TotalTableFile = parameters.getValue ( "TotalTableFile" );
+		TotalTableRowCountProperty = parameters.getValue ( "TotalTableRowCountProperty" );
 		AppendOutput = parameters.getValue ( "AppendOutput" );
-		OutputTableRowCountProperty = parameters.getValue ( "OutputTableRowCountProperty" );
-		// Time Series.
-		CreateTimeSeries = parameters.getValue ( "CreateTimeSeries" );
-		TimeSeriesLocationID = parameters.getValue ( "TimeSeriesLocationID" );
-		Alias = parameters.getValue ( "Alias" );
+		// Output Time Series.
+		CreateGroupedTimeSeries = parameters.getValue ( "CreateGroupedTimeSeries" );
+		GroupedTimeSeriesLocationID = parameters.getValue ( "GroupedTimeSeriesLocationID" );
+		GroupedTimeSeriesDataType = parameters.getValue ( "GroupedTimeSeriesDataType" );
+		GroupedTimeSeriesAlias = parameters.getValue ( "GroupedTimeSeriesAlias" );
+		TimeSeriesMissingGroupBy = parameters.getValue ( "TimeSeriesMissingGroupBy" );
+		CreateTotalTimeSeries = parameters.getValue ( "CreateTotalTimeSeries" );
+		TotalTimeSeriesLocationID = parameters.getValue ( "TotalTimeSeriesLocationID" );
+		TotalTimeSeriesDataType = parameters.getValue ( "TotalTimeSeriesDataType" );
+		TotalTimeSeriesAlias = parameters.getValue ( "TotalTimeSeriesAlias" );
+		// Output Service Properties.
+		EC2PropertiesTableID = parameters.getValue ( "EC2PropertiesTableID" );
+		EBSSnapshotsTableID = parameters.getValue ( "EBSSnapshotsTableID" );
+		EC2ImagesTableID = parameters.getValue ( "EC2ImagesTableID" );
 		//IfInputNotFound = parameters.getValue ( "IfInputNotFound" );
 		if ( JGUIUtil.isSimpleJComboBoxItem(__Profile_JComboBox, Profile,JGUIUtil.NONE, null, null ) ) {
 			__Profile_JComboBox.select ( Profile );
@@ -1274,6 +1640,23 @@ private void refresh () {
 		}
 		if ( InputEnd != null ) {
 			__InputEnd_JTextField.setText ( InputEnd );
+		}
+		if ( JGUIUtil.isSimpleJComboBoxItem(__TimeChunk_JComboBox, TimeChunk,JGUIUtil.NONE, null, null ) ) {
+			__TimeChunk_JComboBox.select ( TimeChunk );
+		}
+		else {
+            if ( (TimeChunk == null) || TimeChunk.equals("") ) {
+				// New command...select the default.
+            	if ( __TimeChunk_JComboBox.getItemCount() > 0 ) {
+            		__TimeChunk_JComboBox.select ( 0 );
+            	}
+			}
+			else {
+				// Bad user command.
+				Message.printWarning ( 1, routine,
+				"Existing command references an invalid\n"+
+				"TimeChunk parameter \"" + TimeChunk + "\".  Select a value or Cancel." );
+			}
 		}
 		if ( JGUIUtil.isSimpleJComboBoxItem(__Granularity_JComboBox, Granularity,JGUIUtil.NONE, null, null ) ) {
 			__Granularity_JComboBox.select ( Granularity );
@@ -1386,28 +1769,57 @@ private void refresh () {
 		if ( FilterTags != null ) {
 			__FilterTags_JTextField.setText ( FilterTags );
 		}
-        if ( OutputTableID == null ) {
+		// Output Cost Tables.
+        if ( GroupedTableID == null ) {
             // Select default.
-            __OutputTableID_JComboBox.select ( 0 );
+            __GroupedTableID_JComboBox.select ( 0 );
         }
         else {
-            if ( JGUIUtil.isSimpleJComboBoxItem( __OutputTableID_JComboBox,OutputTableID, JGUIUtil.NONE, null, null ) ) {
-                __OutputTableID_JComboBox.select ( OutputTableID );
+            if ( JGUIUtil.isSimpleJComboBoxItem( __GroupedTableID_JComboBox,GroupedTableID, JGUIUtil.NONE, null, null ) ) {
+                __GroupedTableID_JComboBox.select ( GroupedTableID );
             }
             else {
                 // Creating new table so add in the first position.
-                if ( __OutputTableID_JComboBox.getItemCount() == 0 ) {
-                    __OutputTableID_JComboBox.add(OutputTableID);
+                if ( __GroupedTableID_JComboBox.getItemCount() == 0 ) {
+                    __GroupedTableID_JComboBox.add(GroupedTableID);
                 }
                 else {
-                    __OutputTableID_JComboBox.insert(OutputTableID, 0);
+                    __GroupedTableID_JComboBox.insert(GroupedTableID, 0);
                 }
-                __OutputTableID_JComboBox.select(0);
+                __GroupedTableID_JComboBox.select(0);
             }
         }
-        if ( OutputFile != null ) {
-            __OutputFile_JTextField.setText ( OutputFile );
+        if ( GroupedTableFile != null ) {
+            __GroupedTableFile_JTextField.setText ( GroupedTableFile );
         }
+		if ( GroupedTableRowCountProperty != null ) {
+			__GroupedTableRowCountProperty_JTextField.setText ( GroupedTableRowCountProperty );
+		}
+        if ( TotalTableID == null ) {
+            // Select default.
+            __TotalTableID_JComboBox.select ( 0 );
+        }
+        else {
+            if ( JGUIUtil.isSimpleJComboBoxItem( __TotalTableID_JComboBox,TotalTableID, JGUIUtil.NONE, null, null ) ) {
+                __TotalTableID_JComboBox.select ( TotalTableID );
+            }
+            else {
+                // Creating new table so add in the first position.
+                if ( __TotalTableID_JComboBox.getItemCount() == 0 ) {
+                    __TotalTableID_JComboBox.add(TotalTableID);
+                }
+                else {
+                    __TotalTableID_JComboBox.insert(TotalTableID, 0);
+                }
+                __TotalTableID_JComboBox.select(0);
+            }
+        }
+        if ( TotalTableFile != null ) {
+            __TotalTableFile_JTextField.setText ( TotalTableFile );
+        }
+		if ( TotalTableRowCountProperty != null ) {
+			__TotalTableRowCountProperty_JTextField.setText ( TotalTableRowCountProperty );
+		}
 		if ( JGUIUtil.isSimpleJComboBoxItem(__AppendOutput_JComboBox, AppendOutput,JGUIUtil.NONE, null, null ) ) {
 			__AppendOutput_JComboBox.select ( AppendOutput );
 		}
@@ -1423,51 +1835,172 @@ private void refresh () {
 				"AppendOutput parameter \"" + AppendOutput + "\".  Select a value or Cancel." );
 			}
 		}
-		if ( OutputTableRowCountProperty != null ) {
-			__OutputTableRowCountProperty_JTextField.setText ( OutputTableRowCountProperty );
-		}
-		// Time series.
-        if ( CreateTimeSeries == null ) {
+		// Output Time Series.
+        if ( CreateGroupedTimeSeries == null ) {
             // Select default.
-            __CreateTimeSeries_JComboBox.select ( 0 );
+            __CreateGroupedTimeSeries_JComboBox.select ( 0 );
         }
         else {
-            if ( JGUIUtil.isSimpleJComboBoxItem( __CreateTimeSeries_JComboBox,CreateTimeSeries, JGUIUtil.NONE, null, null ) ) {
-                __CreateTimeSeries_JComboBox.select ( CreateTimeSeries );
+            if ( JGUIUtil.isSimpleJComboBoxItem( __CreateGroupedTimeSeries_JComboBox,CreateGroupedTimeSeries, JGUIUtil.NONE, null, null ) ) {
+                __CreateGroupedTimeSeries_JComboBox.select ( CreateGroupedTimeSeries );
             }
             else {
                 // Creating new table so add in the first position.
-                if ( __CreateTimeSeries_JComboBox.getItemCount() == 0 ) {
-                    __CreateTimeSeries_JComboBox.add(CreateTimeSeries);
+                if ( __CreateGroupedTimeSeries_JComboBox.getItemCount() == 0 ) {
+                    __CreateGroupedTimeSeries_JComboBox.add(CreateGroupedTimeSeries);
                 }
                 else {
-                    __CreateTimeSeries_JComboBox.insert(CreateTimeSeries, 0);
+                    __CreateGroupedTimeSeries_JComboBox.insert(CreateGroupedTimeSeries, 0);
                 }
-                __CreateTimeSeries_JComboBox.select(0);
+                __CreateGroupedTimeSeries_JComboBox.select(0);
             }
         }
-        if ( TimeSeriesLocationID == null ) {
+        if ( GroupedTimeSeriesLocationID == null ) {
             // Select default.
-            __TimeSeriesLocationID_JComboBox.select ( 0 );
+            __GroupedTimeSeriesLocationID_JComboBox.select ( 0 );
         }
         else {
-            if ( JGUIUtil.isSimpleJComboBoxItem( __TimeSeriesLocationID_JComboBox,TimeSeriesLocationID, JGUIUtil.NONE, null, null ) ) {
-                __TimeSeriesLocationID_JComboBox.select ( TimeSeriesLocationID );
+            if ( JGUIUtil.isSimpleJComboBoxItem( __GroupedTimeSeriesLocationID_JComboBox,GroupedTimeSeriesLocationID, JGUIUtil.NONE, null, null ) ) {
+                __GroupedTimeSeriesLocationID_JComboBox.select ( GroupedTimeSeriesLocationID );
             }
             else {
                 // Creating new table so add in the first position.
-                if ( __TimeSeriesLocationID_JComboBox.getItemCount() == 0 ) {
-                    __TimeSeriesLocationID_JComboBox.add(TimeSeriesLocationID);
+                if ( __GroupedTimeSeriesLocationID_JComboBox.getItemCount() == 0 ) {
+                    __GroupedTimeSeriesLocationID_JComboBox.add(GroupedTimeSeriesLocationID);
                 }
                 else {
-                    __TimeSeriesLocationID_JComboBox.insert(TimeSeriesLocationID, 0);
+                    __GroupedTimeSeriesLocationID_JComboBox.insert(GroupedTimeSeriesLocationID, 0);
                 }
-                __TimeSeriesLocationID_JComboBox.select(0);
+                __GroupedTimeSeriesLocationID_JComboBox.select(0);
             }
         }
-	    if ( Alias != null ) {
-		    __Alias_JTextField.setText ( Alias );
+        if ( GroupedTimeSeriesDataType == null ) {
+            // Select default.
+            __GroupedTimeSeriesDataType_JComboBox.select ( 0 );
+        }
+        else {
+            if ( JGUIUtil.isSimpleJComboBoxItem( __GroupedTimeSeriesDataType_JComboBox,GroupedTimeSeriesDataType, JGUIUtil.NONE, null, null ) ) {
+                __GroupedTimeSeriesDataType_JComboBox.select ( GroupedTimeSeriesDataType );
+            }
+            else {
+                // Creating new table so add in the first position.
+                if ( __GroupedTimeSeriesDataType_JComboBox.getItemCount() == 0 ) {
+                    __GroupedTimeSeriesDataType_JComboBox.add(GroupedTimeSeriesDataType);
+                }
+                else {
+                    __GroupedTimeSeriesDataType_JComboBox.insert(GroupedTimeSeriesDataType, 0);
+                }
+                __GroupedTimeSeriesDataType_JComboBox.select(0);
+            }
+        }
+	    if ( GroupedTimeSeriesAlias != null ) {
+		    __GroupedTimeSeriesAlias_JTextField.setText ( GroupedTimeSeriesAlias );
 	    }
+		if ( TimeSeriesMissingGroupBy != null ) {
+			__TimeSeriesMissingGroupBy_JTextField.setText ( TimeSeriesMissingGroupBy );
+		}
+        if ( CreateTotalTimeSeries == null ) {
+            // Select default.
+            __CreateTotalTimeSeries_JComboBox.select ( 0 );
+        }
+        else {
+            if ( JGUIUtil.isSimpleJComboBoxItem( __CreateTotalTimeSeries_JComboBox,CreateTotalTimeSeries, JGUIUtil.NONE, null, null ) ) {
+                __CreateTotalTimeSeries_JComboBox.select ( CreateTotalTimeSeries );
+            }
+            else {
+                // Creating new table so add in the first position.
+                if ( __CreateTotalTimeSeries_JComboBox.getItemCount() == 0 ) {
+                    __CreateTotalTimeSeries_JComboBox.add(CreateTotalTimeSeries);
+                }
+                else {
+                    __CreateTotalTimeSeries_JComboBox.insert(CreateTotalTimeSeries, 0);
+                }
+                __CreateTotalTimeSeries_JComboBox.select(0);
+            }
+        }
+        if ( TotalTimeSeriesLocationID != null ) {
+            __TotalTimeSeriesLocationID_JTextField.setText ( TotalTimeSeriesLocationID );
+        }
+        if ( TotalTimeSeriesDataType == null ) {
+            // Select default.
+            __TotalTimeSeriesDataType_JComboBox.select ( 0 );
+        }
+        else {
+            if ( JGUIUtil.isSimpleJComboBoxItem( __TotalTimeSeriesDataType_JComboBox,TotalTimeSeriesDataType, JGUIUtil.NONE, null, null ) ) {
+                __TotalTimeSeriesDataType_JComboBox.select ( TotalTimeSeriesDataType );
+            }
+            else {
+                // Creating new table so add in the first position.
+                if ( __TotalTimeSeriesDataType_JComboBox.getItemCount() == 0 ) {
+                    __TotalTimeSeriesDataType_JComboBox.add(TotalTimeSeriesDataType);
+                }
+                else {
+                    __TotalTimeSeriesDataType_JComboBox.insert(TotalTimeSeriesDataType, 0);
+                }
+                __TotalTimeSeriesDataType_JComboBox.select(0);
+            }
+        }
+	    if ( TotalTimeSeriesAlias != null ) {
+		    __TotalTimeSeriesAlias_JTextField.setText ( TotalTimeSeriesAlias );
+	    }
+		// Output Service Properties.
+        if ( EC2PropertiesTableID == null ) {
+            // Select default.
+            __EC2PropertiesTableID_JComboBox.select ( 0 );
+        }
+        else {
+            if ( JGUIUtil.isSimpleJComboBoxItem( __EC2PropertiesTableID_JComboBox,EC2PropertiesTableID, JGUIUtil.NONE, null, null ) ) {
+                __EC2PropertiesTableID_JComboBox.select ( EC2PropertiesTableID );
+            }
+            else {
+                // Creating new table so add in the first position.
+                if ( __EC2PropertiesTableID_JComboBox.getItemCount() == 0 ) {
+                    __EC2PropertiesTableID_JComboBox.add(EC2PropertiesTableID);
+                }
+                else {
+                    __EC2PropertiesTableID_JComboBox.insert(EC2PropertiesTableID, 0);
+                }
+                __EC2PropertiesTableID_JComboBox.select(0);
+            }
+        }
+        if ( EBSSnapshotsTableID == null ) {
+            // Select default.
+            __EBSSnapshotsTableID_JComboBox.select ( 0 );
+        }
+        else {
+            if ( JGUIUtil.isSimpleJComboBoxItem( __EBSSnapshotsTableID_JComboBox,EBSSnapshotsTableID, JGUIUtil.NONE, null, null ) ) {
+                __EBSSnapshotsTableID_JComboBox.select ( EBSSnapshotsTableID );
+            }
+            else {
+                // Creating new table so add in the first position.
+                if ( __EBSSnapshotsTableID_JComboBox.getItemCount() == 0 ) {
+                    __EBSSnapshotsTableID_JComboBox.add(EBSSnapshotsTableID);
+                }
+                else {
+                    __EBSSnapshotsTableID_JComboBox.insert(EBSSnapshotsTableID, 0);
+                }
+                __EBSSnapshotsTableID_JComboBox.select(0);
+            }
+        }
+        if ( EC2ImagesTableID == null ) {
+            // Select default.
+            __EC2ImagesTableID_JComboBox.select ( 0 );
+        }
+        else {
+            if ( JGUIUtil.isSimpleJComboBoxItem( __EC2ImagesTableID_JComboBox,EC2ImagesTableID, JGUIUtil.NONE, null, null ) ) {
+                __EC2ImagesTableID_JComboBox.select ( EC2ImagesTableID );
+            }
+            else {
+                // Creating new table so add in the first position.
+                if ( __EC2ImagesTableID_JComboBox.getItemCount() == 0 ) {
+                    __EC2ImagesTableID_JComboBox.add(EC2ImagesTableID);
+                }
+                else {
+                    __EC2ImagesTableID_JComboBox.insert(EC2ImagesTableID, 0);
+                }
+                __EC2ImagesTableID_JComboBox.select(0);
+            }
+        }
         /*
 		if ( JGUIUtil.isSimpleJComboBoxItem(__IfInputNotFound_JComboBox, IfInputNotFound,JGUIUtil.NONE, null, null ) ) {
 			__IfInputNotFound_JComboBox.select ( IfInputNotFound );
@@ -1497,6 +2030,7 @@ private void refresh () {
 	// Cost Explorer Query.
 	InputStart = __InputStart_JTextField.getText().trim();
 	InputEnd = __InputEnd_JTextField.getText().trim();
+	TimeChunk = __TimeChunk_JComboBox.getSelected();
 	Granularity = __Granularity_JComboBox.getSelected();
 	GroupBy1 = __GroupBy1_JComboBox.getSelected();
 	GroupByTag1 = __GroupByTag1_JTextField.getText().trim();
@@ -1511,15 +2045,28 @@ private void refresh () {
 	FilterRegions = __FilterRegions_JTextField.getText().trim();
 	FilterServices = __FilterServices_JTextField.getText().trim();
 	FilterTags = __FilterTags_JTextField.getText().trim();
-	// Output.
-	OutputTableID = __OutputTableID_JComboBox.getSelected();
-	OutputFile = __OutputFile_JTextField.getText().trim();
+	// Output Cost Tables.
+	GroupedTableID = __GroupedTableID_JComboBox.getSelected();
+	GroupedTableFile = __GroupedTableFile_JTextField.getText().trim();
+	GroupedTableRowCountProperty = __GroupedTableRowCountProperty_JTextField.getText().trim();
+	TotalTableID = __TotalTableID_JComboBox.getSelected();
+	TotalTableFile = __TotalTableFile_JTextField.getText().trim();
+	TotalTableRowCountProperty = __TotalTableRowCountProperty_JTextField.getText().trim();
 	AppendOutput = __AppendOutput_JComboBox.getSelected();
-	OutputTableRowCountProperty = __OutputTableRowCountProperty_JTextField.getText().trim();
-	// Time series.
-	CreateTimeSeries = __CreateTimeSeries_JComboBox.getSelected();
-	TimeSeriesLocationID = __TimeSeriesLocationID_JComboBox.getSelected();
-	Alias = __Alias_JTextField.getText().trim();
+	// Output Time Series.
+	CreateGroupedTimeSeries = __CreateGroupedTimeSeries_JComboBox.getSelected();
+	GroupedTimeSeriesLocationID = __GroupedTimeSeriesLocationID_JComboBox.getSelected();
+	GroupedTimeSeriesDataType = __GroupedTimeSeriesDataType_JComboBox.getSelected();
+	GroupedTimeSeriesAlias = __GroupedTimeSeriesAlias_JTextField.getText().trim();
+	TimeSeriesMissingGroupBy = __TimeSeriesMissingGroupBy_JTextField.getText().trim();
+	CreateTotalTimeSeries = __CreateTotalTimeSeries_JComboBox.getSelected();
+	TotalTimeSeriesLocationID = __TotalTimeSeriesLocationID_JTextField.getText().trim();
+	TotalTimeSeriesDataType = __TotalTimeSeriesDataType_JComboBox.getSelected();
+	TotalTimeSeriesAlias = __TotalTimeSeriesAlias_JTextField.getText().trim();
+	// Output Service Properties.
+	EC2PropertiesTableID = __EC2PropertiesTableID_JComboBox.getSelected();
+	EBSSnapshotsTableID = __EBSSnapshotsTableID_JComboBox.getSelected();
+	EC2ImagesTableID = __EC2ImagesTableID_JComboBox.getSelected();
 	//IfInputNotFound = __IfInputNotFound_JComboBox.getSelected();
     // General.
 	PropList props = new PropList ( __command.getCommandName() );
@@ -1528,6 +2075,7 @@ private void refresh () {
 	// Cost Explorer Query.
 	props.add ( "InputStart=" + InputStart );
 	props.add ( "InputEnd=" + InputEnd );
+	props.add ( "TimeChunk=" + TimeChunk );
 	props.add ( "Granularity=" + Granularity );
 	props.add ( "GroupBy1=" + GroupBy1 );
 	props.add ( "GroupByTag1=" + GroupByTag1 );
@@ -1542,36 +2090,66 @@ private void refresh () {
 	props.add ( "FilterRegions=" + FilterRegions );
 	props.add ( "FilterServices=" + FilterServices );
 	props.add ( "FilterTags=" + FilterTags );
-	// Output.
-	props.add ( "OutputTableID=" + OutputTableID );
-	props.add ( "OutputFile=" + OutputFile );
+	// Output Cost Tables.
+	props.add ( "GroupedTableID=" + GroupedTableID );
+	props.add ( "GroupedTableFile=" + GroupedTableFile );
+	props.add ( "GroupedTableRowCountProperty=" + GroupedTableRowCountProperty );
+	props.add ( "TotalTableID=" + TotalTableID );
+	props.add ( "TotalTableFile=" + TotalTableFile );
+	props.add ( "TotalTableRowCountProperty=" + TotalTableRowCountProperty );
 	props.add ( "AppendOutput=" + AppendOutput );
-	props.add ( "OutputTableRowCountProperty=" + OutputTableRowCountProperty );
-	// Time series.
-	props.add ( "CreateTimeSeries=" + CreateTimeSeries );
-	props.add ( "TimeSeriesLocationID=" + TimeSeriesLocationID );
-	props.add ( "Alias=" + Alias );
+	// Output Time Series.
+	props.add ( "CreateGroupedTimeSeries=" + CreateGroupedTimeSeries );
+	props.add ( "GroupedTimeSeriesLocationID=" + GroupedTimeSeriesLocationID );
+	props.add ( "GroupedTimeSeriesDataType=" + GroupedTimeSeriesDataType );
+	props.add ( "GroupedTimeSeriesAlias=" + GroupedTimeSeriesAlias );
+	props.add ( "TimeSeriesMissingGroupBy=" + TimeSeriesMissingGroupBy );
+	props.add ( "CreateTotalTimeSeries=" + CreateTotalTimeSeries );
+	props.add ( "TotalTimeSeriesLocationID=" + TotalTimeSeriesLocationID );
+	props.add ( "TotalTimeSeriesDataType=" + TotalTimeSeriesDataType );
+	props.add ( "TotalTimeSeriesAlias=" + TotalTimeSeriesAlias );
+	// Output Service Properties.
+	props.add ( "EC2PropertiesTableID=" + EC2PropertiesTableID );
+	props.add ( "EBSSnapshotsTableID=" + EBSSnapshotsTableID );
+	props.add ( "EC2ImagesTableID=" + EC2ImagesTableID );
 	//props.add ( "IfInputNotFound=" + IfInputNotFound );
 	__command_JTextArea.setText( __command.toString(props).trim() );
 	// Set the default values as FYI.
 	awsToolkit.uiPopulateProfileDefault(__ProfileDefault_JTextField, __ProfileDefaultNote_JLabel);
 	awsToolkit.uiPopulateRegionDefault( __Profile_JComboBox.getSelected(), __RegionDefault_JTextField, __RegionDefaultNote_JLabel);
 	// Check the path and determine what the label on the path button should be.
-    if ( __pathOutput_JButton != null ) {
-		if ( (OutputFile != null) && !OutputFile.isEmpty() ) {
-			__pathOutput_JButton.setEnabled ( true );
-			File f = new File ( OutputFile );
+    if ( __pathGroupedFile_JButton != null ) {
+		if ( (GroupedTableFile != null) && !GroupedTableFile.isEmpty() ) {
+			__pathGroupedFile_JButton.setEnabled ( true );
+			File f = new File ( GroupedTableFile );
 			if ( f.isAbsolute() ) {
-				__pathOutput_JButton.setText ( __RemoveWorkingDirectory );
-				__pathOutput_JButton.setToolTipText("Change path to relative to command file");
+				__pathGroupedFile_JButton.setText ( __RemoveWorkingDirectory );
+				__pathGroupedFile_JButton.setToolTipText("Change path to relative to command file");
 			}
 			else {
-            	__pathOutput_JButton.setText ( __AddWorkingDirectory );
-            	__pathOutput_JButton.setToolTipText("Change path to absolute");
+            	__pathGroupedFile_JButton.setText ( __AddWorkingDirectory );
+            	__pathGroupedFile_JButton.setToolTipText("Change path to absolute");
 			}
 		}
 		else {
-			__pathOutput_JButton.setEnabled(false);
+			__pathGroupedFile_JButton.setEnabled(false);
+		}
+    }
+    if ( __pathTotalFile_JButton != null ) {
+		if ( (TotalTableFile != null) && !TotalTableFile.isEmpty() ) {
+			__pathTotalFile_JButton.setEnabled ( true );
+			File f = new File ( TotalTableFile );
+			if ( f.isAbsolute() ) {
+				__pathTotalFile_JButton.setText ( __RemoveWorkingDirectory );
+				__pathTotalFile_JButton.setToolTipText("Change path to relative to command file");
+			}
+			else {
+            	__pathTotalFile_JButton.setText ( __AddWorkingDirectory );
+            	__pathTotalFile_JButton.setToolTipText("Change path to absolute");
+			}
+		}
+		else {
+			__pathTotalFile_JButton.setEnabled(false);
 		}
     }
 }

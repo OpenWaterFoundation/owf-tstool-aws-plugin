@@ -54,6 +54,10 @@
       <artifactId>costexplorer</artifactId>
     </dependency>
     <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>ec2</artifactId>
+    </dependency>
+    <dependency>
       <!-- Needed for Cost Explorer Filter class -->
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>pricing</artifactId>
@@ -72,6 +76,10 @@
       <groupId>software.amazon.awssdk.crt</groupId>
       <artifactId>aws-crt</artifactId>
       <version>0.19.10</version>
+    </dependency>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>sts</artifactId>
     </dependency>
     <!--  =========================================== -->
     <!--  End AWS dependencies -->

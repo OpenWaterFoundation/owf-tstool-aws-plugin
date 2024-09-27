@@ -404,7 +404,7 @@ public void actionPerformed( ActionEvent event ) {
             "The local file is relative to the working folder:",
             "  " + this.__working_dir,
             "Specify the S3 bucket object key (S3 file path) to upload a file.",
-            "Use * in the 'Local File' to match a pattern and /* at the end of the 'Bucket Key' to use the same file name in the S3 bucket.",
+            "Use * in the 'Local File' to match a pattern and /* at the end of the 'S3 Bucket Object Key' to use the same file name in the S3 bucket.",
             "  For example, local=folder1/folder2/fileZ.txt and s3=foldera/folderb/* would save foldera/folderb/fileZ.txt on S3",
             "Only files can be uploaded with this parameter. Specify folders to upload with the 'UploadFolders' command parameter.",
             "The key is the full path for the bucket object.",
@@ -1248,7 +1248,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 		0, ++yListObjects, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     //String style = " style=\"border: 1px solid black; border-collapse: collapse; background-color: white;\"";
     String style = " style=\"border-collapse: collapse; border-spacing: 0px;\"";
-    String tableStyle = style; 
+    String tableStyle = style;
     String trStyle = "";
     String tdStyle = " style=\"border: 1px solid black; background-color: white;\"";
     String table =
