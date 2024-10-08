@@ -71,9 +71,30 @@ public class AwsEc2Properties {
 	String vpnConnectionId = "";
 
 	/**
-	 * Map of VPN tags.
+	 * VPN connection state.
 	 */
-	HashMap<String,String> vpnTagMap = new HashMap<>();
+	String vpnConnectionState = "";
+
+	/**
+	 * Map of VPN connection tags.
+	 */
+	HashMap<String,String> vpnConnectionTagMap = new HashMap<>();
+
+	/**
+	 * VPN customer gateway ID.
+	 */
+	String vpnCustomerGatewayId = "";
+
+	/**
+	 * VPN customer gateway outside IP.
+	 */
+	String vpnCustomerGatewayOutsideIp = "";
+
+	/**
+	 * VPN gateway ID.
+	 */
+	String vpnGatewayId = "";
+
 	
 	// Elastic IP properties.
 	
@@ -254,12 +275,44 @@ public class AwsEc2Properties {
 	}
 
 	/**
-	 * Get the VPN tag value.
+	 * Get the VPN connection state.
+	 * @return the VPN connection state.
+	 */
+	public String getVpnConnectionState () {
+		return this.vpnConnectionState;
+	}
+
+	/**
+	 * Get the VPN connection tag value.
 	 * @param tagName the tag name
 	 * @return get the tag value
 	 */
-	public String getVpnTagValue ( String tagName ) {
-		return this.vpnTagMap.get(tagName);
+	public String getVpnConnectionTagValue ( String tagName ) {
+		return this.vpnConnectionTagMap.get(tagName);
+	}
+
+	/**
+	 * Get the VPN customer gateway ID.
+	 * @return the VPN customer gateway ID.
+	 */
+	public String getVpnCustomerGatewayId () {
+		return this.vpnCustomerGatewayId;
+	}
+
+	/**
+	 * Get the VPN customer gateway outside IP.
+	 * @return the VPN customer gateway outside IP.
+	 */
+	public String getVpnCustomerGatewayOutsideIp () {
+		return this.vpnCustomerGatewayOutsideIp;
+	}
+
+	/**
+	 * Get the VPN gateway ID.
+	 * @return the VPN gateway ID.
+	 */
+	public String getVpnGatewayId () {
+		return this.vpnGatewayId;
 	}
 
 	/**
@@ -403,11 +456,43 @@ public class AwsEc2Properties {
 	}
 
 	/**
-	 * Set a VPN tag.
+	 * Set the VPN connection state.
+	 * @param vpcId the VPN connection state
+	 */
+	public void setVpnConnectionState ( String vpnConnectionState ) {
+		this.vpnConnectionState = vpnConnectionState;
+	}
+
+	/**
+	 * Set a VPN connection tag.
 	 * @param tagName tag name to set
 	 * @param tagValue tag value to set
 	 */
-	public void setVpnTag ( String tagName, String tagValue ) {
-		this.vpnTagMap.put ( tagName, tagValue );
+	public void setVpnConnectionTag ( String tagName, String tagValue ) {
+		this.vpnConnectionTagMap.put ( tagName, tagValue );
+	}
+
+	/**
+	 * Set the VPN customer gateway ID.
+	 * @param vpcId the VPN customer gateway ID
+	 */
+	public void setVpnCustomerGatewayId ( String vpnCustomerGatewayId ) {
+		this.vpnCustomerGatewayId = vpnCustomerGatewayId;
+	}
+
+	/**
+	 * Set the VPN customer gateway outside IP.
+	 * @param vpcId the VPN customer gateway outside IP
+	 */
+	public void setVpnCustomerGatewayOutsideIp ( String vpnCustomerGatewayOutsideIp ) {
+		this.vpnCustomerGatewayOutsideIp = vpnCustomerGatewayOutsideIp;
+	}
+
+	/**
+	 * Set the VPN gateway ID.
+	 * @param vpcId the VPN gateway ID
+	 */
+	public void setVpnGatewayId ( String vpnGatewayId ) {
+		this.vpnGatewayId = vpnGatewayId;
 	}
 }

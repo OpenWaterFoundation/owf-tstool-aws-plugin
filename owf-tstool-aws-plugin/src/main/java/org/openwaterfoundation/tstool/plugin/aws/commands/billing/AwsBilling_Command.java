@@ -1034,10 +1034,14 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    		tableColMap.put ( "EC2/InstanceIdCol", Integer.valueOf(-1) );
    		tableColMap.put ( "EC2/InstanceTypeCol", Integer.valueOf(-1) );
    		tableColMap.put ( "EC2/InstanceStateCol", Integer.valueOf(-1) );
+   		tableColMap.put ( "EBSVolume/IdCol", Integer.valueOf(-1) );
+   		tableColMap.put ( "ElasticIpCol", Integer.valueOf(-1) );
    		tableColMap.put ( "VPC/IdCol", Integer.valueOf(-1) );
    		tableColMap.put ( "VPN/ConnectionIdCol", Integer.valueOf(-1) );
-   		tableColMap.put ( "ElasticIpCol", Integer.valueOf(-1) );
-   		tableColMap.put ( "EBSVolume/IdCol", Integer.valueOf(-1) );
+   		tableColMap.put ( "VPN/ConnectionStateCol", Integer.valueOf(-1) );
+   		tableColMap.put ( "VPN/CustomerGatewayIdCol", Integer.valueOf(-1) );
+   		tableColMap.put ( "VPN/CustomerGatewayOutsideIpCol", Integer.valueOf(-1) );
+   		tableColMap.put ( "VPN/GatewayIdCol", Integer.valueOf(-1) );
    		for ( String tagName : ec2TagNameList ) {
    			tableColMap.put ( "EC2-Tag/" + tagName + "Col", Integer.valueOf(-1) );
    		}
@@ -1045,7 +1049,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    			tableColMap.put ( "VPC-Tag/" + tagName + "Col", Integer.valueOf(-1) );
    		}
    		for ( String tagName : vpnTagNameList ) {
-   			tableColMap.put ( "VPN-Tag/" + tagName + "Col", Integer.valueOf(-1) );
+   			tableColMap.put ( "VPNConnection-Tag/" + tagName + "Col", Integer.valueOf(-1) );
    		}
    		for ( String tagName : elasticIpTagNameList ) {
    			tableColMap.put ( "ElasticIp-Tag/" + tagName + "Col", Integer.valueOf(-1) );
@@ -1109,6 +1113,32 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    				tableColMap.put ( "EC2-Tag/" + tagName + "Col", Integer.valueOf(col) );
    			}
    		}
+   		// EBS volume columns.
+       	int ebsVolumeIdCol = servicePropertiesTable.getFieldIndex("EBSVolume/IdCol", false);
+       	if ( ebsVolumeIdCol < 0 ) {
+       		ebsVolumeIdCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "EBSVolume/Id", -1), "");
+         	tableColMap.put("EBSVolume/IdCol", Integer.valueOf(ebsVolumeIdCol));
+       	}
+   		for ( String tagName : ebsVolumeTagNameList ) {
+   			int col = servicePropertiesTable.getFieldIndex(tagName, false);
+   			if ( col < 0 ) {
+   				col = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "EBSVolume-Tag/" + tagName, -1), "");
+   				tableColMap.put ( "EBSVolume-Tag/" + tagName + "Col", Integer.valueOf(col) );
+   			}
+   		}
+   		// Elastic IP columns.
+       	int elasticIpCol = servicePropertiesTable.getFieldIndex("ElasticIp", false);
+       	if ( elasticIpCol < 0 ) {
+       		elasticIpCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "ElasticIp", -1), "");
+         	tableColMap.put("ElasticIpCol", Integer.valueOf(elasticIpCol));
+       	}
+   		for ( String tagName : elasticIpTagNameList ) {
+   			int col = servicePropertiesTable.getFieldIndex(tagName, false);
+   			if ( col < 0 ) {
+   				col = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "ElasticIp-Tag/" + tagName, -1), "");
+   				tableColMap.put ( "ElasticIp-Tag/" + tagName + "Col", Integer.valueOf(col) );
+   			}
+   		}
    		// VPC columns.
        	int vpcIdCol = servicePropertiesTable.getFieldIndex("VPC/IdCol", false);
        	if ( vpcIdCol < 0 ) {
@@ -1128,37 +1158,31 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
        		vpnConnectionIdCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "VPN/ConnectionId", -1), "");
          	tableColMap.put("VPN/ConnectionIdCol", Integer.valueOf(vpnConnectionIdCol));
        	}
+       	int vpnConnectionStateCol = servicePropertiesTable.getFieldIndex("VPN/ConnectionStateCol", false);
+       	if ( vpnConnectionStateCol < 0 ) {
+       		vpnConnectionStateCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "VPN/ConnectionState", -1), "");
+         	tableColMap.put("VPN/ConnectionStateCol", Integer.valueOf(vpnConnectionStateCol));
+       	}
+       	int vpnCustomerGatewayIdCol = servicePropertiesTable.getFieldIndex("VPN/CustomerGatewayIdCol", false);
+       	if ( vpnCustomerGatewayIdCol < 0 ) {
+       		vpnCustomerGatewayIdCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "VPN/CustomerGatewayId", -1), "");
+         	tableColMap.put("VPN/CustomerGatewayIdCol", Integer.valueOf(vpnCustomerGatewayIdCol));
+       	}
+       	int vpnCustomerGatewayOutsideIpCol = servicePropertiesTable.getFieldIndex("VPN/CustomerGatewayOutsideIpCol", false);
+       	if ( vpnCustomerGatewayOutsideIpCol < 0 ) {
+       		vpnCustomerGatewayOutsideIpCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "VPN/CustomerGatewayOutsideIp", -1), "");
+         	tableColMap.put("VPN/CustomerGatewayOutsideIpCol", Integer.valueOf(vpnCustomerGatewayOutsideIpCol));
+       	}
+       	int vpnGatewayIdCol = servicePropertiesTable.getFieldIndex("VPN/GatewayIdCol", false);
+       	if ( vpnGatewayIdCol < 0 ) {
+       		vpnGatewayIdCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "VPN/GatewayId", -1), "");
+         	tableColMap.put("VPN/GatewayIdCol", Integer.valueOf(vpnGatewayIdCol));
+       	}
    		for ( String tagName : vpnTagNameList ) {
    			int col = servicePropertiesTable.getFieldIndex(tagName, false);
    			if ( col < 0 ) {
-   				col = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "VPN-Tag/" + tagName, -1), "");
-   				tableColMap.put ( "VPN-Tag/" + tagName + "Col", Integer.valueOf(col) );
-   			}
-   		}
-   		// Elastic IP columns.
-       	int elasticIpCol = servicePropertiesTable.getFieldIndex("ElasticIp", false);
-       	if ( elasticIpCol < 0 ) {
-       		elasticIpCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "ElasticIp", -1), "");
-         	tableColMap.put("ElasticIpCol", Integer.valueOf(elasticIpCol));
-       	}
-   		for ( String tagName : elasticIpTagNameList ) {
-   			int col = servicePropertiesTable.getFieldIndex(tagName, false);
-   			if ( col < 0 ) {
-   				col = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "ElasticIp-Tag/" + tagName, -1), "");
-   				tableColMap.put ( "ElasticIp-Tag/" + tagName + "Col", Integer.valueOf(col) );
-   			}
-   		}
-   		// EBS volume columns.
-       	int ebsVolumeIdCol = servicePropertiesTable.getFieldIndex("EBSVolume/IdCol", false);
-       	if ( ebsVolumeIdCol < 0 ) {
-       		ebsVolumeIdCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "EBSVolume/Id", -1), "");
-         	tableColMap.put("EBSVolume/IdCol", Integer.valueOf(ebsVolumeIdCol));
-       	}
-   		for ( String tagName : ebsVolumeTagNameList ) {
-   			int col = servicePropertiesTable.getFieldIndex(tagName, false);
-   			if ( col < 0 ) {
-   				col = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "EBSVolume-Tag/" + tagName, -1), "");
-   				tableColMap.put ( "EBSVolume-Tag/" + tagName + "Col", Integer.valueOf(col) );
+   				col = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "VPNConnection-Tag/" + tagName, -1), "");
+   				tableColMap.put ( "VPNConnection-Tag/" + tagName + "Col", Integer.valueOf(col) );
    			}
    		}
 	}
@@ -2481,7 +2505,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         // - save the service properties to get a comprehensive list of relevant metadata and tags
         List<String> ec2TagNameList = new ArrayList<>();
         List<String> vpcTagNameList = new ArrayList<>();
-        List<String> vpnTagNameList = new ArrayList<>();
+        List<String> vpnConnectionTagNameList = new ArrayList<>();
         List<String> elasticIpTagNameList = new ArrayList<>();
         List<String> ebsVolumeTagNameList = new ArrayList<>();
         List<AwsEc2Properties> serviceProperties = new ArrayList<>();
@@ -2590,19 +2614,23 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
                            Message.printStatus(2,routine,"Virtual Private Gateway ID: " + vpnConnection.vpnGatewayId());
 
                            props.setVpnConnectionId(vpnConnection.vpnConnectionId() );
+                           props.setVpnConnectionState(vpnConnection.stateAsString() );
+                           props.setVpnCustomerGatewayId(vpnConnection.customerGatewayId() );
+                           props.setVpnGatewayId(vpnConnection.vpnGatewayId() );
+                           props.setVpnCustomerGatewayOutsideIp(vpnConnection.customerGatewayConfiguration() );
                                
                            // Set tags for the VPN connection.
                            for ( Tag tag : vpnConnection.tags() ) {
-                         	   props.setVpnTag(tag.key(), tag.value());
+                         	   props.setVpnConnectionTag(tag.key(), tag.value());
                            	   boolean foundTag = false;
-                           	   for ( String tagName0 : vpcTagNameList ) {
+                           	   for ( String tagName0 : vpnConnectionTagNameList ) {
                            		   if ( tagName0.equals(tag.key()) ) {
                            			   foundTag = true;
                            				break;
                                		}
                            	   }
                            	   if ( !foundTag ) {
-                           		   vpnTagNameList.add(tag.key());
+                           		   vpnConnectionTagNameList.add(tag.key());
                            	   }
                            }
 
@@ -2665,7 +2693,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
                                 for ( Tag tag : address.tags() ) {
                          	        props.setElasticIpTag(tag.key(), tag.value());
                            	        boolean foundTag = false;
-                           	        for ( String tagName0 : vpcTagNameList ) {
+                           	        for ( String tagName0 : elasticIpTagNameList ) {
                            		        if ( tagName0.equals(tag.key()) ) {
                            			        foundTag = true;
                            				    break;
@@ -2718,9 +2746,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
                     		}
                     	}
                     }
-                }
-            }
-        }
+                } // End EC2 instance loop.
+            } // End EC2 reservation loop.
+        } // End regions loop.
 
         // Add columns to the table for the EC2 properties.
         HashMap<String,Integer> servicePropertiesTableMap = new HashMap<>();
@@ -2735,13 +2763,17 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         int ec2InstanceTypeCol = -1;
         int vpcIdCol = -1;
         int vpnConnectionIdCol = -1;
+        int vpnConnectionStateCol = -1;
+        int vpnCustomerGatewayIdCol = -1;
+        int vpnCustomerGatewayOutsideIpCol = -1;
+        int vpnGatewayIdCol = -1;
         int elasticIpCol = -1;
         int ebsVolumeIdCol = -1;
         createEc2PropertiesTableColumns (
         	servicePropertiesTable,
         	ec2TagNameList,
         	vpcTagNameList,
-        	vpnTagNameList,
+        	vpnConnectionTagNameList,
         	elasticIpTagNameList,
         	ebsVolumeTagNameList,
         	servicePropertiesTableMap );
@@ -2756,6 +2788,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         ec2InstanceStateCol = servicePropertiesTableMap.get("EC2/InstanceStateCol");
         vpcIdCol = servicePropertiesTableMap.get("VPC/IdCol");
         vpnConnectionIdCol = servicePropertiesTableMap.get("VPN/ConnectionIdCol");
+        vpnConnectionStateCol = servicePropertiesTableMap.get("VPN/ConnectionStateCol");
+        vpnCustomerGatewayIdCol = servicePropertiesTableMap.get("VPN/CustomerGatewayIdCol");
+        vpnCustomerGatewayOutsideIpCol = servicePropertiesTableMap.get("VPN/CustomerGatewayOutsideIpCol");
+        vpnGatewayIdCol = servicePropertiesTableMap.get("VPN/GatewayIdCol");
         elasticIpCol = servicePropertiesTableMap.get("ElasticIpCol");
         ebsVolumeIdCol = servicePropertiesTableMap.get("EBSVolume/IdCol");
         
@@ -2774,6 +2810,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			rec.setFieldValue(ec2InstanceTypeCol, props.getEc2InstanceType());
 			rec.setFieldValue(vpcIdCol, props.getVpcId());
 			rec.setFieldValue(vpnConnectionIdCol, props.getVpnConnectionId());
+			rec.setFieldValue(vpnConnectionStateCol, props.getVpnConnectionState());
+			rec.setFieldValue(vpnCustomerGatewayIdCol, props.getVpnCustomerGatewayId());
+			rec.setFieldValue(vpnCustomerGatewayOutsideIpCol, props.getVpnCustomerGatewayOutsideIp());
+			rec.setFieldValue(vpnGatewayIdCol, props.getVpnGatewayId());
 			rec.setFieldValue(elasticIpCol, props.getElasticIp());
 			rec.setFieldValue(ebsVolumeIdCol, props.getEbsVolumeId());
 			for ( String tagName : ec2TagNameList ) {
@@ -2782,11 +2822,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			for ( String tagName : vpcTagNameList ) {
 				rec.setFieldValue(servicePropertiesTableMap.get("VPC-Tag/" + tagName + "Col"), props.getVpcTagValue(tagName) );
 			}
-			for ( String tagName : vpnTagNameList ) {
-				rec.setFieldValue(servicePropertiesTableMap.get("VPN-Tag/" + tagName + "Col"), props.getVpnTagValue(tagName) );
+			for ( String tagName : vpnConnectionTagNameList ) {
+				rec.setFieldValue(servicePropertiesTableMap.get("VPNConnection-Tag/" + tagName + "Col"), props.getVpnConnectionTagValue(tagName) );
 			}
 			for ( String tagName : elasticIpTagNameList ) {
-				rec.setFieldValue(servicePropertiesTableMap.get("ElasticIp-Tag/" + tagName + "Col"), props.getVpnTagValue(tagName) );
+				rec.setFieldValue(servicePropertiesTableMap.get("ElasticIp-Tag/" + tagName + "Col"), props.getVpnConnectionTagValue(tagName) );
 			}
 			for ( String tagName : ebsVolumeTagNameList ) {
 				rec.setFieldValue(servicePropertiesTableMap.get("EBSVolume-Tag/" + tagName + "Col"), props.getEbsVolumeTagValue(tagName) );

@@ -277,22 +277,36 @@ The following properties are included in the output tables:
 
 *   EC2-related properties:
     +   EC2 service instance:
+        -   An EC2 instance is a virtual machine, such as a Linux server,
+            which typically has multiple related services.
         -   See the [`DescribeInstances` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstances.html) documentation
         -   General properties (ID, region, instance type, public and private IP, state)
         -   Tags
     +   Virtual Private Cloud (VPC):
+        -   
         -   See the [`DescribeVpcs` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpcs.html) documentation
         -   Identifier
         -   Tags
-    +   Virtual Private Network (VPN) - optional:
+    +   Virtual Private Network (VPN) Connection - optional:
+        -   A VPN connection is refers to the secure communication link established between an on-premises network (or another cloud network)
+            and the AWS VPC, which is typically set up to route traffic between on-premises network and resources inside the AWS VPC.
+        -   Involves multiple components including Customer Gateway (on-premises) and VPN Gateway (AWS).
+        -   Provides redundancy with two tunnels for each connection.
         -   See the [`DescribeVpnConnections` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpnConnections.html) documentation
         -   Connection identifier
         -   Tags
+    +   VPN Endpoint - optional for VPN connection:
+        -   A VPN endpoint refers to a specific point where a VPN connection terminates or where traffic
+            enters/exits the VPN, and can refer to endpoints on either side of the connection.
+        -   In client VPN setups, the endpoint is a publicly-accessible URL where users connect to establish a VPN session.
+        -   Endpoints do not have their own tags and are properties on the VPN connection.
     +   Elastic IP - may not be used for public IP:
+        -   The Elastic IP is the public address for an EC2 instance.
         -   See the [`DescribeAddresses` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html) documentation
         -   IP address (should match public IP, an account may have multiple public IP addresses per region)   
         -   Tags
     +   EBS volumes:
+        -   An EBS volume is the virtual hard drive for an EC2 instance.
         -   See the [`DescribeVolumes` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html) documentation
         -   Identifier
         -   Tags
