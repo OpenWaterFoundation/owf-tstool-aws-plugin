@@ -21,6 +21,14 @@ The repository issue for release note item is shown where applicable.
 
 ----------
 
+## Version 1.5.3 ##
+
+**Maintenance release to improve the [`AwsBilling`](../command-ref/AwsBilling/AwsBilling.md) command.**
+
+*   ![change](change.png) Update the [`AwsBilling`](../command-ref/AwsBilling/AwsBilling.md) command:
+    +   [#50] Add VPN and Elastic IP services to the service properties table.
+    +   [#50] Add public and private IP and DNS name output to the service properties table.
+
 ## Version 1.5.2 ##
 
 **Maintenance release to improve the [`AwsBilling`](../command-ref/AwsBilling/AwsBilling.md) command.**
