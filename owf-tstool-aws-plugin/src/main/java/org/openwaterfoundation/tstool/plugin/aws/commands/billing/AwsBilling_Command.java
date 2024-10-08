@@ -48,6 +48,9 @@ import software.amazon.awssdk.services.costexplorer.model.GroupDefinitionType;
 import software.amazon.awssdk.services.costexplorer.model.MetricValue;
 import software.amazon.awssdk.services.costexplorer.model.ResultByTime;
 import software.amazon.awssdk.services.ec2.Ec2Client;
+import software.amazon.awssdk.services.ec2.model.Address;
+import software.amazon.awssdk.services.ec2.model.DescribeAddressesRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeAddressesResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeImagesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeImagesResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
@@ -60,6 +63,8 @@ import software.amazon.awssdk.services.ec2.model.DescribeVolumesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeVolumesResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeVpcsRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeVpcsResponse;
+import software.amazon.awssdk.services.ec2.model.DescribeVpnConnectionsRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeVpnConnectionsResponse;
 import software.amazon.awssdk.services.ec2.model.Filter;
 import software.amazon.awssdk.services.ec2.model.Image;
 import software.amazon.awssdk.services.ec2.model.Instance;
@@ -68,6 +73,7 @@ import software.amazon.awssdk.services.ec2.model.Snapshot;
 import software.amazon.awssdk.services.ec2.model.Tag;
 import software.amazon.awssdk.services.ec2.model.Volume;
 import software.amazon.awssdk.services.ec2.model.Vpc;
+import software.amazon.awssdk.services.ec2.model.VpnConnection;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.model.GetCallerIdentityRequest;
 import software.amazon.awssdk.services.sts.model.GetCallerIdentityResponse;
@@ -1003,6 +1009,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	 * @param servicePropertiesTable table for service properties
 	 * @param ec2TagNameList list of EC2 tag names to add as columns
 	 * @param vpcTagNameList list of VPC tag names to add as columns
+	 * @param vpnTagNameList list of VPN tag names to add as columns
+	 * @param elasticIpTagNameList list of Elastic IP tag names to add as columns
 	 * @param ebsVolumeTagNameList list of EBS volume tag names to add as columns
 	 * @param tableColMap map for table column names and numbers
 	 */
@@ -1010,6 +1018,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		DataTable servicePropertiesTable,
 		List<String> ec2TagNameList,
 		List<String> vpcTagNameList,
+		List<String> vpnTagNameList,
+		List<String> elasticIpTagNameList,
 		List<String> ebsVolumeTagNameList,
 		HashMap<String,Integer> tableColMap )
 		throws Exception {
@@ -1017,16 +1027,28 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
   		// - initialize to -1 to indicate the column is not used
    		tableColMap.put ( "ServiceCol", Integer.valueOf(-1) );
    		tableColMap.put ( "RegionCol", Integer.valueOf(-1) );
+   		tableColMap.put ( "PublicIpCol", Integer.valueOf(-1) );
+   		tableColMap.put ( "PublicDnsNameCol", Integer.valueOf(-1) );
+   		tableColMap.put ( "PrivateIpCol", Integer.valueOf(-1) );
+   		tableColMap.put ( "PrivateDnsNameCol", Integer.valueOf(-1) );
    		tableColMap.put ( "EC2/InstanceIdCol", Integer.valueOf(-1) );
    		tableColMap.put ( "EC2/InstanceTypeCol", Integer.valueOf(-1) );
    		tableColMap.put ( "EC2/InstanceStateCol", Integer.valueOf(-1) );
    		tableColMap.put ( "VPC/IdCol", Integer.valueOf(-1) );
+   		tableColMap.put ( "VPN/ConnectionIdCol", Integer.valueOf(-1) );
+   		tableColMap.put ( "ElasticIpCol", Integer.valueOf(-1) );
    		tableColMap.put ( "EBSVolume/IdCol", Integer.valueOf(-1) );
    		for ( String tagName : ec2TagNameList ) {
    			tableColMap.put ( "EC2-Tag/" + tagName + "Col", Integer.valueOf(-1) );
    		}
    		for ( String tagName : vpcTagNameList ) {
    			tableColMap.put ( "VPC-Tag/" + tagName + "Col", Integer.valueOf(-1) );
+   		}
+   		for ( String tagName : vpnTagNameList ) {
+   			tableColMap.put ( "VPN-Tag/" + tagName + "Col", Integer.valueOf(-1) );
+   		}
+   		for ( String tagName : elasticIpTagNameList ) {
+   			tableColMap.put ( "ElasticIp-Tag/" + tagName + "Col", Integer.valueOf(-1) );
    		}
    		for ( String tagName : ebsVolumeTagNameList ) {
    			tableColMap.put ( "EBSVolume-Tag/" + tagName + "Col", Integer.valueOf(-1) );
@@ -1043,6 +1065,26 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
        	if ( regionCol < 0 ) {
        		regionCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "Region", -1), "");
          	tableColMap.put("RegionCol", Integer.valueOf(regionCol));
+       	}
+       	int publicIpCol = servicePropertiesTable.getFieldIndex("PublicIpCol", false);
+       	if ( publicIpCol < 0 ) {
+       		publicIpCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "PublicIp", -1), "");
+         	tableColMap.put("PublicIpCol", Integer.valueOf(publicIpCol));
+       	}
+       	int publicDnsNameCol = servicePropertiesTable.getFieldIndex("PublicDnsNameCol", false);
+       	if ( publicDnsNameCol < 0 ) {
+       		publicDnsNameCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "PublicDnsName", -1), "");
+         	tableColMap.put("PublicDnsNameCol", Integer.valueOf(publicDnsNameCol));
+       	}
+       	int privateIpCol = servicePropertiesTable.getFieldIndex("PrivateIpCol", false);
+       	if ( privateIpCol < 0 ) {
+       		privateIpCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "PrivateIp", -1), "");
+         	tableColMap.put("PrivateIpCol", Integer.valueOf(privateIpCol));
+       	}
+       	int privateDnsNameCol = servicePropertiesTable.getFieldIndex("PrivateDnsNameCol", false);
+       	if ( privateDnsNameCol < 0 ) {
+       		privateDnsNameCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "PrivateDnsName", -1), "");
+         	tableColMap.put("PrivateDnsNameCol", Integer.valueOf(privateDnsNameCol));
        	}
        	// EC2 columns.
        	int ec2InstanceIdCol = servicePropertiesTable.getFieldIndex("EC2/InstanceIdCol", false);
@@ -1078,6 +1120,32 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    			if ( col < 0 ) {
    				col = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "VPC-Tag/" + tagName, -1), "");
    				tableColMap.put ( "VPC-Tag/" + tagName + "Col", Integer.valueOf(col) );
+   			}
+   		}
+   		// VPN columns.
+       	int vpnConnectionIdCol = servicePropertiesTable.getFieldIndex("VPN/ConnectionIdCol", false);
+       	if ( vpnConnectionIdCol < 0 ) {
+       		vpnConnectionIdCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "VPN/ConnectionId", -1), "");
+         	tableColMap.put("VPN/ConnectionIdCol", Integer.valueOf(vpnConnectionIdCol));
+       	}
+   		for ( String tagName : vpnTagNameList ) {
+   			int col = servicePropertiesTable.getFieldIndex(tagName, false);
+   			if ( col < 0 ) {
+   				col = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "VPN-Tag/" + tagName, -1), "");
+   				tableColMap.put ( "VPN-Tag/" + tagName + "Col", Integer.valueOf(col) );
+   			}
+   		}
+   		// Elastic IP columns.
+       	int elasticIpCol = servicePropertiesTable.getFieldIndex("ElasticIp", false);
+       	if ( elasticIpCol < 0 ) {
+       		elasticIpCol = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "ElasticIp", -1), "");
+         	tableColMap.put("ElasticIpCol", Integer.valueOf(elasticIpCol));
+       	}
+   		for ( String tagName : elasticIpTagNameList ) {
+   			int col = servicePropertiesTable.getFieldIndex(tagName, false);
+   			if ( col < 0 ) {
+   				col = servicePropertiesTable.addField(new TableField(TableField.DATA_TYPE_STRING, "ElasticIp-Tag/" + tagName, -1), "");
+   				tableColMap.put ( "ElasticIp-Tag/" + tagName + "Col", Integer.valueOf(col) );
    			}
    		}
    		// EBS volume columns.
@@ -2413,6 +2481,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         // - save the service properties to get a comprehensive list of relevant metadata and tags
         List<String> ec2TagNameList = new ArrayList<>();
         List<String> vpcTagNameList = new ArrayList<>();
+        List<String> vpnTagNameList = new ArrayList<>();
+        List<String> elasticIpTagNameList = new ArrayList<>();
         List<String> ebsVolumeTagNameList = new ArrayList<>();
         List<AwsEc2Properties> serviceProperties = new ArrayList<>();
         for ( software.amazon.awssdk.services.ec2.model.Region region : regionsResponse.regions() ) {
@@ -2459,7 +2529,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
                         }
                     }
 
-                    // Get the VPC information for the EC2 instance:
+                    // Get the VPC and VPN information for the EC2 instance:
                     // - only use the single VPC that is associated with the EC2 instance
 
                     String vpcId = instance.vpcId();
@@ -2477,24 +2547,139 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 						Message.printWarning(3,routine,message);
 						status.addToLog ( CommandPhaseType.RUN,
 							new CommandLogRecord(CommandStatusType.WARNING,
-								message, "Check the command parameters." ) );
+								message, "Might need to enhance the software." ) );
                     }
-                    for ( Vpc vpc : vpcsResponse.vpcs() ) {
-                    	props.setVpcId(vpc.vpcId() );
-                    	for ( Tag tag : vpc.tags() ) {
-                    		props.setVpcTag(tag.key(), tag.value());
-                    		boolean foundTag = false;
-                    		for ( String tagName0 : vpcTagNameList ) {
-                    			if ( tagName0.equals(tag.key()) ) {
-                    				foundTag = true;
-                    				break;
-                    			}
-                    		}
-                    		if ( !foundTag ) {
-                    			vpcTagNameList.add(tag.key());
-                    		}
-                    	}
-                    }
+                   	for ( Vpc vpc : vpcsResponse.vpcs() ) {
+                   		props.setVpcId(vpc.vpcId() );
+                   		for ( Tag tag : vpc.tags() ) {
+                   			props.setVpcTag(tag.key(), tag.value());
+                   			boolean foundTag = false;
+                   			for ( String tagName0 : vpcTagNameList ) {
+                   				if ( tagName0.equals(tag.key()) ) {
+                   					foundTag = true;
+                   					break;
+                   				}
+                   			}
+                   			if ( !foundTag ) {
+                   				vpcTagNameList.add(tag.key());
+                   			}
+                   		}
+                   		
+                   		// Process available VPN information, which is associated with a VPC.
+                   		
+                        // Request VPN connection details
+                        DescribeVpnConnectionsRequest vpnRequest = DescribeVpnConnectionsRequest.builder().build();
+                        DescribeVpnConnectionsResponse vpnResponse = ec2ClientForRegion.describeVpnConnections(vpnRequest);
+
+                        if ( vpnResponse.vpnConnections().size() > 1 ) {
+                        	// Warn because currently the code does not handle.
+                    	    message = "EC2 instance " + instance.instanceId() + " VPC " + vpcId +
+                    		    " has " + vpnResponse.vpnConnections().size() + " VPNs - only know how to handle 1 for properties table.";
+						    Message.printWarning(3,routine,message);
+						    status.addToLog ( CommandPhaseType.RUN,
+							    new CommandLogRecord(CommandStatusType.WARNING,
+							        message, "Might need to enhance the software." ) );
+                       }
+                       // Iterate through the VPN connections and find ones associated with the VP:
+                       // - will only process the first one
+                       for ( VpnConnection vpnConnection : vpnResponse.vpnConnections() ) {
+                           Message.printStatus(2,routine,"VPN Connection ID: " + vpnConnection.vpnConnectionId());
+                           //System.out.println("VPC ID: " + vpnConnection.vpcId());
+                           Message.printStatus(2,routine,"State: " + vpnConnection.stateAsString());
+                           Message.printStatus(2,routine,"Customer Gateway ID: " + vpnConnection.customerGatewayId());
+                           Message.printStatus(2,routine,"Virtual Private Gateway ID: " + vpnConnection.vpnGatewayId());
+
+                           props.setVpnConnectionId(vpnConnection.vpnConnectionId() );
+                               
+                           // Set tags for the VPN connection.
+                           for ( Tag tag : vpnConnection.tags() ) {
+                         	   props.setVpnTag(tag.key(), tag.value());
+                           	   boolean foundTag = false;
+                           	   for ( String tagName0 : vpcTagNameList ) {
+                           		   if ( tagName0.equals(tag.key()) ) {
+                           			   foundTag = true;
+                           				break;
+                               		}
+                           	   }
+                           	   if ( !foundTag ) {
+                           		   vpnTagNameList.add(tag.key());
+                           	   }
+                           }
+
+                           // Break out after the first VPN is processed since can only handle one.
+                  		   break;
+                        }
+                   		
+                   		// Break out after the first VPC is processed since can only handle one.
+                   		break;
+                   	}
+                   	
+                   	// Get the Elastic IP information.
+                   	
+                   	String publicIp = instance.publicIpAddress();
+                   	String publicDnsName = instance.publicDnsName();
+                   	if ( publicDnsName == null ) {
+                   		publicDnsName = "";
+                   	}
+                   	props.setPublicDnsName(publicDnsName);
+                   	String privateIp = instance.privateIpAddress();
+                   	if ( privateIp == null ) {
+                   		privateIp = "";
+                   	}
+                   	props.setPrivateIp(privateIp);
+                   	String privateDnsName = instance.privateDnsName();
+                   	if ( privateDnsName == null ) {
+                   		privateDnsName = "";
+                   	}
+                   	props.setPrivateDnsName(privateDnsName);
+                   	String elasticIp = "";
+
+                   	if ( publicIp == null ) {
+                   		publicIp = "";
+                   	}
+                   	else {
+                   		// Check whether the public IP is an elastic IP:
+                        // - this returns all the IP addresses associated with the account, not just the specific EC2 instance
+                        DescribeAddressesRequest addressesRequest = DescribeAddressesRequest.builder().build();
+                        DescribeAddressesResponse addressesResponse = ec2ClientForRegion.describeAddresses(addressesRequest);
+
+                        String publicIpToCheck = publicIp;
+
+                    	message = "Account for EC2 instance " + instance.instanceId() +
+                    		    " has " + addressesResponse.addresses().size() + " addresses in region " + region.regionName() +
+                    		    " - will find the matching public IP address.";
+					    Message.printStatus(2,routine,message);
+                        props.setPublicIp(publicIp);
+                        for ( Address address : addressesResponse.addresses() ) {
+                            if ( address.publicIp().equals(publicIpToCheck) ) {
+                            	// The EC2 instance is a public address, which is the Elastic IP address.
+                                Message.printStatus(2,routine,"Elastic IP Address: " + address.publicIp());
+                                Message.printStatus(2,routine,"Allocation ID: " + address.allocationId());
+                                Message.printStatus(2,routine,"Instance ID: " + address.instanceId());
+                                Message.printStatus(2,routine,"Association ID: " + address.associationId());
+                                Message.printStatus(2,routine,"Network Interface ID: " + address.networkInterfaceId());
+                                elasticIp = publicIp;
+                                props.setElasticIp(elasticIp);
+
+                                // Set tags for the Elastic IP.
+                                for ( Tag tag : address.tags() ) {
+                         	        props.setElasticIpTag(tag.key(), tag.value());
+                           	        boolean foundTag = false;
+                           	        for ( String tagName0 : vpcTagNameList ) {
+                           		        if ( tagName0.equals(tag.key()) ) {
+                           			        foundTag = true;
+                           				    break;
+                               		    }
+                           	        }
+                           	        if ( !foundTag ) {
+                           		        elasticIpTagNameList.add(tag.key());
+                           	        }
+                                }
+                                // Matched address so quit searching.
+                                break;
+                            }
+                        }
+                   	}
 
                     // Get the EBS volume information for the specific EC2 instance:
                     // - must filter for the instance
@@ -2541,36 +2726,67 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         HashMap<String,Integer> servicePropertiesTableMap = new HashMap<>();
         int serviceCol = -1;
         int regionCol = -1;
+        int publicIpCol = -1;
+        int publicDnsNameCol = -1;
+        int privateIpCol = -1;
+        int privateDnsNameCol = -1;
         int ec2InstanceIdCol = -1;
         int ec2InstanceStateCol = -1;
         int ec2InstanceTypeCol = -1;
         int vpcIdCol = -1;
+        int vpnConnectionIdCol = -1;
+        int elasticIpCol = -1;
         int ebsVolumeIdCol = -1;
-        createEc2PropertiesTableColumns ( servicePropertiesTable, ec2TagNameList, vpcTagNameList, ebsVolumeTagNameList, servicePropertiesTableMap );
+        createEc2PropertiesTableColumns (
+        	servicePropertiesTable,
+        	ec2TagNameList,
+        	vpcTagNameList,
+        	vpnTagNameList,
+        	elasticIpTagNameList,
+        	ebsVolumeTagNameList,
+        	servicePropertiesTableMap );
         serviceCol = servicePropertiesTableMap.get("ServiceCol");
         regionCol = servicePropertiesTableMap.get("RegionCol");
+        publicIpCol = servicePropertiesTableMap.get("PublicIpCol");
+        publicDnsNameCol = servicePropertiesTableMap.get("PublicDnsNameCol");
+        privateIpCol = servicePropertiesTableMap.get("PrivateIpCol");
+        privateDnsNameCol = servicePropertiesTableMap.get("PrivateDnsNameCol");
         ec2InstanceIdCol = servicePropertiesTableMap.get("EC2/InstanceIdCol");
         ec2InstanceTypeCol = servicePropertiesTableMap.get("EC2/InstanceTypeCol");
         ec2InstanceStateCol = servicePropertiesTableMap.get("EC2/InstanceStateCol");
         vpcIdCol = servicePropertiesTableMap.get("VPC/IdCol");
+        vpnConnectionIdCol = servicePropertiesTableMap.get("VPN/ConnectionIdCol");
+        elasticIpCol = servicePropertiesTableMap.get("ElasticIpCol");
         ebsVolumeIdCol = servicePropertiesTableMap.get("EBSVolume/IdCol");
-
+        
         // Set the values in the table.
        	TableRecord rec = null;
         for ( AwsEc2Properties props : serviceProperties ) {
 			rec = servicePropertiesTable.addRecord(servicePropertiesTable.emptyRecord());
 			rec.setFieldValue(serviceCol, props.getService());
 			rec.setFieldValue(regionCol, props.getRegion());
+			rec.setFieldValue(publicIpCol, props.getPublicIp());
+			rec.setFieldValue(publicDnsNameCol, props.getPublicDnsName());
+			rec.setFieldValue(privateIpCol, props.getPrivateIp());
+			rec.setFieldValue(privateDnsNameCol, props.getPrivateDnsName());
 			rec.setFieldValue(ec2InstanceIdCol, props.getEc2InstanceId());
 			rec.setFieldValue(ec2InstanceStateCol, props.getEc2InstanceState());
 			rec.setFieldValue(ec2InstanceTypeCol, props.getEc2InstanceType());
 			rec.setFieldValue(vpcIdCol, props.getVpcId());
+			rec.setFieldValue(vpnConnectionIdCol, props.getVpnConnectionId());
+			rec.setFieldValue(elasticIpCol, props.getElasticIp());
 			rec.setFieldValue(ebsVolumeIdCol, props.getEbsVolumeId());
 			for ( String tagName : ec2TagNameList ) {
 				rec.setFieldValue(servicePropertiesTableMap.get("EC2-Tag/" + tagName + "Col"), props.getEc2TagValue(tagName) );
 			}
 			for ( String tagName : vpcTagNameList ) {
 				rec.setFieldValue(servicePropertiesTableMap.get("VPC-Tag/" + tagName + "Col"), props.getVpcTagValue(tagName) );
+			}
+			for ( String tagName : vpnTagNameList ) {
+				rec.setFieldValue(servicePropertiesTableMap.get("VPN-Tag/" + tagName + "Col"), props.getVpnTagValue(tagName) );
+			}
+			for ( String tagName : elasticIpTagNameList ) {
+				rec.setFieldValue(servicePropertiesTableMap.get("ElasticIp-Tag/" + tagName + "Col"), props.getVpnTagValue(tagName) );
 			}
 			for ( String tagName : ebsVolumeTagNameList ) {
 				rec.setFieldValue(servicePropertiesTableMap.get("EBSVolume-Tag/" + tagName + "Col"), props.getEbsVolumeTagValue(tagName) );

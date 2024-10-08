@@ -273,15 +273,45 @@ Example Graph for AWS Costs (<a href="../AwsBilling-output-graph">see full-size 
 
 The ***Output Service Properties*** tab provides parameters to control creating tables of service properties.
 Features are implemented to list services with high costs, and can be used to identify untagged services.
+The following properties are included in the output tables:
 
-Elastic Block Storage (EBS) snapshots and EC2 images (Amazon Machine Images, AMI) are associated
-with EC2 instances but are stored separately because EC2 instances can be deleted.
-The AWS account for the current session is used to filter the EBS snapshots and EC2 images due to the high number of public objects.
-
-See the following information:
-
-*   [`DescribeSnapshots` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSnapshots.html)
-*   [`DescribeImages` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeImages.html)
+*   EC2-related properties:
+    +   EC2 service instance:
+        -   See the [`DescribeInstances` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstances.html) documentation
+        -   General properties (ID, region, instance type, public and private IP, state)
+        -   Tags
+    +   Virtual Private Cloud (VPC):
+        -   See the [`DescribeVpcs` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpcs.html) documentation
+        -   Identifier
+        -   Tags
+    +   Virtual Private Network (VPN) - optional:
+        -   See the [`DescribeVpnConnections` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpnConnections.html) documentation
+        -   Connection identifier
+        -   Tags
+    +   Elastic IP - may not be used for public IP:
+        -   See the [`DescribeAddresses` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html) documentation
+        -   IP address (should match public IP, an account may have multiple public IP addresses per region)   
+        -   Tags
+    +   EBS volumes:
+        -   See the [`DescribeVolumes` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html) documentation
+        -   Identifier
+        -   Tags
+*   Elastic Block Storage (EBS) snapshots - separate table
+    +   See the [`DescribeSnapshots` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSnapshots.html) documentation
+    +   The AWS account for the current session is used to filter the EBS snapshots due to the high number of public objects
+    +   Will be stored even if the EC2 instance is deleted
+    +   Region
+    +   Identifier
+    +   Description
+    +   Tags
+*   Amazon Machine Image (AMI) (EC2 images) - separate table
+    +   See the [`DescribeImages` API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeImages.html) documentation
+    +   The AWS account for the current session is used to filter the EC2 images due to the high number of public objects
+    +   Will be stored even if the EC2 instance is deleted
+    +   Region
+    +   Identifier
+    +   Description
+    +   Tags
 
 **<p style="text-align: center;">
 ![AwsBilling service properties parameters](AwsBilling-output-service-properties.png)
