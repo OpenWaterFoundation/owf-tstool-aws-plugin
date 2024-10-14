@@ -2871,6 +2871,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	List<String> uploadFilesFileList = new ArrayList<>();
     	List<String> uploadFilesKeyList = new ArrayList<>();
         int uploadFilesCount = 0;
+		int ignoredWarningCount = 0;
     	if ( (UploadFiles != null) && !UploadFiles.isEmpty() && (UploadFiles.indexOf(":") > 0) ) {
         	// First break map pairs by comma.
         	List<String>pairs = StringUtil.breakStringList(UploadFiles, ",", 0 );
@@ -2971,10 +2972,13 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		   					if ( !f.exists() ) {
 		   						// Local file does not exist.
 		   						message = "Local file " + uploadFilesCount + " (" + localFile + ") does not exist - skipping.";
+		   						// Will ignore the warning later:
+		   						// - otherwise valid files that are found won't be uploaded
+		   						++ignoredWarningCount;
 		   						Message.printWarning(warningLevel,
 		   							MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
 		   						status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
-		   							message, "Verify that the file exists." ) );
+		   							message, "Verify that the local file exists." ) );
 		   						continue;
 			   				}
 		   					if ( f.isDirectory() ) {
@@ -3125,8 +3129,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		  	}
     	}
 
-		if ( warningCount > 0 ) {
-			message = "There were " + warningCount + " warnings about command parameters.";
+		if ( (warningCount - ignoredWarningCount) > 0 ) {
+			message = "There were " + warningCount + " warnings about command parameters - need to fix to run the command.";
 			Message.printWarning ( warningLevel,
 			MessageUtil.formatMessageTag(commandTag, ++warningCount), routine, message );
 			throw new InvalidCommandParameterException ( message );
