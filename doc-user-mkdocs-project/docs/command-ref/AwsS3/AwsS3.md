@@ -1,12 +1,16 @@
 # TSTool / Command / AwsS3 #
 
 *   [Overview](#overview)
+    +   [S3 Concepts and Terminology](#s3-concepts-and-terminology)
+    +   [Object Versions](#object-versions)
+    +   [Object Tags](#object-tags)
 *   [Command Editor](#command-editor)
     +   [Copy Objects](#copy-objects)
     +   [Delete Objects](#delete-objects)
     +   [Download Objects](#download-objects)
     +   [List Buckets](#list-buckets)
     +   [List Objects](#list-objects)
+    +   [Tag Objects](#tag-objects)
     +   [Upload Objects](#upload-objects)
     +   [Output](#output)
     +   [CloudFront](#cloudfront)
@@ -17,6 +21,7 @@
     +   [Download Objects Command Parameters](#download-objects-command-parameters)
     +   [List Buckets Command Parameters](#list-buckets-command-parameters)
     +   [List Objects Command Parameters](#list-objects-command-parameters)
+    +   [Tag Objects Command Parameters](#tag-objects-command-parameters)
     +   [Upload Objects Command Parameters](#upload-objects-command-parameters)
     +   [Output Command Parameters](#output-command-parameters)
     +   [CloudFront Command Parameters](#cloudfront-command-parameters)
@@ -29,27 +34,35 @@
 ## Overview ##
 
 The `AwsS3` command performs tasks for [Amazon S3](https://aws.amazon.com/s3/).
-S3 is used for cloud storage, for example to provide access to files for data downloads and files for static websites.
+S3 is used for cloud storage, for example to provide access to files for data downloads and files for static websites
+(websites that have no server-side application other than serving the files).
 S3 is often used with CloudFront (see the [`AwsCloudFront`](../AwsCloudFront/AwsCloudFront.md) command and the ***CloudFront*** parameter tab for this command)
 because CloudFront provides `https` and caching of resources on multiple servers in order to improve performance
 and provide a Content Delivery Network (CDN) solution.
+
+### S3 Concepts and Terminology ###
 
 S3 concepts and terminology are used in the `AwsS3` command parameters:
 
 *   The AWS command line interface (CLI) [profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html)
     is used to authenticate the AWS connection and provides the default region for the plugin.
 *   An AWS [region](https://docs.aws.amazon.com/general/latest/gr/rande.html) is used identify the geographic location of the S3 request endpoint.
+    S3 storage buckets are associated with a region.
 *   S3 uses [buckets](https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingBucket.html) as the top-level of file organization:
-    +   buckets do not explicitly use folders to organize content
+    +   buckets do not explicitly use folders to organize content (see `key` with delimiter below)
     +   S3 objects (see below) can have a key that ends in `/` but the object stores a file's contents
-        and are therefore can be confusing
-    +   S3 virtual folders correspond to the paths that contain files, but, again, the folders are not explicitly stored
+        and therefore the concepts of folders can be confusing
+    +   S3 virtual folders correspond to the paths that contain files, but, again,
+        the folders are not explicitly stored as on a computer
+    +   the AWS Console allows creating folders but these are essentially objects that have keys that end in `/`
 *   S3 objects are identified by a [key](https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingObjects.html):
     +   similar to a file path
     +   the key is a string that includes a default delimiter of `/`,
         which makes the keys look like a path with virtual folders (directories)
-    +   keys by default do not start with `/` but `/` can be used
-*   A [prefix](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-prefixes.html) can be used to filter listing a bucket:
+    +   keys by default do not start with `/` but `/` can be used at the start of a key
+        (this can be confusing because it is not necessary)
+*   A [prefix](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-prefixes.html)
+    can be used to filter listing a bucket's objects:
     +   without indicating that a virtual folder should be listed (`ListScope=All`), the prefix matches the start of keys
     +   with indicating that a virtual folder should be listed (`ListScope=Folder`),
         the delimiter (`/` by default) is used to remove the end of keys so that only a folder's objects are listed
@@ -59,13 +72,62 @@ The above complexities are handled by this command so that S3 technical constrai
 *   as much as possible, treat object keys similar to paths on a file system
 *   use "files" and "folders" in command parameters as much as possible
 *   provide features to operate on folders even when the AWS S3 API does not provide these features
-*   provide wildcard (`*` in keys) features
+    (this command behaves similar to the AWS Console)
+*   provide wildcard features (`*` in local files and S3 keys)
+
+### Object Versions ###
+
+S3 buckets can enable versioning, which protects against accidental loss of files.
+This is useful when many objects are edited interactively by applications.
+However, versioned objects result in higher storage costs and if not managed,
+versions can increase over time.
+
+*   Use the `S3Command=ListBuckets` parameter to list buckets, which will indicate whether versioning is enabled for a bucket.
+*   Use the `S3Command=ListObjects` and `ListVersions` parameters to list object versions,
+    which will output the following for each object:
+    +   `Key` - with the bucket, uniquely identifies the latest (current) object
+    +   `VersionId` - with bucket and object key,  uniquely identifies the versioned object
+    +   `IsLatest` - indicates whether the version is the object version is the latest (current) version
+    +   `DeleteMarkerFound` - indicates whether the object is marked for delete
+        (see the AWS documentation ["Working with delete markers"](https://docs.aws.amazon.com/AmazonS3/latest/userguide/DeleteMarker.html))
+
+Objects that are marked for deletion or will be deleted by a lifecycle rule (see the next section)
+are processed by AWS according to its policies and actions may take some time to complete.
+
+### Object Tags ###
+
+Each object can optionally be tagged with one or more `TagName=TagValue` tags,
+which can be used to control how objects are handled.
+For example, set a tag `Lifecycle=NoTags` and then implement a lifecycle rule to delete non-latest (non-current) versions
+to ensure that unnecessary dynamically-created versioned objects are automatically deleted
+(see the AWS documentation ["Managing the lifecycle of objects"](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lifecycle-mgmt.html)). 
+
+Tags can be set when uploading objects (`UploadTags` and `UploadTagMode` parameters)
+and for existing files (`Tags` and `TagMode` parameters).
+The AWS S3 API does not allow tags to be individually set (setting a tag resets all tags)
+and tag operations require additional web service calls.
+Therefore, processing tags slows down the `AwsS3` command and should be used appropriately.
 
 ## Command Editor ##
 
 The following dialog is used to edit the command and illustrates the syntax for the command.
 Each `AwsS3` command has a tab for parameters specific to that command.
-The ***Output*** and ***CloudFront*** tabs are used with multiple AWS S3 commands, as noted.
+
+**<p style="text-align: center;">
+Command Editor Tabs and Use
+</p>**
+
+| ***Tab*** | ***Use*** | ***Related Tabs*** |
+| -- | -- | -- |
+| ***Copy*** | Copy S3 file objects to create new S3 objects. | ***CloudFront*** |
+| ***Delete*** | Delete S3 file and folder objects. | ***CloudFront*** |
+| ***Download*** | Download S3 objects to local files. | |
+| ***List Buckets*** | List S3 buckets for all regions or a specific region. | ***Output*** |
+| ***List Objects*** | List S3 objects. | ***Output*** |
+| ***Tag Objects*** | Set tag(s) for existing S3 objects. | ***List Objects*** |
+| ***Upload*** | Upload local files and folders to S3 file objects. | ***CloudFront*** |
+| ***Output*** | Used to specify output table and file for the S3 command. | ***List Buckets***, ***List Objects***, ***Tag Objects*** |
+| ***CloudFront*** | Used to specify CloudFront information to invalidate objects that are modified on S3 and need to be invalidated. | ***Copy***, ***Delete***, ***Upload*** |
 
 Some command parameters are provided to help with automated tests and error checks.
 For example the `ListBucketsCountProperty` parameter can be used to set a processor property
@@ -93,7 +155,7 @@ each copied object will be invalidated.
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for CopyObject Parameters (<a href="../AwsS3-copy.png">see full-size image)</a>
+`AwsS3` Command Editor for `S3Command=CopyObjects` Parameters (<a href="../AwsS3-copy.png">see full-size image)</a>
 </p>**
 
 ### Delete Objects ###
@@ -117,7 +179,7 @@ the parent folders for deleted objects are invalidated, using a wildcard.
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for DeleteObjects Parameters (<a href="../AwsS3-delete.png">see full-size image)</a>
+`AwsS3` Command Editor for `S3Command=DeleteObjects` Parameters (<a href="../AwsS3-delete.png">see full-size image)</a>
 </p>**
 
 ### Download Objects ###
@@ -131,12 +193,13 @@ Currently, wildcards cannot be used to specify S3 objects to download.
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for DownloadObjects Parameters (<a href="../AwsS3-download.png">see full-size image)</a>
+`AwsS3` Command Editor for `S3Command=DownloadObjects` Parameters (<a href="../AwsS3-download.png">see full-size image)</a>
 </p>**
 
 ### List Buckets ###
 
 Use the `S3Command=ListBuckets` parameter to list buckets for the user profile.
+The buckets in the selected region will be listed (use `Region=*` to list all regions).
 Use the `ListBucketsRegEx` parameter to filter to a specific pattern,
 for example to confirm that a specific bucket exists before continuing with a workflow.
 
@@ -147,7 +210,7 @@ Use the ***Output*** tab to set the output table and file.
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for ListBuckets Parameters (<a href="../AwsS3-list-buckets.png">see full-size image)</a>
+`AwsS3` Command Editor for `S3Command=ListBuckets` Parameters (<a href="../AwsS3-list-buckets.png">see full-size image)</a>
 </p>**
 
 ### List Objects ###
@@ -156,9 +219,12 @@ Use the `S3Command=ListObjects` parameter to list objects for the selected bucke
 AWS provides options for controlling the output, which can be confusing.
 Refer to the table in the command editor for instructions on how to list file objects and virtual folders.
 
-Listing the contents of a folder only (not all subfolders) will list subfolder names without their contents.
-Listing all folders will only list file objects and file objects that happen to have a name ending in `/`,
-which are typically empty folder objects created by the AWS Console or have been accidentally created.
+*   Listing the contents of a folder only (not all subfolders) will list subfolder names without their contents.
+*   Listing all folders will only list file objects and file objects that happen to have a name ending in `/`,
+    which are typically empty folder objects created by the AWS Console or have been accidentally created.
+*   Listing versions will cause the version ID to be included in the output table.
+*   Outputting the object tags is optional and if used will be slower because
+    separate requests are required to retrieve object tags.
 
 See the examples.
 
@@ -167,7 +233,27 @@ See the examples.
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for ListObjects Parameters (<a href="../AwsS3-list-objects.png">see full-size image)</a>
+`AwsS3` Command Editor for `S3Command=ListObjects` Parameters (<a href="../AwsS3-list-objects.png">see full-size image)</a>
+</p>**
+
+### Tag Objects ###
+
+Use the `S3Command=TagObjects` parameter to set tags for existing objects for the selected bucket and user profile.
+Use the ***List Objects*** and ***Output*** tab parameters to list objects of interest and the ***Tag Objects*** tab parameters to specify tag information.
+The following applies:
+
+*   AWS tags cannot be selectively set using the API.  All object tags must be set.
+    Consequently, in order to retain previous tags, the existing tags must be retrieved, manipulated, and reset.
+    Using tags will slow the command.
+*   The `TagMode` parameter controls how tags are set,
+    with `TagMode=Set` being the default, which is nondestructive.
+
+**<p style="text-align: center;">
+![AwsS3-tag-objects](AwsS3-tag-objects.png)
+</p>**
+
+**<p style="text-align: center;">
+`AwsS3` Command Editor for `S3Command=TagObjects` Parameters (<a href="../AwsS3-tag-objects.png">see full-size image)</a>
 </p>**
 
 ### Upload Objects ###
@@ -187,10 +273,13 @@ the uploaded files and folders (using wildcard) are invalidated.
 </p>**
 
 **<p style="text-align: center;">
-`AwsS3` Command Editor for UploadObjects Parameters (<a href="../AwsS3-upload.png">see full-size image)</a>
+`AwsS3` Command Editor for `S3Command=UploadObjects` Parameters (<a href="../AwsS3-upload.png">see full-size image)</a>
 </p>**
 
 ### Output ###
+
+The ***Output*** tab is used to specify the output table and file that are used when listing buckets and objects,
+and creating the object list to tag objects.
 
 **<p style="text-align: center;">
 ![AwsS3-output](AwsS3-output.png)
@@ -201,6 +290,12 @@ the uploaded files and folders (using wildcard) are invalidated.
 </p>**
 
 ### CloudFront ###
+
+CloudFront parameters are used to control when S3 objects used by CloudFront are invalidated,
+which is the case for ***Copy***, ***Delete***, and ***Uplaod*** commands.
+Invalidation requires specifying a CloudFront distribution.
+Because distribution identifiers may not be known and can be confusing,
+several options are available to match the distribution.
 
 The following example shows how to match a distribution using a tag.
 Using a tag generally works well because unique tag values can be defined for CloudFront distributions.
@@ -250,7 +345,7 @@ Command Parameters - General
 |--------------|-----------------|-----------------|
 |`S3Command`<br>**required**|The S3 command to run, which indicates which tab's parameters are used. | None - must be specified. |
 |`Profile`|The AWS command line interface profile to use for authentication, can use `${Property}` syntax. | <ul><li>If a single profile exists in the configuration file, it is used.</li><li>If multiple profiles exist in the configuration file, the one named `default` is used.|
-|`Region`| The AWS region to use for service requests. Use the [AWS Management Console website](https://aws.amazon.com/console/) to check which region is used for an account, can use `${Property}`. | Default region from the user's AWS configuration file. |
+|`Region`| The AWS region to use for service requests. Use the [AWS Management Console website](https://aws.amazon.com/console/) to check which region is used for an account, can use `${Property}`. The `S3Command=ListBuckets` parameter allows the region to be specfied as `*` to list the buckets for all regions. | Default region from the user's AWS configuration file. |
 |`Bucket`| The S3 bucket containing objects, can use `${Property}` syntax. | Must be specified for all commands except `S3Command=ListBuckets`. |
 |`IfInputNotFound`| Message level when input is not found:  `Ignore`, `Warn`, or `Fail`. This is under development. | `Warn` |
 
@@ -292,6 +387,9 @@ Command Parameters - Download Objects
 
 ### List Buckets Command Parameters ###
 
+Use the following parameters to list buckets.
+The general `Bucket` parameter is not required since buckets are being listed.
+
 **<p style="text-align: center;">
 Command Parameters - List Buckets 
 </p>**
@@ -300,7 +398,6 @@ Command Parameters - List Buckets
 |-----|-----------------|-----------------|
 |`ListBucketsRegEx`| Regular expression to filter buckets:<ul><li>use `*` as a wildcard</li><li>`java:...` - specify a [Java regular expression](https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#sum) - **not fully tested**</li></ul> | All buckets are listed. |
 |`ListBucketsCountProperty`| Processor property to set containing the number of buckets in the list. If appending to output (***Output*** `AppendOutput=True`) the count will be the total count. | |
-| | Note:  The general `Bucket` parameter is not required since buckets are being listed. | |
 
 ### List Objects Command Parameters ###
 
@@ -330,9 +427,25 @@ Command Parameters - List Objects
 |`ListObjectsRegEx`| Regular expression to filter objects:<ul><li>use `*` as a wildcard</li><li>`java:...` - specify a [Java regular expression](https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#sum) - **not fully tested**</li></ul> | All objects are listed. |
 |`ListFiles` | Whether files (objects that have keys not ending in `/`) are listed, `True` or `False`. | `True` |
 |`ListFolders` | Whether folders (objects that have keys ending in `/`) are listed, `True` or `False`. | `True` |
+|`ListVersions` | Whether object versions are listed, `True` or `False`. If `True`, additional columns will be added to the output table. | `False` |
+|`OutputObjectTags` | Whether object tags are included in output, `True` or `False`. If `True`, additional columns will be added to the output table for object tags. Processing tags requires additional AWS service calls and will cause the command to run slower. | `False` |
 |`MaxKeys`| Maximum number of keys to list per request.  AWS limits the number of objects returned per request to 1000 and `MaxKeys` must be <= 1000. | `1000` (AWS limit). |
 |`MaxObjects`| Maximum number of objects returned in the overall output.  Care should be taken to limit the load on the system and there are S3 charges for downloads.  Command parameters can generally be used to limit object listings. | `2000` |
 |`ListObjectCountProperty`| Processor property to set containing the number of objects in the list. If appending to output (***Output*** `AppendOutput=True`) the count will be the total count. | |
+
+### Tag Objects Command Parameters ###
+
+Use the following parameters to set tags for the desired objects.
+Use ***List Objects*** and ***Output*** parameters to an output table that specifies the objects to tag. 
+
+**<p style="text-align: center;">
+Command Parameters - Tag Objects 
+</p>**
+
+|**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default** |
+|-----|-----------------|-----------------|
+|`Tags` | Specify a pattern to match object keys and specify a tag using the syntax `Pattern1:TagName1=TagValue1`.  Multiple patterns can be specified by separating with commas.  Currently only one tag can be set per pattern.  If necessary, use multiple commands to set additional tags for the same pattern, or use a slightly different pattern.  The pattern can use wildcards with `*`. | |
+|`TagMode` | How to handle tags:<ul><li>`Set` - set the specified tag(s) and keep other tags</li><li>`SetAll` - set (replace) all tags with the new tag(s)</li><li>`Delete` - delete the specified tag(s) and keep others (**future enhancement**)</li><li>`DeleteAll` - delete all tags (**future enhancement**)</li></ul> | `Set` |
 
 ### Upload Objects Command Parameters ###
 
@@ -344,6 +457,8 @@ Command Parameters - Upload Objects
 |-----|-----------------|-----------------|
 |`UploadFolders`| List of folders (directories) to upload using syntax: `folder1:key1,folder2:key2`, where `folder1` is a local folder name and `key1` (ending in `/`) identifies an S3 virtual folder. Can use `${Property}` syntax. | |
 |`UploadFiles`| List of files to upload using syntax: `file1:key1,file2:key2`, where `file1` is a local file name and the `key1` identifies an S3 object. Can use `${Property}` syntax.<br><br>The local file can contain `*` wildcard in the last part to match a filename pattern in a folder (e.g., `somefolder/*.png`).<ul><li>If the local file uses a wildcard, then the last part of the S3 object key **must be** `*` (e.g., `/somefolder/*`) to indicate that the S3 file will have the same name as the local file.</li><li>If file names in a folder need to be specifically renamed on S3, don't use wildcards.</li><li>If the local file does not contain a wildcard, the S3 key can contain a wildcard in the file name part to use the local file name, as described above.</li></ul> | |
+|`UploadTags` | Specify tags to set for uploaded files. Specify a pattern to match object keys and specify a tag using the syntax `Pattern1:TagName1=TagValue1`.  Multiple patterns can be specified by separating with commas.  Currently only one tag can be set per pattern.  The pattern can use wildcards with `*`. | |
+|`UploadTagMode` | How to handle tags:<ul><li>`Set` - set the specified tag(s) and keep other tags</li><li>`SetAll` - set (replace) all tags with the new tag(s)</li><li>`Delete` - delete the specified tag(s) and keep others (**future enhancement**)</li><li>`DeleteAll` - delete all tags (**future enhancement**)</li></ul> | `Set` |
 
 ### Output Command Parameters ###
 
@@ -415,6 +530,11 @@ If there is an error, view the TSTool log file using the ***Tools / Diagnostics 
 If necessary, use the 
 [`SetDebugLevel`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/SetDebugLevel/SetDebugLevel/)
 command to troubleshoot (turn debug on to the log file before a command and then set levels to zero after a command).
+
+It can also be useful to list objects, including versioned objects, to confirm that objects exist and have expected properties.
+
+If working with CloudFront distributions, make sure that paths are correct and invalidations are occurring.
+Otherwise, updated objects will not be available.
 
 ### Files are not deleted as expected ###
 

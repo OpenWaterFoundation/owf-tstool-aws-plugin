@@ -17,7 +17,7 @@ Message(Message="The copy test files were not deleted for setup. 0 are expected 
 EndIf(Name="IfDeleteCheck")
 #
 # Upload the files for the test that will be the source of the copy.
-AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",CopyObjectsCountProperty="TestCopyObjectsCount",UploadFiles="data/testfolder1/testfolder1-testfile1.txt:${TestS3Folder}/*,data/testfolder1/testfolder1-testfile2.txt:${TestS3Folder}/*",OutputTableID="BucketList")
+AwsS3(S3Command="UploadObjects",Region="us-west-2",Bucket="test.openwaterfoundation.org",UploadFiles="data/testfolder1/testfolder1-testfile1.txt:${TestS3Folder}/*,data/testfolder1/testfolder1-testfile2.txt:${TestS3Folder}/*",OutputTableID="BucketList")
 #
 # Copy the objects:
 # - check the copy count

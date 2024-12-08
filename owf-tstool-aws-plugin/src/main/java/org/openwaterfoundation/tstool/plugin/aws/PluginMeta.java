@@ -26,8 +26,8 @@ public class PluginMeta {
 	/**
 	 * Plugin version.
 	 */
-	public static final String VERSION = "1.5.5 (2024-10-08)";
-	
+	public static final String VERSION = "1.5.6 (2024-12-08)";
+
 	/**
 	 * Get the documentation root URL, used for command help.
 	 * This should be the folder in which the index.html file exists, for example:

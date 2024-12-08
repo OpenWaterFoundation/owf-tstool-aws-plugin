@@ -55,6 +55,11 @@ public enum AwsS3CommandType {
 	LIST_OBJECTS ( "ListObjects", "List S3 objects" ),
 
 	/**
+	Tag S3 objects.
+	*/
+	TAG_OBJECTS ( "TagObjects", "Tag S3 objects" ),
+
+	/**
 	Upload objects (files and/or directories).
 	*/
 	UPLOAD_OBJECTS ( "UploadObjects", "Upload one or more files and/or folders to S3 objects" );
@@ -90,6 +95,7 @@ public enum AwsS3CommandType {
     	choices.add ( AwsS3CommandType.DOWNLOAD_OBJECTS );
     	choices.add ( AwsS3CommandType.LIST_BUCKETS );
     	choices.add ( AwsS3CommandType.LIST_OBJECTS );
+    	choices.add ( AwsS3CommandType.TAG_OBJECTS );
     	choices.add ( AwsS3CommandType.UPLOAD_OBJECTS );
     	return choices;
 	}

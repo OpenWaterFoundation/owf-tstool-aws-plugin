@@ -28,8 +28,11 @@ import java.nio.file.Paths;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.swing.JFrame;
 
@@ -43,20 +46,32 @@ import software.amazon.awssdk.services.cloudfront.model.CreateInvalidationReques
 import software.amazon.awssdk.services.cloudfront.model.InvalidationBatch;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Bucket;
+import software.amazon.awssdk.services.s3.model.BucketVersioningStatus;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
 import software.amazon.awssdk.services.s3.model.Delete;
+import software.amazon.awssdk.services.s3.model.DeleteMarkerEntry;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
 import software.amazon.awssdk.services.s3.model.DeletedObject;
+import software.amazon.awssdk.services.s3.model.GetBucketLocationRequest;
+import software.amazon.awssdk.services.s3.model.GetBucketLocationResponse;
+import software.amazon.awssdk.services.s3.model.GetBucketVersioningRequest;
+import software.amazon.awssdk.services.s3.model.GetBucketVersioningResponse;
 import software.amazon.awssdk.services.s3.model.ListBucketsRequest;
 import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
+import software.amazon.awssdk.services.s3.model.ListObjectVersionsRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectVersionsResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.ObjectVersion;
+import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.model.Tag;
+import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.transfer.s3.CompletedDirectoryDownload;
 import software.amazon.awssdk.transfer.s3.CompletedDirectoryUpload;
 import software.amazon.awssdk.transfer.s3.CompletedFileDownload;
@@ -70,7 +85,6 @@ import software.amazon.awssdk.transfer.s3.FileDownload;
 import software.amazon.awssdk.transfer.s3.FileUpload;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.UploadDirectoryRequest;
-
 import rti.tscommandprocessor.core.TSCommandProcessor;
 import rti.tscommandprocessor.core.TSCommandProcessorUtil;
 
@@ -160,6 +174,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	private DataTable discoveryOutputTable = null;
 
 	/**
+	 * Profile credentials provider, needed to create S3Client.
+	 */
+	private ProfileCredentialsProvider credentialsProvider = null;
+
+	/**
 	Constructor.
 	*/
 	public AwsS3_Command () {
@@ -220,10 +239,18 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	String Delimiter = parameters.getValue ( "Delimiter" );
     	String ListFiles = parameters.getValue ( "ListFiles" );
     	String ListFolders = parameters.getValue ( "ListFolders" );
+    	String ListVersions = parameters.getValue ( "ListVersions" );
+    	String OutputObjectTags = parameters.getValue ( "OutputObjectTags" );
     	String MaxKeys = parameters.getValue ( "MaxKeys" );
     	String MaxObjects = parameters.getValue ( "MaxObjects" );
+    	// Tag
+    	String Tags = parameters.getValue ( "Tags" );
+    	String TagMode = parameters.getValue ( "TagMode" );
+    	// Upload
     	String UploadFiles = parameters.getValue ( "UploadFiles" );
     	String UploadFolders = parameters.getValue ( "UploadFolders" );
+    	String UploadTags = parameters.getValue ( "UploadTags" );
+    	String UploadTagMode = parameters.getValue ( "UploadTagMode" );
     	// Output
     	String OutputTableID = parameters.getValue ( "OutputTableID" );
     	String OutputFile = parameters.getValue ( "OutputFile" );
@@ -243,6 +270,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
 		// The existence of the file to append is not checked during initialization
 		// because files may be created dynamically at runtime.
+
+		// General.
 
 		AwsS3CommandType s3Command = null;
 		if ( (S3Command == null) || S3Command.isEmpty() ) {
@@ -268,6 +297,17 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			Profile = AwsToolkit.getInstance().getDefaultProfile();
 		}
 
+		if ( s3Command != AwsS3CommandType.LIST_BUCKETS ) {
+			// All commands except listing buckets needs the bucket.
+			if ( (Bucket == null) || Bucket.isEmpty() ) {
+				message = "The bucket must be specified for the " + s3Command + " command";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Specify the bucket."));
+			}
+		}
+
 		if ( (Region == null) || Region.isEmpty() ) {
 			// Get the default region for checks.
 			String region = AwsToolkit.getInstance().getDefaultRegion(Profile);
@@ -277,6 +317,16 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 				status.addToLog(CommandPhaseType.INITIALIZATION,
 					new CommandLogRecord(CommandStatusType.FAILURE,
 					message, "Specify the region."));
+			}
+		}
+		else {
+			// Region has been specified.
+			if ( (s3Command != AwsS3CommandType.LIST_BUCKETS) && Region.equals("*") ) {
+				message = "Region=* can only be specified when listing buckets.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.FAILURE,
+					message, "Don't the region as * unless listing buckets."));
 			}
 		}
 
@@ -290,99 +340,6 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		}
 		*/
 
-		if ( (Delimiter != null) && !Delimiter.isEmpty() && (Delimiter.length() != 1) ) {
-			message = "The delimiter, if specified, must be 1 character.";
-			warning += "\n" + message;
-			status.addToLog(CommandPhaseType.INITIALIZATION,
-				new CommandLogRecord(CommandStatusType.FAILURE,
-					message, "Specify the prefix as a single character."));
-		}
-
-		if ( (DeleteFoldersScope != null) && !DeleteFoldersScope.equals("") ) {
-			if ( !DeleteFoldersScope.equalsIgnoreCase(_AllFilesAndFolders) && !DeleteFoldersScope.equalsIgnoreCase(_FolderFiles) ) {
-				message = "The DeleteFoldersScope parameter \"" + DeleteFoldersScope + "\" is invalid.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Specify the parameter as " + _AllFilesAndFolders + " or " + _FolderFiles + " (default)."));
-			}
-		}
-
-		if ( (DeleteFoldersMinDepth != null) && !DeleteFoldersMinDepth.equals("") && !StringUtil.isInteger(DeleteFoldersMinDepth)) {
-			message = "The DeleteFoldersMinDepth parameter (" + DeleteFoldersMinDepth + ") is not an integer.";
-			warning += "\n" + message;
-			status.addToLog(CommandPhaseType.INITIALIZATION,
-				new CommandLogRecord(CommandStatusType.FAILURE,
-					message, "Specify the parameter as an integer."));
-		}
-
-		if ( (ListFiles != null) && !ListFiles.equals("") ) {
-			if ( !ListFiles.equalsIgnoreCase(_False) && !ListFiles.equalsIgnoreCase(_True) ) {
-				message = "The ListFiles parameter \"" + ListFiles + "\" is invalid.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Specify the parameter as " + _False + " or " + _True + " (default)."));
-			}
-		}
-
-		if ( (ListFolders != null) && !ListFolders.equals("") ) {
-			if ( !ListFolders.equalsIgnoreCase(_False) && !ListFolders.equalsIgnoreCase(_True) ) {
-				message = "The ListFolders parameter \"" + ListFolders + "\" is invalid.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Specify the parameter as " + _False + " or " + _True + " (default)."));
-			}
-		}
-
-		if ( (MaxKeys != null) && !MaxKeys.isEmpty() && !StringUtil.isInteger(MaxKeys) ) {
-			message = "The maximum keys (" + MaxKeys + ") is invalid.";
-			warning += "\n" + message;
-			status.addToLog(CommandPhaseType.INITIALIZATION,
-				new CommandLogRecord(CommandStatusType.FAILURE,
-					message, "Specify an integer 1 to " + this._MaxKeys + "."));
-		}
-
-		if ( (MaxObjects != null) && !MaxObjects.isEmpty() && !StringUtil.isInteger(MaxObjects) ) {
-			message = "The maximum objects (" + MaxObjects + ") is invalid.";
-			warning += "\n" + message;
-			status.addToLog(CommandPhaseType.INITIALIZATION,
-				new CommandLogRecord(CommandStatusType.FAILURE,
-					message, "Specify an integer."));
-		}
-
-		if ( (AppendOutput != null) && !AppendOutput.equals("") ) {
-			if ( !AppendOutput.equalsIgnoreCase(_False) && !AppendOutput.equalsIgnoreCase(_True) ) {
-				message = "The AppendOutput parameter \"" + AppendOutput + "\" is invalid.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Specify the parameter as " + _False + " (default), or " + _True + "."));
-			}
-		}
-
-		// Put ListObjectsScope at the end so combinations of parameters can be checked.
-		if ( (ListObjectsScope != null) && !ListObjectsScope.equals("") ) {
-			if ( !ListObjectsScope.equalsIgnoreCase(_All) && !ListObjectsScope.equalsIgnoreCase(_Folder) && !ListObjectsScope.equalsIgnoreCase(_Root)) {
-				message = "The ListObjectsScope parameter \"" + ListObjectsScope + "\" is invalid.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Specify the parameter as " + _All + " (default), " + _Folder + ", or " + _Root + "."));
-			}
-			// Cannot be specified with Prefix.
-			/*
-			if ( ListObjectsScope.equalsIgnoreCase(_True) && (Prefix != null) && !Prefix.isEmpty() ) {
-				message = "ListObjectsScope=True cannot be specified with a Prefix value.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Change to not list root only or remove the prefix."));
-			}
-			*/
-		}
-
 		if ( (IfInputNotFound != null) && !IfInputNotFound.equals("") ) {
 			if ( !IfInputNotFound.equalsIgnoreCase(_Ignore) && !IfInputNotFound.equalsIgnoreCase(_Warn)
 		    	&& !IfInputNotFound.equalsIgnoreCase(_Fail) ) {
@@ -395,18 +352,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			}
 		}
 
-		// Additional checks specific to a command.
-
-		if ( s3Command != AwsS3CommandType.LIST_BUCKETS ) {
-			// All commands except listing buckets needs the bucket.
-			if ( (Bucket == null) || Bucket.isEmpty() ) {
-				message = "The bucket must be specified.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Specify the bucket."));
-			}
-		}
+		// Copy.
 
 		if ( s3Command == AwsS3CommandType.COPY_OBJECTS ) {
 			if ( (CopyFiles == null) || CopyFiles.isEmpty() ) {
@@ -416,65 +362,29 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 					new CommandLogRecord(CommandStatusType.FAILURE,
 						message, "Specify the copy files list."));
 			}
-			// Make sure extra commands are not provided to avoid confusion with file and folder lists.
-			if ( (DeleteFiles != null) && !DeleteFiles.isEmpty() ) {
-				message = "The DeleteFiles parameter is not used when copying objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DeleteFiles parameter."));
-			}
-			if ( (DeleteFolders != null) && !DeleteFolders.isEmpty() ) {
-				message = "The DeleteFolders parameter is not used when copying objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DeleteFolders parameter."));
-			}
-			if ( (DownloadFiles != null) && !DownloadFiles.isEmpty() ) {
-				message = "The DownloadFiles parameter is not used when copying objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DownloadFiles parameter."));
-			}
-			if ( (DownloadFolders != null) && !DownloadFolders.isEmpty() ) {
-				message = "The DownloadFolders parameter is not used when copying objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DownloadFolders parameter."));
-			}
-			if ( (ListFiles != null) && !ListFiles.isEmpty() ) {
-				message = "The ListFiles parameter is not used when copying objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the ListFiles parameter."));
-			}
-			if ( (ListFolders != null) && !ListFolders.isEmpty() ) {
-				message = "The ListFolders parameter is not used when copying objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the ListFolders parameter."));
-			}
-			if ( (UploadFiles != null) && !UploadFiles.isEmpty() ) {
-				message = "The UploadFiles parameter is not used when copying objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the UploadFiles parameter."));
-			}
-			if ( (UploadFolders != null) && !UploadFolders.isEmpty() ) {
-				message = "The UploadFolders parameter is not used when copying objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the UploadFolders parameter."));
-			}
 		}
-		else if ( s3Command == AwsS3CommandType.DELETE_OBJECTS ) {
+
+		// Delete.
+
+		if ( s3Command == AwsS3CommandType.DELETE_OBJECTS ) {
+			if ( (DeleteFoldersScope != null) && !DeleteFoldersScope.equals("") ) {
+				if ( !DeleteFoldersScope.equalsIgnoreCase(_AllFilesAndFolders) && !DeleteFoldersScope.equalsIgnoreCase(_FolderFiles) ) {
+					message = "The DeleteFoldersScope parameter \"" + DeleteFoldersScope + "\" is invalid.";
+					warning += "\n" + message;
+					status.addToLog(CommandPhaseType.INITIALIZATION,
+						new CommandLogRecord(CommandStatusType.FAILURE,
+							message, "Specify the parameter as " + _AllFilesAndFolders + " or " + _FolderFiles + " (default)."));
+				}
+			}
+
+			if ( (DeleteFoldersMinDepth != null) && !DeleteFoldersMinDepth.equals("") && !StringUtil.isInteger(DeleteFoldersMinDepth)) {
+				message = "The DeleteFoldersMinDepth parameter (" + DeleteFoldersMinDepth + ") is not an integer.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Specify the parameter as an integer."));
+			}
+
 			if ( ((DeleteFiles == null) || DeleteFiles.isEmpty()) && ((DeleteFolders == null) || DeleteFolders.isEmpty()) ) {
 				message = "The files or folders must be specified for the delete.";
 				warning += "\n" + message;
@@ -482,213 +392,243 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 					new CommandLogRecord(CommandStatusType.FAILURE,
 						message, "Specify 1+ file and/or folder keys to delete."));
 			}
-			// Make sure extra commands are not provided to avoid confusion with file and folder lists.
-			if ( (CopyFiles != null) && !CopyFiles.isEmpty() ) {
-				message = "The CopyFiles parameter is not used when deleting objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the CopyFiles parameter."));
-			}
+		}
+
+		if ( s3Command == AwsS3CommandType.DOWNLOAD_OBJECTS ) {
+			// Make sure files and/or folders are specified.
+			int downloadCount = 0;
 			if ( (DownloadFiles != null) && !DownloadFiles.isEmpty() ) {
-				message = "The DownloadFiles parameter is not used when deleting objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DownloadFiles parameter."));
+				++downloadCount;
 			}
 			if ( (DownloadFolders != null) && !DownloadFolders.isEmpty() ) {
-				message = "The DownloadFolders parameter is not used when deleting objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DownloadFolders parameter."));
+				++downloadCount;
 			}
-			if ( (ListFiles != null) && !ListFiles.isEmpty() ) {
-				message = "The ListFiles parameter is not used when deleting objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the ListFiles parameter."));
-			}
-			if ( (ListFolders != null) && !ListFolders.isEmpty() ) {
-				message = "The ListFolders parameter is not used when deleting objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the ListFolders parameter."));
-			}
-			if ( (UploadFiles != null) && !UploadFiles.isEmpty() ) {
-				message = "The UploadFiles parameter is not used when deleting objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the UploadFiles parameter."));
-			}
-			if ( (UploadFolders != null) && !UploadFolders.isEmpty() ) {
-				message = "The UploadFolders parameter is not used when deleting objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the UploadFolders parameter."));
-			}
-		}
-		else if ( s3Command == AwsS3CommandType.DOWNLOAD_OBJECTS ) {
-			// Make sure extra commands are not provided to avoid confusion with file and folder lists.
-			if ( (CopyFiles != null) && !CopyFiles.isEmpty() ) {
-				message = "The CopyFiles parameter is not used when downloading objects.";
+			if ( downloadCount == 0 ) {
+				message = "The download files and/or folders must be specified.";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
 					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Remove the CopyFiles parameter."));
-			}
-			if ( (DeleteFiles != null) && !DeleteFiles.isEmpty() ) {
-				message = "The DeleteFiles parameter is not used when downloading objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DeleteFiles parameter."));
-			}
-			if ( (DeleteFolders != null) && !DeleteFolders.isEmpty() ) {
-				message = "The DeleteFolders parameter is not used when downloading objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DeleteFolders parameter."));
-			}
-			if ( (ListFiles != null) && !ListFiles.isEmpty() ) {
-				message = "The ListFiles parameter is not used when downloading objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the ListFiles parameter."));
-			}
-			if ( (ListFolders != null) && !ListFolders.isEmpty() ) {
-				message = "The ListFolders parameter is not used when downloading objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the ListFolders parameter."));
-			}
-			if ( (UploadFiles != null) && !UploadFiles.isEmpty() ) {
-				message = "The UploadFiles parameter is not used when downloading objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the UploadFiles parameter."));
-			}
-			if ( (UploadFolders != null) && !UploadFolders.isEmpty() ) {
-				message = "The UploadFolders parameter is not used when downloading objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the UploadFolders parameter."));
+						message, "Specify download files and/or folders."));
 			}
 		}
-		else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
-			// Make sure extra commands are not provided to avoid confusion with file and folder lists.
-			if ( (CopyFiles != null) && !CopyFiles.isEmpty() ) {
-				message = "The CopyFiles parameter is not used when listing objects.";
+
+		// List Objects:
+		// - also used by Tag Objects
+
+		if ( (s3Command == AwsS3CommandType.LIST_OBJECTS) || (s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
+			if ( (Delimiter != null) && !Delimiter.isEmpty() && (Delimiter.length() != 1) ) {
+				message = "The delimiter, if specified, must be 1 character.";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
 					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Remove the CopyFiles parameter."));
+						message, "Specify the prefix as a single character."));
 			}
-			if ( (DeleteFiles != null) && !DeleteFiles.isEmpty() ) {
-				message = "The DeleteFiles parameter is not used when listing objects.";
+
+			if ( (ListFiles != null) && !ListFiles.equals("") ) {
+				if ( !ListFiles.equalsIgnoreCase(_False) && !ListFiles.equalsIgnoreCase(_True) ) {
+					message = "The ListFiles parameter \"" + ListFiles + "\" is invalid.";
+					warning += "\n" + message;
+					status.addToLog(CommandPhaseType.INITIALIZATION,
+						new CommandLogRecord(CommandStatusType.FAILURE,
+							message, "Specify the parameter as " + _False + " or " + _True + " (default)."));
+				}
+			}
+
+			if ( (ListFolders != null) && !ListFolders.equals("") ) {
+				if ( !ListFolders.equalsIgnoreCase(_False) && !ListFolders.equalsIgnoreCase(_True) ) {
+					message = "The ListFolders parameter \"" + ListFolders + "\" is invalid.";
+					warning += "\n" + message;
+					status.addToLog(CommandPhaseType.INITIALIZATION,
+						new CommandLogRecord(CommandStatusType.FAILURE,
+							message, "Specify the parameter as " + _False + " (default) or " + _True + "."));
+				}
+			}
+
+			if ( (ListVersions != null) && !ListVersions.equals("") ) {
+				if ( !ListVersions.equalsIgnoreCase(_False) && !ListVersions.equalsIgnoreCase(_True) ) {
+					message = "The ListVersions parameter \"" + ListVersions + "\" is invalid.";
+					warning += "\n" + message;
+					status.addToLog(CommandPhaseType.INITIALIZATION,
+						new CommandLogRecord(CommandStatusType.FAILURE,
+							message, "Specify the parameter as " + _False + " or " + _True + " (default)."));
+				}
+			}
+
+			if ( (OutputObjectTags != null) && !OutputObjectTags.equals("") ) {
+				if ( !OutputObjectTags.equalsIgnoreCase(_False) && !OutputObjectTags.equalsIgnoreCase(_True) ) {
+					message = "The OutputObjectTags parameter \"" + OutputObjectTags + "\" is invalid.";
+					warning += "\n" + message;
+					status.addToLog(CommandPhaseType.INITIALIZATION,
+						new CommandLogRecord(CommandStatusType.FAILURE,
+							message, "Specify the parameter as " + _False + " (default) or " + _True + "."));
+				}
+			}
+
+			if ( (MaxKeys != null) && !MaxKeys.isEmpty() && !StringUtil.isInteger(MaxKeys) ) {
+				message = "The maximum keys (" + MaxKeys + ") is invalid.";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DeleteFiles parameter."));
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Specify an integer 1 to " + this._MaxKeys + "."));
 			}
-			if ( (DeleteFolders != null) && !DeleteFolders.isEmpty() ) {
-				message = "The DeleteFolders parameter is not used when listing objects.";
+
+			if ( (MaxObjects != null) && !MaxObjects.isEmpty() && !StringUtil.isInteger(MaxObjects) ) {
+				message = "The maximum objects (" + MaxObjects + ") is invalid.";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DeleteFolders parameter."));
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Specify an integer."));
 			}
-			if ( (DownloadFiles != null) && !DownloadFiles.isEmpty() ) {
-				message = "The DownloadFiles parameter is not used when listing objects.";
+
+			// Put ListObjectsScope at the end so combinations of parameters can be checked.
+			if ( (ListObjectsScope != null) && !ListObjectsScope.equals("") ) {
+				if ( !ListObjectsScope.equalsIgnoreCase(_All) && !ListObjectsScope.equalsIgnoreCase(_Folder) && !ListObjectsScope.equalsIgnoreCase(_Root)) {
+					message = "The ListObjectsScope parameter \"" + ListObjectsScope + "\" is invalid.";
+					warning += "\n" + message;
+					status.addToLog(CommandPhaseType.INITIALIZATION,
+						new CommandLogRecord(CommandStatusType.FAILURE,
+							message, "Specify the parameter as " + _All + " (default), " + _Folder + ", or " + _Root + "."));
+				}
+				// Cannot be specified with Prefix.
+				/*
+				if ( ListObjectsScope.equalsIgnoreCase(_True) && (Prefix != null) && !Prefix.isEmpty() ) {
+					message = "ListObjectsScope=True cannot be specified with a Prefix value.";
+					warning += "\n" + message;
+					status.addToLog(CommandPhaseType.INITIALIZATION,
+						new CommandLogRecord(CommandStatusType.FAILURE,
+							message, "Change to not list root only or remove the prefix."));
+				}
+				*/
+			}
+		}
+
+		// Tag Objects.
+
+		if ( s3Command == AwsS3CommandType.TAG_OBJECTS ) {
+			if ( (Tags != null) && !Tags.isEmpty() && (Tags.indexOf(":") > 0) ) {
+				// First break map pairs by comma.
+				List<String>pairs = StringUtil.breakStringList(Tags, ",", 0 );
+				// Now break pairs and put in lists.
+				for ( String pair : pairs ) {
+					String [] parts = pair.split(":");
+					if ( parts.length == 2 ) {
+						// Convert to a Java regular expression so that it does not need to be done later.
+						String pattern = parts[0].trim().replace("*", ".*");
+						String tag = parts[1].trim();
+						// Split the tag.
+						if ( tag.contains("=") ) {
+							String [] tagParts = tag.split("=");
+							if ( tagParts.length == 2 ) {
+								// Have everything that is needed.
+							}
+							else {
+								message = "The Tags parameter \"" + pattern + "\" is invalid (does not have 'Pattern:TagName=TagValue').";
+								warning += "\n" + message;
+								status.addToLog(CommandPhaseType.INITIALIZATION,
+									new CommandLogRecord(CommandStatusType.FAILURE,
+										message, "Specify the parameter as Pattern:TagName=TagValue"));
+							}
+						}
+					}
+					else {
+						message = "The Tags parameter \"" + pair + "\" is invalid (does not have 'Pattern:TagName=TagValue').";
+						warning += "\n" + message;
+						status.addToLog(CommandPhaseType.INITIALIZATION,
+							new CommandLogRecord(CommandStatusType.FAILURE,
+								message, "Specify the parameter as Pattern:TagName=TagValue"));
+					}
+				}
+			}
+
+			if ( (TagMode != null) && !TagMode.isEmpty() ) {
+				TagModeType tagModeType = TagModeType.valueOfIgnoreCase(TagMode);
+				if ( tagModeType == null ) {
+					message = "The TagMode parameter \"" + TagMode + "\" is invalid.";
+					warning += "\n" + message;
+					status.addToLog(CommandPhaseType.INITIALIZATION,
+						new CommandLogRecord(CommandStatusType.FAILURE,
+							message, "Use the command editor to set (default is " + TagModeType.SET + ").") );
+				}
+			}
+
+			if ( (OutputTableID == null) || OutputTableID.isEmpty() ) {
+				message = "The output table must be specified.";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DownloadFiles parameter."));
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Specify the output table ID."));
 			}
-			if ( (DownloadFolders != null) && !DownloadFolders.isEmpty() ) {
-				message = "The DownloadFolders parameter is not used when listing objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DownloadFolders parameter."));
-			}
+		}
+
+		// Upload Objects.
+
+		if ( s3Command == AwsS3CommandType.UPLOAD_OBJECTS ) {
+			// Make sure files and/or folders are specified.
+			int uploadCount = 0;
 			if ( (UploadFiles != null) && !UploadFiles.isEmpty() ) {
-				message = "The UploadFiles parameter is not used when listing objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the UploadFiles parameter."));
+				++uploadCount;
 			}
 			if ( (UploadFolders != null) && !UploadFolders.isEmpty() ) {
-				message = "The UploadFolders parameter is not used when listing objects.";
+				++uploadCount;
+			}
+			if ( uploadCount == 0 ) {
+				message = "The upload files and/or folders must be specified.";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the UploadFolders parameter."));
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Specify upload files and/or folders."));
 			}
-		}
-		else if ( s3Command == AwsS3CommandType.UPLOAD_OBJECTS ) {
-			// Make sure extra commands are not provided to avoid confusion with file and folder lists.
-			if ( (CopyFiles != null) && !CopyFiles.isEmpty() ) {
-				message = "The CopyFiles parameter is not used when uploading objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the CopyFiles parameter."));
+
+			if ( (UploadTags != null) && !UploadTags.isEmpty() && (UploadTags.indexOf(":") > 0) ) {
+				// First break map pairs by comma.
+				List<String>pairs = StringUtil.breakStringList(UploadTags, ",", 0 );
+				// Now break pairs and put in lists.
+				for ( String pair : pairs ) {
+					String [] parts = pair.split(":");
+					if ( parts.length == 2 ) {
+						// Convert to a Java regular expression so that it does not need to be done later.
+						String pattern = parts[0].trim().replace("*", ".*");
+						String tag = parts[1].trim();
+						// Split the tag.
+						if ( tag.contains("=") ) {
+							String [] tagParts = tag.split("=");
+							if ( tagParts.length == 2 ) {
+								// Have everything that is needed.
+							}
+							else {
+								message = "The UploadTags parameter \"" + pattern + "\" is invalid (does not have 'Pattern:TagName=TagValue').";
+								warning += "\n" + message;
+								status.addToLog(CommandPhaseType.INITIALIZATION,
+									new CommandLogRecord(CommandStatusType.FAILURE,
+										message, "Specify the parameter as Pattern:TagName=TagValue"));
+							}
+						}
+					}
+					else {
+						message = "The UploadTags parameter \"" + pair + "\" is invalid (does not have 'Pattern:TagName=TagValue').";
+						warning += "\n" + message;
+						status.addToLog(CommandPhaseType.INITIALIZATION,
+							new CommandLogRecord(CommandStatusType.FAILURE,
+								message, "Specify the parameter as Pattern:TagName=TagValue"));
+					}
+				}
 			}
-			if ( (DeleteFiles != null) && !DeleteFiles.isEmpty() ) {
-				message = "The DeleteFiles parameter is not used when uploading objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DeleteFiles parameter."));
+
+			if ( (UploadTagMode != null) && !UploadTagMode.isEmpty() ) {
+				TagModeType uploadTagModeType = TagModeType.valueOfIgnoreCase(UploadTagMode);
+				if ( uploadTagModeType == null ) {
+					message = "The UploadTagMode parameter \"" + UploadTagMode + "\" is invalid.";
+					warning += "\n" + message;
+					status.addToLog(CommandPhaseType.INITIALIZATION,
+						new CommandLogRecord(CommandStatusType.FAILURE,
+							message, "Use the command editor to set (default is " + TagModeType.SET + ").") );
+				}
 			}
-			if ( (DeleteFolders != null) && !DeleteFolders.isEmpty() ) {
-				message = "The DeleteFolders parameter is not used when uploading objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DeleteFolders parameter."));
-			}
-			if ( (DownloadFiles != null) && !DownloadFiles.isEmpty() ) {
-				message = "The DownloadFiles parameter is not used when uploading objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DownloadFiles parameter."));
-			}
-			if ( (DownloadFolders != null) && !DownloadFolders.isEmpty() ) {
-				message = "The DownloadFolders parameter is not used when uploading objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the DownloadFolders parameter."));
-			}
-			if ( (ListFiles != null) && !ListFiles.isEmpty() ) {
-				message = "The ListFiles parameter is not used when uploading objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the ListFiles parameter."));
-			}
-			if ( (ListFolders != null) && !ListFolders.isEmpty() ) {
-				message = "The ListFolders parameter is not used when uploading objects.";
-				warning += "\n" + message;
-				status.addToLog(CommandPhaseType.INITIALIZATION,
-					new CommandLogRecord(CommandStatusType.WARNING,
-						message, "Remove the ListFolders parameter."));
-			}
-		}
+    	}
+
+		// Output:
+		// - don't limit to a command for now
+		// - if not used a separate warning will be shown
 
 		// The output table or file is needed for lists:
 		// - some internal logic such as counts uses the table
@@ -703,6 +643,18 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 						message, "Specify the output table ID and or file name."));
 			}
 		}
+
+		if ( (AppendOutput != null) && !AppendOutput.equals("") ) {
+			if ( !AppendOutput.equalsIgnoreCase(_False) && !AppendOutput.equalsIgnoreCase(_True) ) {
+				message = "The AppendOutput parameter \"" + AppendOutput + "\" is invalid.";
+				warning += "\n" + message;
+				status.addToLog(CommandPhaseType.INITIALIZATION,
+					new CommandLogRecord(CommandStatusType.FAILURE,
+						message, "Specify the parameter as " + _False + " (default), or " + _True + "."));
+			}
+		}
+
+		// CloudFront.
 
 		// Make sure that only one of the CloudFront distribution ID or comment is specified:
 		// - listing does not require the distribution
@@ -758,7 +710,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		}
 
 		// Check for invalid parameters.
-		List<String> validList = new ArrayList<>(37);
+		List<String> validList = new ArrayList<>(40);
 		// General.
 		validList.add ( "S3Command" );
 		validList.add ( "Profile" );
@@ -779,19 +731,26 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		// List buckets.
 		validList.add ( "ListBucketsRegEx" );
 		validList.add ( "ListBucketsCountProperty" );
-		// List bucket objects.
+		// List objects.
 		validList.add ( "ListObjectsScope" );
 		validList.add ( "Prefix" );
 		validList.add ( "Delimiter" );
 		validList.add ( "ListObjectsRegEx" );
 		validList.add ( "ListFiles" );
 		validList.add ( "ListFolders" );
+		validList.add ( "ListVersions" );
+		validList.add ( "OutputObjectTags" );
 		validList.add ( "MaxKeys" );
 		validList.add ( "MaxObjects" );
 		validList.add ( "ListObjectsCountProperty" );
+		// Tag objects.
+		validList.add ( "Tags" );
+		validList.add ( "TagMode" );
 		// Upload.
 		validList.add ( "UploadFolders" );
 		validList.add ( "UploadFiles" );
+		validList.add ( "UploadTags" );
+		validList.add ( "UploadTagMode" );
 		// Output
 		validList.add ( "OutputTableID" );
 		validList.add ( "OutputFile" );
@@ -806,6 +765,175 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		validList.add ( "CloudFrontWaitForCompletion" );
 		//
 		validList.add ( "IfInputNotFound" );
+
+		// Parameters grouped by use in sub-commands:
+		// - used in checks below
+
+		// General parameters that can be used with any S3 command.
+		String [] generalParameters = {
+			"S3Command",
+			"Profile",
+			"Region",
+			"Bucket",
+			"IfInputNotFound"
+		};
+
+		// Output parameters.
+		String [] outputParameters = {
+			"OutputTableID",
+			"OutputFile",
+			"AppendOutput"
+		};
+
+		// CloudFront parameters.
+		String [] cloudFrontParameters = {
+			"InvalidateCloudFront",
+			"CloudFrontRegion",
+			"CloudFrontDistributionId",
+			"CloudFrontTags",
+			"CloudFrontComment",
+			"CloudFrontCallerReference",
+			"CloudFrontWaitForCompletion"
+		};
+
+		// Copy.
+		String [] copyParameters = {
+			"CopyFiles",
+			"CopyBucket",
+			"CopyObjectsCountProperty"
+		};
+
+		// Delete.
+		String [] deleteParameters = {
+			"DeleteFiles",
+			"DeleteFolders",
+			"DeleteFoldersScope",
+			"DeleteFoldersMinDepth"
+		};
+
+		// Download.
+		String [] downloadParameters = {
+			"DownloadFolders",
+			"DownloadFiles"
+		};
+
+		// List buckets.
+		String [] listBucketsParameters = {
+			// Specific to List Buckets.
+			"ListBucketsRegEx",
+			"ListBucketsCountProperty"
+		};
+
+		// List objects.
+		String [] listObjectsParameters = {
+			// Specific to List Objects.
+			"ListObjectsScope",
+			"Prefix",
+			"Delimiter",
+			"ListObjectsRegEx",
+			"ListFiles",
+			"ListFolders",
+			"ListVersions",
+			"OutputObjectTags",
+			"MaxKeys",
+			"MaxObjects",
+			"ListObjectsCountProperty"
+		};
+
+		// Tag objects.
+		String [] tagObjectsParameters = {
+			"Tags",
+			"TagMode"
+		};
+
+		// Upload.
+		String [] uploadObjectsParameters = {
+			"UploadFolders",
+			"UploadFiles",
+			"UploadTags",
+			"UploadTagMode"
+		};
+
+		// Checks for sub-command parameters:
+		// - the above arrays of valid parameters are passed and checked
+		// - some parameter lists are independent of the command
+		// - others, including 'List Objects',  'Output', and 'CloudFront' are used in conjunction with a command
+
+		// Pointers to arrays, to make the code more obvious.
+		String [] commandp = null;
+		String [] listp = null;
+		String [] outp = null;
+		String [] cfp = null;
+		if ( s3Command == AwsS3CommandType.COPY_OBJECTS ) {
+			// List is not used.
+			// Output is not used.
+			// CloudFront can be used.
+			commandp = copyParameters;
+			listp = null;
+			outp = null;
+			cfp = cloudFrontParameters;
+		}
+		else if ( s3Command == AwsS3CommandType.DELETE_OBJECTS ) {
+			// List is not used.
+			// Output is not used.
+			// CloudFront can be used.
+			commandp = deleteParameters;
+			listp = null;
+			outp = null;
+			cfp = cloudFrontParameters;
+		}
+		else if ( s3Command == AwsS3CommandType.DOWNLOAD_OBJECTS ) {
+			// List is not used.
+			// Output is not used.
+			// CloudFront is not used.
+			commandp = downloadParameters;
+			listp = null;
+			outp = null;
+			cfp = null;
+		}
+		else if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
+			// List is not used.
+			// Output is used.
+			// CloudFront is not used.
+			commandp = listBucketsParameters;
+			listp = null;
+			outp = outputParameters;
+			cfp = null;
+		}
+		else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
+			// List is not used.
+			// Don't need to check list objects parameters twice so pass as null.
+			// Output is used.
+			// CloudFront is not used.
+			commandp = listObjectsParameters;
+			listp = null;
+			outp = outputParameters;
+			cfp = null;
+		}
+		else if ( s3Command == AwsS3CommandType.TAG_OBJECTS ) {
+			// List is used.
+			// Output is used.
+			// CloudFront is not used.
+			commandp = tagObjectsParameters;
+			listp = listObjectsParameters;
+			outp = outputParameters;
+			cfp = null;
+		}
+		else if ( s3Command == AwsS3CommandType.UPLOAD_OBJECTS ) {
+			// List is not used.
+			// Output is not used.
+			// CloudFront is used.
+			commandp = uploadObjectsParameters;
+			listp = null;
+			outp = outputParameters;
+			cfp = cloudFrontParameters;
+		}
+		// Do the checks in a single call.
+		warning = checkSubcommandParameters ( s3Command, parameters, validList, generalParameters, commandp, listp, outp, cfp, status, warning );
+
+		// Normal check for all valid parameters:
+		// - may be redundant to above checks now but warning message wording is different
+
 		warning = TSCommandProcessorUtil.validateParameterNames ( validList, this, warning );
 
 		if ( warning.length() > 0 ) {
@@ -814,6 +942,70 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			throw new InvalidCommandParameterException ( warning );
 		}
 		status.refreshPhaseSeverity(CommandPhaseType.INITIALIZATION,CommandStatusType.SUCCESS);
+	}
+
+	/**
+	 * Check that a sub-command's parameters are used (but no others).
+	 * @param s3CommandType AwsS3 command type
+	 * @param parameters list of all command parameters and values
+	 * @param validLIst list of all valid parameters
+	 * @param generalParameters general parameters used by all sub-commands
+	 * @param subcommandParameters all parameters that are valid for a sub-command
+	 * @param outputParameters output parameters that are valid for a sub-command
+	 * @param cloudFrontParameters CloudFront parameters that are valid for a sub-command
+	 * @param status the command status to receive check messages
+	 * @param warning cumulative warning string to append to
+	 */
+	private String checkSubcommandParameters ( AwsS3CommandType s3CommandType, PropList parameters,
+		List<String> validList,
+		// List in the order of the UI.
+		String [] generalParameters,
+		String [] subcommandParameters,
+		String [] listObjectsParameters,
+		String [] outputParameters,
+		String [] cloudFrontParameters,
+		CommandStatus status, String warning ) {
+		// Loop through the list of all valid parameters:
+		// - get the value for a parameter
+		// - if a value is specified, check that the parameter name was expected
+		for ( String param : validList ) {
+			String value = parameters.getValue(param);
+			// Count of when a parameter matches an array of expected parameters:
+			// - a parameter must match one of the smaller arrays for it to be valid
+			int validCount = 0;
+			if ( (value != null) && !value.isEmpty() ) {
+				if ( Arrays.stream(generalParameters).anyMatch(param::equals) ) {
+					// Always check general parameters (should never be an issue).
+					++validCount;
+				}
+				if ( Arrays.stream(subcommandParameters).anyMatch(param::equals) ) {
+					// Always check sub-command parameters.
+					++validCount;
+				}
+				if ( (listObjectsParameters != null) && Arrays.stream(listObjectsParameters).anyMatch(param::equals) ) {
+					// Check output sub-command parameters only if used for a command.
+					++validCount;
+				}
+				if ( (outputParameters != null) && Arrays.stream(outputParameters).anyMatch(param::equals) ) {
+					// Check output sub-command parameters only if used for a command.
+					++validCount;
+				}
+				if ( (cloudFrontParameters != null) && Arrays.stream(cloudFrontParameters).anyMatch(param::equals) ) {
+					// Check CloudFront sub-command parameters only if used for a command.
+					++validCount;
+				}
+
+				if ( validCount == 0 ) {
+					// No valid parameters were matched.
+					String message = "The " + param + " parameter is not used with the " + s3CommandType + " AwsS3 command.";
+					warning += "\n" + message;
+					status.addToLog(CommandPhaseType.INITIALIZATION,
+						new CommandLogRecord(CommandStatusType.WARNING,
+							message, "Don't set the " + param + " parameter."));
+				}
+			}
+		}
+		return warning;
 	}
 
 	/**
@@ -912,7 +1104,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
 	/**
  	* Run the CopyObject command.
- 	* @param s3 the S3 client to use for S3 requests
+ 	* @param s3Client the S3 client to use for S3 requests
  	* @param sourceBucket source bucket for the key
  	* @param copySourceKeyList list of source object keys to copy
  	* @param destBucket destination bucket for the key
@@ -924,7 +1116,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
  	*/
 	private int doS3CopyObjects (
 		CommandProcessor processor,
-		S3Client s3,
+		S3Client s3Client,
 		String sourceBucket, List<String> copySourceKeyList, String destBucket, List<String> copyDestKeyList,
 		String copyObjectCountProperty,
 		boolean invalidateCloudFront, List<String> cloudFrontPaths,
@@ -957,7 +1149,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 				.destinationKey(destKey)
 				.build();
 			// Error exception is caught in the main catch below.
-			CopyObjectResponse response = s3.copyObject(request);
+			CopyObjectResponse response = s3Client.copyObject(request);
 			if ( response.sdkHttpResponse().statusCode() == HttpURLConnection.HTTP_OK ) {
 				// Successful.
 				++copyCount;
@@ -1000,7 +1192,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	/**
 	 * Delete S3 objects given a list of keys and/or folders.
 	 * Folders require listing objects because the API does not include a delete folders.
-	 * @param s3 S3Client instance to use for requests
+	 * @param s3Client S3Client instance to use for requests
 	 * @param bucket bucket containing objects
 	 * @param deleteFilesKeys list of keys to delete
 	 * @param deleteFoldersKeys list of folders (keys ending in /) to delete
@@ -1017,7 +1209,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	 * @param commandTag command tag for warning messages
 	*/
 	private int doS3DeleteObjects (
-		S3Client s3,
+		S3Client s3Client,
 		String bucket,
 		List<String> deleteFilesKeys, List<String> deleteFoldersKeys,
 		String deleteFoldersScope, int deleteFoldersMinDepth,
@@ -1110,7 +1302,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 				boolean listFolders = true;
 				String regex = null;
 				List<AwsS3Object> s3Objects = AwsToolkit.getInstance().getS3BucketObjects(
-					s3,
+					s3Client,
 					bucket, prefix, delimiter, useDelimiter,
 					maxKeys, maxObjects, listFiles, listFolders, regex);
 				for ( AwsS3Object s3Object : s3Objects ) {
@@ -1149,7 +1341,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 				boolean listFolders = true;
 				String regex = null;
 				List<AwsS3Object> s3Objects = AwsToolkit.getInstance().getS3BucketObjects(
-					s3,
+					s3Client,
 					bucket, prefix, delimiter, useDelimiter,
 					maxKeys, maxObjects, listFiles, listFolders, regex);
 				for ( AwsS3Object s3Object : s3Objects ) {
@@ -1186,7 +1378,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     					.build())
     			.build();
 
-  	   		DeleteObjectsResponse response = s3.deleteObjects(request);
+  	   		DeleteObjectsResponse response = s3Client.deleteObjects(request);
 
   	   		if ( response.deleted().size() != objectIds.size() ) {
   	   			// Create a list of booleans to check which files were deleted.
@@ -1429,6 +1621,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     		tm.close();
     	}
 
+    	Message.printStatus(2, routine, "Downloaded " + downloadCount + " files outof " + downloadFilesFiles.size() + ".");
+
     	// Return the updated warning count.
     	return warningCount;
 	}
@@ -1438,9 +1632,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	 */
 	private int doS3ListBuckets (
 		CommandProcessor processor,
-		S3Client s3,
+		S3Client s3Client,
 		DataTable table,
-		int bucketNameCol, int bucketCreationDateCol,
+		String regionRequested,
+		int bucketNameCol, int bucketRegionCol, int bucketCreationDateCol, int bucketIsVersionedCol,
 		String regEx, String listBucketsCountProperty,
 		CommandStatus status, int logLevel, int warningCount, String commandTag ) throws Exception {
 		String routine = getClass().getSimpleName() + ".doS3ListBuckets";
@@ -1449,7 +1644,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	ListBucketsRequest request = ListBucketsRequest
     		.builder()
     		.build();
-    	ListBucketsResponse response = s3.listBuckets(request);
+    	ListBucketsResponse response = s3Client.listBuckets(request);
 
     	TableRecord rec = null;
     	boolean allowDuplicates = false;
@@ -1469,6 +1664,16 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    						continue;
    					}
    				}
+    			// Get the bucket region (the list will contain buckets from multiple regions).
+    			GetBucketLocationRequest getBucketLocationRequest = GetBucketLocationRequest.builder()
+    				.bucket(bucketName)
+    				.build();
+    			GetBucketLocationResponse bucketLocationResponse = s3Client.getBucketLocation(getBucketLocationRequest);
+    			String bucketRegion = bucketLocationResponse.locationConstraintAsString();
+    			if ( (regionRequested != null) && !regionRequested.equals("*") && !bucketRegion.equals(regionRequested) )  {
+    				// Requested region does not match the specific requested region so don't include.
+    				continue;
+    			}
     			if ( !allowDuplicates ) {
     				// Try to match the bucket name, which is the unique identifier.
     				rec = table.getRecord ( bucketNameCol, bucketName );
@@ -1487,6 +1692,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     				// Leave the creation date as null.
     			}
     			rec.setFieldValue(bucketCreationDateCol,creationDate);
+    			rec.setFieldValue(bucketRegionCol,bucketRegion);
+    			// Must specify the same region as the bucket to get whether versioned.
+    			rec.setFieldValue(bucketIsVersionedCol,isBucketVersioned(bucketRegion,bucketName));
     		}
     	}
     	// Set the property indicating the number of buckets.
@@ -1517,14 +1725,14 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	}
 
 	/**
-	 * List S3 bucket objects.
+	 * List S3 bucket objects only including the latest.
 	 */
-	private int doS3ListObjects (
+	private int doS3ListObjectsLatest (
 		CommandProcessor processor,
-		S3Client s3,
+		S3Client s3Client,
 		String bucket,
 		String listScope, String prefix, String delimiter, int maxKeys, int maxObjects,
-		boolean listFiles, boolean listFolders, String regex,
+		boolean listFiles, boolean listFolders, boolean outputTags, String regex,
 		DataTable table, int objectKeyCol, int objectTypeCol, int objectNameCol, int objectParentFolderCol,
 		String listObjectsCountProperty,
 		int objectSizeCol, int objectOwnerCol, int objectLastModifiedCol,
@@ -1604,7 +1812,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	int fileCount = 0;
     	int folderCount = 0;
     	while ( !done ) {
-    		response = s3.listObjectsV2(request);
+    		response = s3Client.listObjectsV2(request);
     		// Process files and folders separately, with the maximum count checked based on what is returned.
     		if ( listFiles || listFolders ) {
     			// S3Objects can contain files or folders (objects with key ending in /, typically with size=0).
@@ -1681,6 +1889,29 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     					}
     					rec.setFieldValue(objectLastModifiedCol,
     						new DateTime(OffsetDateTime.ofInstant(s3Object.lastModified(), zoneId), dateTimeBehaviorFlag, timezone));
+    					// Set tags.  May need to add a column if the tag was not previously encountered.
+    					if ( outputTags ) {
+    						String versionId = null;
+    						Map<String,String> tags = AwsToolkit.getInstance().getS3ObjectTagsAsMap(s3Client, bucket, s3Object.key(), versionId);
+    						for ( Entry<String,String> tag : tags.entrySet() ) {
+    							String columnName = tag.getKey() + "/Tag";
+    							int tagCol = -1;
+    							try {
+    								tagCol = table.getFieldIndex(columnName);
+    							}
+    							catch ( Exception e ) {
+    								// OK, handle below.
+    							}
+    							if ( tagCol < 0 ) {
+    								// Add the column.
+    								tagCol = table.addField ( new TableField(TableField.DATA_TYPE_STRING, columnName, -1), "" );
+    								// Get the record again since it will have changed.
+    								rec = table.getRecord ( objectKeyCol, s3Object.key() );
+    							}
+    							// Set the tag value.
+    							rec.setFieldValue(tagCol,tag.getValue());
+    						}
+    					}
     				}
    					// Increment the count of objects processed (includes files and folders).
    					++objectCount;
@@ -1785,6 +2016,472 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	}
 
 	/**
+	 * List S3 bucket objects including latest and versions.
+	 */
+	private int doS3ListObjectsVersions (
+		CommandProcessor processor,
+		S3Client s3Client,
+		String bucket,
+		String listScope, String prefix, String delimiter, int maxKeys, int maxObjects,
+		boolean listFiles, boolean listFolders, boolean outputTags, String regex,
+		DataTable table, int objectKeyCol, int objectTypeCol, int objectNameCol, int objectParentFolderCol,
+		String listObjectsCountProperty,
+		int objectSizeCol, int objectOwnerCol, int objectLastModifiedCol,
+		int objectVersionIdCol, int objectIsLatestCol, int objectDeleteMarkerFoundCol, int objectKeyVersionIdCol,
+		CommandStatus status, int logLevel, int warningCount, String commandTag
+		) throws Exception {
+		String routine = getClass().getSimpleName() + ".doS3ListObjects";
+		String message;
+
+   	    // List bucket objects for files and/or "common prefix" for folders.
+   	    ListObjectVersionsRequest.Builder builder = ListObjectVersionsRequest
+    		.builder()
+    		// fetchOwner not supported for versions?
+    		//.fetchOwner(Boolean.TRUE) // Get the owner so it can be shown in output.
+    		.bucket(bucket); // Bucket is required.
+    	if ( maxKeys > 0 ) {
+    		// Set the maximum number of keys that will be returned per request.
+    		builder.maxKeys(maxKeys);
+    	}
+
+    	// Indicate whether regex is used.
+    	boolean doRegex = false;
+    	if ( (regex != null) && !regex.isEmpty() ) {
+    		doRegex = true;
+    	}
+    	// Indicate whether prefix is being used, to speed up checks.
+    	boolean doPrefix = false;
+    	if ( listScope.equalsIgnoreCase(this._Root) ) {
+    		// Listing root files and/or folders:
+    		// - do not specify prefix
+    		// - do specify delimiter
+    		// - if the bucket uses / as the root, the folder listing can be used
+    		if ( (prefix != null) && prefix.isEmpty() ) {
+    			builder.prefix(prefix);
+    			doPrefix = true;
+    		}
+    		if ( (delimiter == null) || delimiter.isEmpty() ) {
+    			builder.delimiter("/");
+    		}
+    		else {
+    			// Set what the command provided.
+    			builder.delimiter(delimiter);
+    		}
+    		Message.printStatus ( 2, routine, "Requesting all objects in the bucket root." );
+      	}
+    	else if ( listScope.equalsIgnoreCase(this._Folder) ) {
+    		// Listing a specific folder:
+    		// - prefix will have been checked previously
+    		// - delimiter is required and will have been checked previously
+    		if ( (prefix != null) && !prefix.isEmpty() ) {
+    			builder.prefix(prefix);
+    			doPrefix = true;
+    		}
+    		// Also need to set the delimiter.
+    		if ( (delimiter == null) || delimiter.isEmpty() ) {
+    			builder.delimiter("/");
+    		}
+    		else {
+    			// Set what the command provided.
+    			builder.delimiter(delimiter);
+    		}
+    		Message.printStatus ( 2, routine, "Requesting all objects matching prefix \"" + prefix + "\"." );
+    	}
+    	else {
+    		// Listing everything in the bucket:
+    		// - can use the prefix to filter
+    		// - no delimiter is used
+    		// - ok to return a folder matching a prefix
+    		Message.printStatus ( 2, routine, "Requesting all objects in the bucket." );
+    		if ( (prefix != null) && !prefix.isEmpty() ) {
+    			builder.prefix(prefix);
+    		}
+    	}
+
+    	ListObjectVersionsRequest request = builder.build();
+    	ListObjectVersionsResponse response = null;
+    	TableRecord rec = null;
+    	boolean allowDuplicates = false;
+    	// TODO smalers 2022-05-31 for now use UTC time.
+    	String timezone = "Z";
+    	ZoneId zoneId = ZoneId.of("Z");
+    	int dateTimeBehaviorFlag = 0;
+    	boolean done = false;
+    	int objectCount = 0;
+    	int fileCount = 0;
+    	int folderCount = 0;
+    	while ( !done ) {
+    		response = s3Client.listObjectVersions(request);
+    		// Get the delete markers, which indicate which files have been marked for deletion but have not yet been deleted.
+    		List<DeleteMarkerEntry> deleteMarkers = response.deleteMarkers();
+    		// Process files and folders separately, with the maximum count checked based on what is returned.
+    		if ( listFiles || listFolders ) {
+    			// S3Objects can contain files or folders (objects with key ending in /, typically with size=0).
+    			// Loop in any case to get the count.
+    			Message.printStatus(2, routine, "Have " + response.versions().size() + " versioned objects to process.");
+    			for ( ObjectVersion version : response.versions() ) {
+   					String key = version.key();
+					if ( Message.isDebugOn ) {
+						Message.printStatus(2, routine, "Processing key \"" + key + "\".");
+					}
+    				// Check the maximum object count, to protect against runaway processes.
+    				if ( objectCount >= maxObjects ) {
+			  			// Quit saving objects when the limit has been reached.
+						if ( Message.isDebugOn ) {
+							Message.printStatus(2, routine, "Reached maxObjects limit (" + maxObjects + ") - skipping: " + key);
+						}
+    					break;
+    				}
+    				// Output to table:
+    				// - key is the full path to the file
+    				// - have size, owner and modification time properties
+   					if ( doPrefix && prefix.endsWith("/") && key.equals(prefix) ) {
+   						// Do not include the requested prefix itself because want the contents of the folder,
+   						// not the folder itself.
+						if ( Message.isDebugOn ) {
+							Message.printStatus(2, routine, "Ignoring Prefix that is a folder because want folder contents.");
+						}
+   						continue;
+   					}
+   					if ( doRegex ) {
+   						// Apply the regular expression to the key.
+   						if ( !key.matches(regex) ) {
+   							if ( Message.isDebugOn ) {
+   								Message.printStatus(2, routine, "Does not match regular expression - skipping: " + key);
+   							}
+   							continue;
+   						}
+   					}
+   					if ( !listFolders && key.endsWith("/") ) {
+   						// Is a folder and don't want folders so continue.
+   						if ( Message.isDebugOn ) {
+   							Message.printStatus(2, routine, "Is a folder and ignoring folder - skipping: " + key);
+   						}
+   						continue;
+   					}
+   					else if ( !listFiles && !key.endsWith("/") ) {
+   						// Is a file and don't files want so continue.
+   						if ( Message.isDebugOn ) {
+   							Message.printStatus(2, routine, "Is a file and ignoring files - skipping: " + key);
+   						}
+   						continue;
+   					}
+   					// If here, the object should be listed in the output table.
+    				if ( table != null ) {
+    					rec = null;
+    					if ( !allowDuplicates ) {
+    						// Try to match the object key and version ID, which together are the unique identifier.
+    						rec = table.getRecord ( objectKeyVersionIdCol, version.key() + "-" + version.versionId() );
+    					}
+    					if ( rec == null ) {
+    						// Create a new record.
+    						rec = table.addRecord(table.emptyRecord());
+    					}
+  						rec.setFieldValue(objectDeleteMarkerFoundCol, Boolean.valueOf(false));
+    					// Set the data in the record.
+    					rec.setFieldValue(objectKeyCol,version.key());
+   						rec.setFieldValue(objectNameCol,getKeyName(version.key()));
+   						rec.setFieldValue(objectParentFolderCol,getKeyParentFolder(version.key()));
+    					if ( key.endsWith("/") ) {
+    						rec.setFieldValue(objectTypeCol,"folder");
+    					}
+    					else {
+    						rec.setFieldValue(objectTypeCol,"file");
+    					}
+    					rec.setFieldValue(objectSizeCol,version.size());
+    					if ( version.owner() == null ) {
+    						rec.setFieldValue(objectOwnerCol,"");
+    					}
+    					else {
+    						rec.setFieldValue(objectOwnerCol,version.owner().displayName());
+    					}
+    					rec.setFieldValue(objectLastModifiedCol,
+    						new DateTime(OffsetDateTime.ofInstant(version.lastModified(), zoneId), dateTimeBehaviorFlag, timezone));
+    					// Set version information.
+    					rec.setFieldValue(objectVersionIdCol,version.versionId());
+    					rec.setFieldValue(objectIsLatestCol,version.isLatest());
+    					// Determine if the object has a delete marker:
+    					// - the response returns a list of delete markers
+    					// - each delete marker key matches an object key, but must be searched
+						rec.setFieldValue(objectDeleteMarkerFoundCol, Boolean.valueOf(false));
+    					for ( DeleteMarkerEntry deleteMarker : deleteMarkers ) {
+    						if ( deleteMarker.key().equals(version.key()) ) {
+    							// Found a delete marker for the object.
+    							rec.setFieldValue(objectDeleteMarkerFoundCol, Boolean.valueOf(true));
+    							break;
+    						}
+    					}
+    					rec.setFieldValue(objectKeyVersionIdCol, version.key() + "-" + version.versionId());
+    					// Set tags.  May need to add a column if the tag was not previously encountered.
+    					if ( outputTags ) {
+    						List<software.amazon.awssdk.services.s3.model.Tag> tags =
+    							AwsToolkit.getInstance().getS3ObjectTags(s3Client, bucket, version.key(), version.versionId());
+    						for ( software.amazon.awssdk.services.s3.model.Tag tag : tags ) {
+    							String columnName = tag.key() + "/Tag";
+    							int tagCol = -1;
+    							try {
+    								tagCol = table.getFieldIndex(columnName);
+    							}
+    							catch ( Exception e ) {
+    								// OK, handle below.
+    							}
+    							if ( tagCol < 0 ) {
+    								// Add the column.
+    								tagCol = table.addField ( new TableField(TableField.DATA_TYPE_STRING, columnName, -1), "" );
+    								// Get the record again since it will have changed.
+    								rec = table.getRecord ( objectKeyCol, version.key() );
+    							}
+    							// Set the tag value.
+    							rec.setFieldValue(tagCol,tag.value());
+    						}
+    					}
+    				}
+   					// Increment the count of objects processed (includes files and folders).
+   					++objectCount;
+   					if ( key.endsWith("/") ) {
+   						++folderCount;
+   					}
+   					else {
+   						++fileCount;
+   					}
+    			}
+    		}
+    		if ( listFolders ) {
+    			// Common prefixes are only used with folders:
+    			// - the key will be from the root to the / (inclusive) after the prefix
+    			for ( CommonPrefix commonPrefix : response.commonPrefixes() ) {
+			  		// Check the maximum object count, to protect against runaway processes.
+			  		if ( objectCount >= maxObjects ) {
+			  			// Quit saving objects when the limit has been reached.
+						break;
+			  		}
+   					if ( doPrefix && prefix.endsWith("/") && commonPrefix.prefix().equals(prefix) ) {
+   						// Do not include the requested prefix itself because want the contents of the folder,
+   						// not the folder itself.
+   						Message.printStatus(2, routine, "Ignoring Prefix that is a folder because want folder contents.");
+   						continue;
+   					}
+   					if ( doRegex ) {
+   						// Apply a regular expression to the key.
+   						if ( !commonPrefix.prefix().matches(regex) ) {
+   							continue;
+   						}
+   					}
+    				// Output to table:
+			  		// - key is the path to the folder including trailing / to indicate a folder
+			  		// - only have the key since folders are virtual and have no properties
+    				if ( table != null ) {
+    					rec = null;
+    					if ( !allowDuplicates ) {
+    						// Try to match the object key, which is the unique identifier.
+    						rec = table.getRecord ( objectKeyCol, commonPrefix.prefix() );
+    					}
+    					if ( rec == null ) {
+    						// Create a new record.
+    						rec = table.addRecord(table.emptyRecord());
+    					}
+    					// Set the data in the table record.
+    					rec.setFieldValue(objectKeyCol, commonPrefix.prefix());
+    					// Set the name as the end of the key with folder delimiter.
+   						rec.setFieldValue(objectNameCol,getKeyName(commonPrefix.prefix()));
+   						rec.setFieldValue(objectParentFolderCol,getKeyParentFolder(commonPrefix.prefix()));
+   						// No size so keep as null;
+   						// No owner so keep as null;
+   						// No modification date so keep as null;
+    					rec.setFieldValue(objectTypeCol,"folder");
+    				}
+   					// Increment the count of objects processed (includes files and folders).
+			  		++objectCount;
+   					++folderCount;
+		  		}
+    		}
+    		if ( (response.nextKeyMarker() == null) || (response.nextVersionIdMarker() == null) ) {
+    			done = true;
+    		}
+    		// Build the request for the next loop iteration.
+    		request = request.toBuilder()
+   				.keyMarker(response.nextKeyMarker())
+   				.versionIdMarker(response.nextVersionIdMarker())
+   				.build();
+    	}
+    	// Sort the table by key if both files and folders were queried:
+    	// - necessary because files come out of the objects and folders out of common prefixes
+    	if ( listFiles && listFolders ) {
+    		String [] sortColumns = { "Key" };
+    		int [] sortOrder = { 1 };
+    		table.sortTable( sortColumns, sortOrder);
+    	}
+    	Message.printStatus ( 2, routine, "Response has objects=" + response.versions().size()
+    		+ ", commonPrefixes=" + response.commonPrefixes().size() );
+    	Message.printStatus ( 2, routine, "List has fileCount=" + fileCount + ", folderCount="
+    		+ folderCount + ", objectCount=" + objectCount );
+    	// Set the property indicating the number of bucket objects.
+       	if ( (listObjectsCountProperty != null) && !listObjectsCountProperty.equals("") ) {
+       		//int numObjects = objectCount;
+       		int numObjects = table.getNumberOfRecords();
+           	PropList requestParams = new PropList ( "" );
+           	requestParams.setUsingObject ( "PropertyName", listObjectsCountProperty );
+           	requestParams.setUsingObject ( "PropertyValue", new Integer(numObjects) );
+           	try {
+               	processor.processRequest( "SetProperty", requestParams);
+           	}
+           	catch ( Exception e ) {
+               	message = "Error requesting SetProperty(Property=\"" + numObjects + "\") from processor.";
+               	Message.printWarning(logLevel,
+                   	MessageUtil.formatMessageTag( commandTag, ++warningCount),
+                   	routine, message );
+                    	status.addToLog ( CommandPhaseType.RUN,
+                   	new CommandLogRecord(CommandStatusType.FAILURE,
+                       	message, "Report the problem to software support." ) );
+           	}
+       	}
+
+       	// Return the updated warning count.
+       	return warningCount;
+	}
+
+   	/**
+   	 * Tag existing S3 objects matching the results of the list command.
+   	 */
+   	 private void doS3TagObjects (
+   		 S3Client s3Client,
+   		 String bucket,
+   		 boolean listVersions,
+   		 DataTable table, int objectKeyCol, int objectVersionIdCol,
+		 List<String> tagsPatternList, List<String> tagsNameList, List<String> tagsValueList, TagModeType tagModeType
+		 ) {
+   		 String routine = getClass().getSimpleName() + ".doS3TagObjects";
+   		 if ( table == null ) {
+   			 // Should be checked before but return just in case.
+   			 return;
+   		 }
+   		 // Loop through the records of the table.
+   		 // The following string builder is reused for each object.
+   		 StringBuilder tagStringBuilder = new StringBuilder();
+   		 int nrec = table.getNumberOfRecords();
+   		 Message.printStatus(2, routine, "Checking " + nrec + " S3 objects for matches against " + tagsPatternList.size() + " tag patterns.");
+   		 notifyCommandProgressListeners ( 0, nrec, (float)0.0, "Start tagging S3 objects." );
+   		 // Increment for notifying TSTool of command progress, percent as an integer.
+   		 double notifyIncrement = 1.0;
+   		 double notifyNext = notifyIncrement;
+   		 for ( int irec = 0; irec < nrec; irec++ ) {
+   			 // Notify listeners about progress, based on 100 objects.
+   			 if ( (float)irec/nrec > notifyNext ) {
+   				 notifyCommandProgressListeners ( irec, nrec, (float)100.0*irec/nrec, "Processed object " + (irec + 1) + " of " + nrec );
+   				 notifyNext += notifyIncrement;
+   			 }
+   			 // Get the S3 object key and version from the table record.
+   			 Object o = null;
+   			 String objectKey = null;
+   			 String versionId = null;
+   			 try {
+   				 o = table.getFieldValue ( irec, objectKeyCol );
+   				 objectKey = (String)o;
+   			 }
+   			 catch ( Exception e ) {
+   				 // Should not happen.
+   				 Message.printWarning(2, routine, "Error getting the object key for record " + irec);
+   				 continue;
+   			 }
+   			 if ( o == null ) {
+   				 // Should not happen.
+   				 continue;
+   			 }
+   			 if ( listVersions ) {
+   				 try {
+   					 o = table.getFieldValue ( irec, objectVersionIdCol );
+   					 versionId = (String)o;
+   				 }
+   				 catch ( Exception e ) {
+   					 // Should not happen.
+   					 Message.printWarning(2, routine, "Error getting the version ID for record " + irec);
+   					 continue;
+   				 }
+   			 }
+   			 if ( objectKey == null ) {
+   				 // Should not happen.
+ 				 Message.printWarning(2, routine, "Null object key for record " + irec);
+   				 continue;
+   			 }
+   			 // See if the key matches a tag pattern and if so build the tag.
+    		 // Clear out the string builder.
+    		 tagStringBuilder.setLength(0);
+    		 int itag = -1;
+    		 for ( String tagsPattern : tagsPatternList ) {
+    			 ++itag;
+    			 // Convert glob-style wildcard to Java wildcard.
+    			 Message.printStatus(2, routine, "  Checking key against pattern \"" + tagsPattern + "\".");
+    			 if ( (objectKey != null) && !objectKey.isEmpty() && objectKey.matches(tagsPattern) ) {
+    				 // Have a matching pattern so add the tag for this object.
+    				 if ( tagStringBuilder.length() > 0 ) {
+    					 tagStringBuilder.append("&");
+    				 }
+    				 tagStringBuilder.append(tagsNameList.get(itag) + "=" + tagsValueList.get(itag));
+    			 }
+    		 }
+    		 if ( tagStringBuilder.length() == 0 ) {
+    			 // The file did not match any of the tag patterns so no need to set the tag.
+ 				 Message.printWarning(2, routine, "  [" + irec + "] No tags matched for key=\"" + objectKey + "\".");
+    			 continue;
+    		 }
+    		 // If here have a file that matched one or more tag strings:
+    		 // - update the tags string considering the mode
+    		 String tagStringFinal = AwsToolkit.getInstance().formatTagString (
+    			 tagStringBuilder.toString(),
+    			 tagModeType,
+    			 AwsToolkit.getInstance().getS3ObjectTagsAsMap ( s3Client, bucket, objectKey, versionId ) );
+   			 if ( tagStringFinal != null ) {
+   				 // Can tag the object.
+   				 // Build the tag list.
+   				 List<Tag> tagList = new ArrayList<>();
+   				 Map<String,String> tagMap = AwsToolkit.getInstance().parseTagString(tagStringFinal);
+   				 for ( Entry<String,String> tag : tagMap.entrySet() ) {
+   					 tagList.add(Tag.builder().key(tag.getKey()).value(tag.getValue()).build());
+   				 }
+   				 Tagging tagging = Tagging.builder()
+   					.tagSet(tagList)
+   					.build();
+   				 PutObjectTaggingRequest taggingRequest = null;
+   				 if ( ! listVersions  ) {
+   					 // Not processing versioned objects.
+   					 taggingRequest = PutObjectTaggingRequest.builder()
+   				     	.bucket(bucket)
+   				     	.key(objectKey)
+   				     	.tagging(tagging)
+   				     	.build();
+   				 }
+   				 else {
+   					 // Processing versioned objects but version may not have been set:
+   					 // - only process versioned objects where the version is set.
+   					 if ( (versionId == null) || versionId.isEmpty() ) {
+   						 // No version so tag just the latest.
+   						 taggingRequest = PutObjectTaggingRequest.builder()
+   								 .bucket(bucket)
+   								 .key(objectKey)
+   								 .tagging(tagging)
+   								 .build();
+   					 }
+   					 else {
+   						 // Version is available so tag the version.
+   						 taggingRequest = PutObjectTaggingRequest.builder()
+   							 .bucket(bucket)
+   							 .key(objectKey)
+   							 .versionId(versionId)
+   							 .tagging(tagging)
+   							 .build();
+   					 }
+   				 }
+   				 Message.printStatus(2, routine, "  Tagging bucket=" + bucket + " key=" + objectKey + " versionId=" + versionId + " tags=" + tagStringFinal);
+   				 s3Client.putObjectTagging(taggingRequest);
+   			 }
+   			 else {
+   				 Message.printWarning(2, routine, "  Final tag is null for key=\"" + objectKey + "\".");
+   			 }
+   		 }
+   		 notifyCommandProgressListeners ( nrec, nrec, (float)100.0, "Completed tagging S3 objects." );
+   	 }
+
+	/**
 	 * Do S3 upload files and folders.
  	 * @param invalidateCloudFront whether to automatically invalidate CloudFront
      * @param cloudFrontPaths list of CloudFront paths to invalidate, should invalidation be requested,
@@ -1792,15 +2489,32 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	 */
 	private int doS3UploadObjects (
 		CommandProcessor processor,
+		S3Client s3Client,
 		ProfileCredentialsProvider credentialsProvider,
 		String bucket, String region,
 		List<String> uploadFilesOrig, List<String> uploadFilesFileList, List<String> uploadFilesKeyList,
 		List<String> uploadFoldersOrig, List<String> uploadFoldersDirectoryList, List<String> uploadFoldersKeyList,
+		List<String> uploadTagsPatternList, List<String> uploadTagsNameList, List<String> uploadTagsValueList, TagModeType uploadTagModeType,
 		boolean invalidateCloudFront, List<String> cloudFrontPaths,
 		CommandStatus status, int logLevel, int warningLevel, int warningCount, String commandTag
 		) throws Exception {
 		String routine = getClass().getSimpleName() + ".doS3UploadObjects";
 		String message;
+
+		// Build the tags up front:
+		// - convert from the strings to Tag objects
+		// - the order of the Tags is the same as the string lists
+		boolean doTags = false;
+		List<Tag> tags = new ArrayList<>();
+		if ( uploadTagsPatternList.size() > 0 ) {
+			doTags = true;
+			for ( int i = 0; i < uploadTagsPatternList.size(); i++ ) {
+				// Value should be in format TagName=TagValue:
+				// - this is not actually used below because tag string is used, but may change in the future.
+				Tag tag = Tag.builder().key(uploadTagsNameList.get(i)).value(uploadTagsValueList.get(i)).build();
+				tags.add ( tag );
+			}
+		}
 
     	Region regionObject = Region.of(region);
 
@@ -1814,14 +2528,22 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     			.build();
     	}
 
-    	Message.printStatus(2, routine, "Have " + uploadFilesFileList.size() + " files to upload.");
+    	int nFiles = uploadFilesFileList.size();
+    	Message.printStatus(2, routine, "Have " + nFiles + " files to upload.");
     	if ( uploadFilesFileList.size() > 0 ) {
+    		notifyCommandProgressListeners ( 0, nFiles, (float)100.0, "Start uploading files." );
+    		double notifyIncrement = 1.0;
+    		double notifyNext = 1.0;
     		// Process each file in the list:
     		// - don't allow null or empty key or name
     		boolean error = false;
 			int iFile = -1;
     		for ( String localFile : uploadFilesFileList ) {
     			++iFile;
+   			 	if ( (float)iFile/nFiles > notifyNext ) {
+   				 	notifyCommandProgressListeners ( iFile, nFiles, (float)100.0*iFile/nFiles, "Processed file " + (iFile + 1) + " of " + nFiles );
+   				 	notifyNext += notifyIncrement;
+   			 	}
     			error = false;
     			String uploadKey = null;
     			try {
@@ -1863,10 +2585,68 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     					uploadKey = uploadKey.trim();
     					Message.printStatus(2, routine, "Uploading local file \"" + localFileFinal + "\" to S3 key \"" + uploadKey + "\".");
     					final String uploadKeyFinal = uploadKey;
-    					FileUpload upload = tm
-   							.uploadFile(d -> d.putObjectRequest(g -> g.bucket(bucket).key(uploadKeyFinal))
-								.source(Paths.get(localFileFinal)));
-    					upload.completionFuture().join();
+    					// See if any tags need to be added:
+    					// - must be careful because if not handled right old tags will be removed
+    					if ( doTags ) {
+    						// Have tags:
+    						// - loop through the tags and match the file patter
+    						StringBuilder tagStringBuilder = new StringBuilder();
+    						int itag = -1;
+    						for ( String uploadTagsPattern : uploadTagsPatternList ) {
+    							++itag;
+    							// Convert glob-style wildcard to Java wildcard.
+    							if ( localFile.matches(uploadTagsPattern) ) {
+    								// Have a matching pattern so add the tag.
+    								if ( tagStringBuilder.length() > 0 ) {
+    									tagStringBuilder.append("&");
+    								}
+    								tagStringBuilder.append(uploadTagsNameList.get(itag) + "=" + uploadTagsValueList.get(itag));
+    							}
+    						}
+    						// No version ID since working with the current file.
+    						String versionId = null;
+   							String tagStringFinal = AwsToolkit.getInstance().formatTagString (
+   								tagStringBuilder.toString(),
+   								uploadTagModeType,
+   								AwsToolkit.getInstance().getS3ObjectTagsAsMap ( s3Client, bucket, uploadKeyFinal, versionId )
+   								);
+    						if ( (tagStringBuilder.length() == 0) || (tagStringFinal == null) ) {
+    							// No tags need to be handled so don't set any tags.
+    							FileUpload upload = tm.uploadFile(d ->
+   									d.putObjectRequest(g -> g.bucket(bucket).key(uploadKeyFinal)).
+										source(Paths.get(localFileFinal)));
+    							upload.completionFuture().join();
+    						}
+    						else {
+    							// Have tags to set:
+    							// - first process the tags based on the mode and then set
+    							FileUpload upload = tm.uploadFile(d ->
+   									d.putObjectRequest(g -> g.bucket(bucket).
+   										tagging(tagStringFinal.toString()).
+   									key(uploadKeyFinal)).
+										source(Paths.get(localFileFinal)));
+    							upload.completionFuture().join();
+    						}
+    						/*
+    						PutObjectRequest putObjectRequest = PutObjectRequest.builder().
+   								bucket(bucket).
+   								key(uploadKeyFinal).
+   								tagging(tagging).
+								build();
+    						UploadRequest uploadRequest = UploadRequest.builder().
+    							putObjectRequest(putObjectRequest).
+								source(Paths.get(localFileFinal)).
+								build();
+    						upload.completionFuture().join();
+    						*/
+    					}
+    					else {
+    						// No tags.
+    						FileUpload upload = tm.uploadFile(d ->
+   								d.putObjectRequest(g -> g.bucket(bucket).key(uploadKeyFinal)).
+									source(Paths.get(localFileFinal)));
+    						upload.completionFuture().join();
+    					}
 
   						// If invalidating CloudFront, invalidate the file:
     					// - TODO smalers 2023-02-07 need to figure out how to invalidate only successful uploaded folders
@@ -1886,15 +2666,24 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     						message, "See the log file for details."));
     			}
     		}
+   		 	notifyCommandProgressListeners ( uploadFilesFileList.size(), uploadFilesFileList.size(), (float)100.0, "Completed uploading files." );
     	}
 
-    	Message.printStatus(2, routine, "Have " + uploadFoldersDirectoryList.size() + " folders to upload.");
+    	int nFolders = uploadFoldersDirectoryList.size();
+    	Message.printStatus(2, routine, "Have " + nFolders + " folders to upload.");
     	if ( uploadFoldersDirectoryList.size() > 0 ) {
     		// Process each folder in the list.
+    		notifyCommandProgressListeners ( 0, nFolders, (float)100.0, "Start uploading folders." );
+    		double notifyIncrement = 1.0;
+    		double notifyNext = 1.0;
     		boolean error = false;
-				int iDir = -1;
+			int iDir = -1;
     		for ( String localFolder : uploadFoldersDirectoryList ) {
     			++iDir;
+   			 	if ( (float)iDir/nFolders > notifyNext ) {
+   				 	notifyCommandProgressListeners ( iDir, nFolders, (float)100.0*iDir/nFolders, "Processed folder " + (iDir + 1) + " of " + nFolders );
+   				 	notifyNext += notifyIncrement;
+   			 	}
     			error = false;
     			String uploadKey = null;
     			try {
@@ -1984,6 +2773,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     						message, "See the log file for details."));
     			}
     		}
+   		 	notifyCommandProgressListeners ( uploadFoldersDirectoryList.size(), uploadFoldersDirectoryList.size(), (float)100.0, "Completed uploading folders." );
     	}
     	if ( tm != null ) {
     		tm.close();
@@ -2176,6 +2966,41 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	}
 
 	/**
+ 	* Determine whether a bucket is veresioned,
+ 	* called when listing versioned objects to make sure the bucket has versions.
+ 	* @param s3Client the S3 client to use for requests
+ 	* @param bucketName name of the bucket being checked
+ 	* @return true if the bucket versioning is enabled or suspended, false if not configured)
+ 	*/
+	public boolean isBucketVersioned ( String region, String bucketName ) {
+
+		S3Client s3Client = S3Client.builder()
+			.region(Region.of(region))
+			.credentialsProvider(this.credentialsProvider)
+			.build();
+
+    	// Build the GetBucketVersioningRequest.
+    	GetBucketVersioningRequest request = GetBucketVersioningRequest.builder()
+           	.bucket(bucketName)
+           	.build();
+
+    	// Retrieve the versioning configuration.
+    	GetBucketVersioningResponse response = s3Client.getBucketVersioning(request);
+
+    	// Determine the versioning status.
+    	BucketVersioningStatus status = response.status();
+    	if ( status == BucketVersioningStatus.ENABLED ) {
+        	return true;
+    	}
+    	else if ( status == BucketVersioningStatus.SUSPENDED ) {
+        	return true;
+    	}
+    	else {
+        	return false;
+    	}
+	}
+
+	/**
 	Run the command.
 	@param command_number Command number in sequence.
 	@exception CommandWarningException Thrown if non-fatal warnings occur (the
@@ -2252,6 +3077,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		String S3Command = parameters.getValue ( "S3Command" );
 		AwsS3CommandType s3Command = AwsS3CommandType.valueOfIgnoreCase(S3Command);
 		String region = parameters.getValue ( "Region" );
+		// Save the original requested region for 'ListBuckets' command.
+		String regionRequested = region;
 		region = TSCommandProcessorUtil.expandParameterValue(processor,this,region);
 		if ( (region == null) || region.isEmpty() ) {
 			// Get the default region.
@@ -2755,10 +3582,63 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		if ( (ListFolders != null) && ListFolders.equalsIgnoreCase("false") ) {
 			listFolders = false;
 		}
+		String ListVersions = parameters.getValue ( "ListVersions" );
+		boolean listVersions = false; // Default.
+		if ( (ListVersions != null) && ListVersions.equalsIgnoreCase("true") ) {
+			listVersions = true;
+		}
+		String OutputObjectTags = parameters.getValue ( "OutputObjectTags" );
+		boolean outputTags = false; // Default.
+		if ( (OutputObjectTags != null) && OutputObjectTags.equalsIgnoreCase("true") ) {
+			outputTags = true;
+		}
     	String ListObjectsCountProperty = parameters.getValue ( "ListObjectsCountProperty" );
     	if ( commandPhase == CommandPhaseType.RUN ) {
     		ListObjectsCountProperty = TSCommandProcessorUtil.expandParameterValue(processor, this, ListObjectsCountProperty);
     	}
+
+    	// Tag.
+
+    	// The tags have format like:
+    	//   keypattern1*:tag1=value1
+    	//   keypattern2*:tag2=value2
+    	// The key pattern can be repeated.  Only one tag can be defined on the right.
+    	// The tags will be further processed in the TagObjects command.
+    	String Tags = parameters.getValue ( "Tags" );
+		Tags = TSCommandProcessorUtil.expandParameterValue(processor,this,Tags);
+		// Can't use a hashtable because sometimes  the same files to multiple S3 locations so the key would be repeated.
+    	List<String> tagsPatternList = new ArrayList<>();
+    	List<String> tagsNameList = new ArrayList<>();
+    	List<String> tagsValueList = new ArrayList<>();
+    	if ( (Tags != null) && !Tags.isEmpty() && (Tags.indexOf(":") > 0) ) {
+        	// First break map pairs by comma.
+        	List<String>pairs = StringUtil.breakStringList(Tags, ",", 0 );
+        	// Now break pairs and put in lists.
+        	for ( String pair : pairs ) {
+            	String [] parts = pair.split(":");
+            	if ( parts.length == 2 ) {
+            		// Convert to a Java regular expression so that it does not need to be done later.
+            		String pattern = parts[0].trim().replace("*", ".*");
+            		String tag = parts[1].trim();
+            		// Split the tag.
+            		if ( tag.contains("=") ) {
+            			String [] tagParts = tag.split("=");
+            			if ( tagParts.length == 2 ) {
+            				// Have everything that is needed.
+            				tagsPatternList.add(pattern);
+            				tagsNameList.add(tagParts[0].trim());
+            				tagsValueList.add(tagParts[1].trim());
+            			}
+            		}
+            	}
+        	}
+    	}
+    	String TagMode = parameters.getValue ( "TagMode" );
+		TagMode = TSCommandProcessorUtil.expandParameterValue(processor,this,TagMode);
+		TagModeType tagModeType = TagModeType.SET; // Default.
+		if ( (TagMode != null) && ! TagMode.isEmpty() ) {
+			tagModeType = TagModeType.valueOfIgnoreCase(TagMode);
+		}
 
     	// Upload.
     	String UploadFolders = parameters.getValue ( "UploadFolders" );
@@ -2866,7 +3746,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	String UploadFiles = parameters.getValue ( "UploadFiles" );
     	// Expand the entire parameter string before parsing into pairs.
 		UploadFiles = TSCommandProcessorUtil.expandParameterValue(processor,this,UploadFiles);
-		// Can't use a hashtable because sometimes upload the same files to multiple S3 locations.
+		// Can't use a hashtable because sometimes upload the same files to multiple S3 locations so the key would be repeated.
     	List<String> uploadFilesOrig = new ArrayList<>(); // For log messages.
     	List<String> uploadFilesFileList = new ArrayList<>();
     	List<String> uploadFilesKeyList = new ArrayList<>();
@@ -3009,10 +3889,53 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         	}
     	}
 
+    	// The upload tags have format like:
+    	//   filepattern1*:tag1=value1
+    	//   filepattern2*:tag2=value2
+    	// The file pattern can be repeated.  Only one tag can be defined on the right.
+    	// The tags will be further processed in the UploadObjects command.
+    	String UploadTags = parameters.getValue ( "UploadTags" );
+		UploadTags = TSCommandProcessorUtil.expandParameterValue(processor,this,UploadTags);
+		// Can't use a hashtable because sometimes upload the same files to multiple S3 locations so the key would be repeated.
+    	List<String> uploadTagsPatternList = new ArrayList<>();
+    	List<String> uploadTagsNameList = new ArrayList<>();
+    	List<String> uploadTagsValueList = new ArrayList<>();
+    	if ( (UploadTags != null) && !UploadTags.isEmpty() && (UploadTags.indexOf(":") > 0) ) {
+        	// First break map pairs by comma.
+        	List<String>pairs = StringUtil.breakStringList(UploadTags, ",", 0 );
+        	// Now break pairs and put in lists.
+        	for ( String pair : pairs ) {
+            	String [] parts = pair.split(":");
+            	if ( parts.length == 2 ) {
+            		// Convert to a Java regular expression so it does not need to be done repeatedly later in loops.
+            		String pattern = parts[0].trim().replace("*", ".*");
+            		String tag = parts[1].trim();
+            		// Split the tag.
+            		if ( tag.contains("=") ) {
+            			String [] tagParts = tag.split("=");
+            			if ( tagParts.length == 2 ) {
+            				// Have everything that is needed.
+            				uploadTagsPatternList.add(pattern);
+            				uploadTagsNameList.add(tagParts[0].trim());
+            				uploadTagsValueList.add(tagParts[1].trim());
+            			}
+            		}
+            	}
+        	}
+    	}
+    	String UploadTagMode = parameters.getValue ( "UploadTagMode" );
+		UploadTagMode = TSCommandProcessorUtil.expandParameterValue(processor,this,UploadTagMode);
+		TagModeType uploadTagModeType = TagModeType.SET; // Default.
+		if ( (UploadTagMode != null) && ! UploadTagMode.isEmpty() ) {
+			uploadTagModeType = TagModeType.valueOfIgnoreCase(UploadTagMode);
+		}
+
     	// Output.
 		boolean doTable = false;
 		String OutputTableID = parameters.getValue ( "OutputTableID" );
-		OutputTableID = TSCommandProcessorUtil.expandParameterValue(processor,this,OutputTableID);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			OutputTableID = TSCommandProcessorUtil.expandParameterValue(processor,this,OutputTableID);
+		}
 		if ( (OutputTableID != null) && !OutputTableID.isEmpty() ) {
 			doTable = true;
 		}
@@ -3129,6 +4052,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		  	}
     	}
 
+    	// Some warnings above need to be fixed because they are syntax errors.
+    	// Others, like missing file, are skipped and allow the command to continue.
 		if ( (warningCount - ignoredWarningCount) > 0 ) {
 			message = "There were " + warningCount + " warnings about command parameters - need to fix to run the command.";
 			Message.printWarning ( warningLevel,
@@ -3140,17 +4065,29 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
 		ProfileCredentialsProvider credentialsProvider0 = null;
 		credentialsProvider0 = ProfileCredentialsProvider.create(profile);
-		ProfileCredentialsProvider credentialsProvider = credentialsProvider0;
+		this.credentialsProvider = credentialsProvider0;
 
 		// The following is used to create a temporary table before outputting to a file.
 		//boolean useTempTable = false;
 
 		Region regionObject = Region.of(region);
 
-		S3Client s3 = S3Client.builder()
-			.region(regionObject)
-			.credentialsProvider(credentialsProvider)
-			.build();
+		Message.printStatus(2, routine, "Creating an S3Client for region \"" + regionObject + "\".");
+		S3Client s3Client = null;
+		if ( region.equals("*") ) {
+			// Create the client without specifying the region:
+			// - this is used when listing buckets
+			s3Client = S3Client.builder()
+				.credentialsProvider(this.credentialsProvider)
+				.build();
+		}
+		else {
+			// Create the client for a specific region.
+			s3Client = S3Client.builder()
+				.region(regionObject)
+				.credentialsProvider(this.credentialsProvider)
+				.build();
+		}
 
 		try {
 	    	if ( commandPhase == CommandPhaseType.RUN ) {
@@ -3162,7 +4099,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
 	    		// Bucket list columns.
         		int bucketNameCol = -1;
+        		int bucketRegionCol = -1;
         		int bucketCreationDateCol = -1;
+        		int bucketIsVersionedCol = -1;
 
         		// Bucket object list columns.
         		int objectKeyCol = -1;
@@ -3172,6 +4111,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	    		int objectSizeCol = -1;
    	    		int objectOwnerCol = -1;
    	    		int objectLastModifiedCol = -1;
+   	    		// Used with versions.
+    	        int objectVersionIdCol = -1;
+    	        int objectIsLatestCol = -1;
+    	        int objectDeleteMarkerFoundCol = -1;
+    	        int objectKeyVersionIdCol = -1;
 
    	    		// List of paths to invalidate, if using copy, delete, or upload commands.
    	    		List<String> cloudFrontPaths = new ArrayList<>();
@@ -3186,9 +4130,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        		List<TableField> columnList = new ArrayList<>();
     	        		if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "BucketName", -1) );
+    	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Region", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_DATETIME, "CreationDate", -1) );
+    	        			columnList.add ( new TableField(TableField.DATA_TYPE_BOOLEAN, "IsVersioned", -1) );
     	        		}
-    	        		else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
+    	        		else if ( (s3Command == AwsS3CommandType.LIST_OBJECTS) || (s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Key", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Name", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "ParentFolder", -1) );
@@ -3196,19 +4142,28 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_LONG, "Size", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Owner", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_DATETIME, "LastModified", -1) );
+    	        			if ( listVersions ) {
+    	        				columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "VersionId", -1) );
+    	        				columnList.add ( new TableField(TableField.DATA_TYPE_BOOLEAN, "IsLatest", -1) );
+    	        				columnList.add ( new TableField(TableField.DATA_TYPE_BOOLEAN, "DeleteMarkerFound", -1) );
+    	        				columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "KeyVersionId", -1) );
+    	        			}
     	        		}
     	        		// 2. Create the table if not found from the processor above.
     	        		if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
-    	        			(s3Command == AwsS3CommandType.LIST_OBJECTS) ) {
+    	        			(s3Command == AwsS3CommandType.LIST_OBJECTS) ||
+    	        			(s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
     	        			// Create the table.
-    	        			table = new DataTable( columnList );
+    	        			table = new DataTable ( columnList );
     	        		}
                 		// 3. Get the column numbers from the names for later use.
     	        		if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
     	        			bucketNameCol = table.getFieldIndex("BucketName");
+    	        			bucketRegionCol = table.getFieldIndex("Region");
     	        			bucketCreationDateCol = table.getFieldIndex("CreationDate");
+    	        			bucketIsVersionedCol = table.getFieldIndex("IsVersioned");
     	        		}
-    	        		else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
+    	        		else if ( (s3Command == AwsS3CommandType.LIST_OBJECTS) || (s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
     	        			objectKeyCol = table.getFieldIndex("Key");
     	        			objectNameCol = table.getFieldIndex("Name");
     	        			objectParentFolderCol = table.getFieldIndex("ParentFolder");
@@ -3216,12 +4171,19 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			objectSizeCol = table.getFieldIndex("Size");
     	        			objectOwnerCol = table.getFieldIndex("Owner");
     	        			objectLastModifiedCol = table.getFieldIndex("LastModified");
+    	        			if ( listVersions ) {
+    	        				objectVersionIdCol = table.getFieldIndex("VersionId");
+    	        				objectIsLatestCol = table.getFieldIndex("IsLatest");
+    	        				objectDeleteMarkerFoundCol = table.getFieldIndex("DeleteMarkerFound");
+    	        				objectKeyVersionIdCol = table.getFieldIndex("KeyVersionId");
+    	        			}
     	        		}
     	        		// 4. Set the table in the processor:
     	        		//    - if new will add
     	        		//    - if append will overwrite by replacing the matching table ID
     	        		if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
-    	        			(s3Command == AwsS3CommandType.LIST_OBJECTS) ) {
+    	        			(s3Command == AwsS3CommandType.LIST_OBJECTS) ||
+    	        			(s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
     	        			if ( (OutputTableID != null) && !OutputTableID.isEmpty() ) {
     	        				table.setTableID ( OutputTableID );
                 				Message.printStatus(2, routine, "Created new table \"" + OutputTableID + "\" for output.");
@@ -3254,15 +4216,23 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        		// - make sure that the needed columns exist and otherwise add them
     	        		if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
     	        			bucketNameCol = table.getFieldIndex("BucketName");
+    	        			bucketRegionCol = table.getFieldIndex("Region");
     	        			bucketCreationDateCol = table.getFieldIndex("CreationDate");
+    	        			bucketIsVersionedCol = table.getFieldIndex("IsVersioned");
     	        			if ( bucketNameCol < 0 ) {
     	            			bucketNameCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "BucketName", -1), "");
+    	        			}
+    	        			if ( bucketRegionCol < 0 ) {
+    	            			bucketRegionCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "Region", -1), "");
     	        			}
     	        			if ( bucketCreationDateCol < 0 ) {
     	            			bucketCreationDateCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "CreationDate", -1), "");
     	        			}
+    	        			if ( bucketIsVersionedCol < 0 ) {
+    	            			bucketIsVersionedCol = table.addField(new TableField(TableField.DATA_TYPE_BOOLEAN, "IsVersioned", -1), "");
+    	        			}
     	        		}
-    	        		else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
+    	        		else if ( (s3Command == AwsS3CommandType.LIST_OBJECTS) || (s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
     	        			objectKeyCol = table.getFieldIndex("Key");
     	        			objectNameCol = table.getFieldIndex("Name");
     	        			objectParentFolderCol = table.getFieldIndex("ParentFolder");
@@ -3270,6 +4240,12 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			objectSizeCol = table.getFieldIndex("Size");
     	        			objectOwnerCol = table.getFieldIndex("Owner");
     	        			objectLastModifiedCol = table.getFieldIndex("LastModified");
+    	        			if ( listVersions ) {
+    	        				objectVersionIdCol = table.getFieldIndex("VersionId");
+    	        				objectIsLatestCol = table.getFieldIndex("IsLatest");
+    	        				objectDeleteMarkerFoundCol = table.getFieldIndex("DeleteMarkerFound");
+    	        				objectKeyVersionIdCol = table.getFieldIndex("KeyVersionId");
+    	        			}
     	        			if ( objectKeyCol < 0 ) {
     	            			objectKeyCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "Key", -1), "");
     	        			}
@@ -3291,6 +4267,20 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			if ( objectLastModifiedCol < 0 ) {
     	            			objectLastModifiedCol = table.addField(new TableField(TableField.DATA_TYPE_DATETIME, "LastModified", -1), "");
     	        			}
+    	        			if ( listVersions ) {
+    	        				if ( objectVersionIdCol < 0 ) {
+    	            				objectVersionIdCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "VersionId", -1), "");
+    	        				}
+    	        				if ( objectIsLatestCol < 0 ) {
+    	            				objectIsLatestCol = table.addField(new TableField(TableField.DATA_TYPE_BOOLEAN, "IsLatest", -1), "");
+    	        				}
+    	        				if ( objectDeleteMarkerFoundCol < 0 ) {
+    	            				objectDeleteMarkerFoundCol = table.addField(new TableField(TableField.DATA_TYPE_BOOLEAN, "DeleteMarkerFound", -1), "");
+    	        				}
+    	        				if ( objectKeyVersionIdCol < 0 ) {
+    	            				objectKeyVersionIdCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "KeyVersionId", -1), "");
+    	        				}
+    	        			}
     	        		}
     	        	}
     	    	}
@@ -3299,10 +4289,24 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	    		// S3Client:
    	    		//    https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/services/s3/S3Client.html
 
+   	        	if ( ((s3Command == AwsS3CommandType.LIST_OBJECTS) || (s3Command == AwsS3CommandType.TAG_OBJECTS)) && listVersions ) {
+   	        		// Make sure that the bucket supports versions:
+   	        		// - if not, list without versions
+   	        		// - the output table will have previously been set up with columns for versions and output will be nulls
+   	        		if ( ! isBucketVersioned(region, bucket) ) {
+  						message = "Bucket \"" + bucket + "\" is not versioned - version data will not be set in output.";
+   						Message.printWarning(warningLevel,
+   							MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+   						status.addToLog ( commandPhase, new CommandLogRecord(CommandStatusType.WARNING,
+   							message, "Verify that the bucket is configured to use versions (suspended versioning is OK)." ) );
+   	        			listVersions = false;
+   	        		}
+   	        	}
+
     	    	if ( s3Command == AwsS3CommandType.COPY_OBJECTS ) {
     	    		warningCount = doS3CopyObjects(
     	    			processor,
-		  	    		s3,
+		  	    		s3Client,
 		  	    		bucket, copyFilesSourceKeyList, copyBucket, copyFilesDestKeyList,
   	    				CopyObjectsCountProperty,
 		  	    		invalidateCloudFront, cloudFrontPaths,
@@ -3310,7 +4314,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	    	}
     	    	else if ( s3Command == AwsS3CommandType.DELETE_OBJECTS ) {
     	    		warningCount = doS3DeleteObjects (
-    	    			s3,
+    	    			s3Client,
 		  	    		bucket,
    	        			deleteFilesKeys, deleteFoldersKeys,
    	        			DeleteFoldersScope, deleteFoldersMinDepth,
@@ -3327,34 +4331,80 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	    	else if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
     	    		warningCount = doS3ListBuckets (
     	    			processor,
-    	    			s3,
-    	    			table, bucketNameCol, bucketCreationDateCol,
+    	    			s3Client,
+    	    			table,
+    	    			regionRequested,
+    	    			bucketNameCol, bucketRegionCol, bucketCreationDateCol, bucketIsVersionedCol,
     	    			listBucketsRegEx, ListBucketsCountProperty,
     	    			status, logLevel, warningCount, commandTag );
     	    	}
-   	        	else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
-   	        		warningCount = doS3ListObjects (
-   	        			processor,
-   	        			s3,
-		 	       		bucket,
-		 	       		ListObjectsScope, Prefix, Delimiter, maxKeys, maxObjects,
-		 	       		listFiles, listFolders, listObjectsRegEx,
-		 	       		table, objectKeyCol, objectTypeCol, objectNameCol, objectParentFolderCol,
-		 	       		ListObjectsCountProperty,
-		 	       		objectSizeCol, objectOwnerCol, objectLastModifiedCol,
-		 	       		status, logLevel, warningCount, commandTag );
+
+   	        	if ( (s3Command == AwsS3CommandType.LIST_OBJECTS) || (s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
+   	        		// Tag objects requires running list objects first.
+   	        		if ( !listVersions ) {
+   	        			warningCount = doS3ListObjectsLatest (
+   	        				processor,
+   	        				s3Client,
+		 	       			bucket,
+		 	       			ListObjectsScope, Prefix, Delimiter, maxKeys, maxObjects,
+		 	       			listFiles, listFolders, outputTags, listObjectsRegEx,
+		 	       			table, objectKeyCol, objectTypeCol, objectNameCol, objectParentFolderCol,
+		 	       			ListObjectsCountProperty,
+		 	       			objectSizeCol, objectOwnerCol, objectLastModifiedCol,
+		 	       			status, logLevel, warningCount, commandTag );
+    	    		}
+   	        		else if ( listVersions ) {
+   	        			warningCount = doS3ListObjectsVersions (
+   	        				processor,
+   	        				s3Client,
+		 	       			bucket,
+		 	       			ListObjectsScope, Prefix, Delimiter, maxKeys, maxObjects,
+		 	       			listFiles, listFolders, outputTags, listObjectsRegEx,
+		 	       			table, objectKeyCol, objectTypeCol, objectNameCol, objectParentFolderCol,
+		 	       			ListObjectsCountProperty,
+		 	       			objectSizeCol, objectOwnerCol, objectLastModifiedCol,
+		 	       			objectVersionIdCol, objectIsLatestCol, objectDeleteMarkerFoundCol, objectKeyVersionIdCol,
+		 	       			status, logLevel, warningCount, commandTag );
+   	        		}
     	    	}
-   	        	else if ( s3Command == AwsS3CommandType.UPLOAD_OBJECTS ) {
+
+   	        	// Tag objects after generating the list.
+   	        	if ( s3Command == AwsS3CommandType.TAG_OBJECTS ) {
+   	        		// The output table must exist.
+   	        		if ( table == null ) {
+   	        			message = "No output table is found. Tagging objects requires an output table from listing objects.";
+		       			Message.printWarning(warningLevel,
+			       			MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
+		       			status.addToLog ( commandPhase,
+			       			new CommandLogRecord(CommandStatusType.FAILURE,
+				       			message, "Confirm that and output list has been created." ) );
+   	        		}
+   	        		else {
+   	        			// OK to tag objects.
+   	        			doS3TagObjects (
+   	        				s3Client,
+   	        				bucket,
+   	        				listVersions,
+   	        				table, objectKeyCol, objectVersionIdCol,
+   	        				tagsPatternList, tagsNameList, tagsValueList, tagModeType
+   	        			);
+   	        		}
+   	        	}
+
+   	        	if ( s3Command == AwsS3CommandType.UPLOAD_OBJECTS ) {
    	        		warningCount = doS3UploadObjects (
    	        			processor,
+   	        			s3Client,
    	        			credentialsProvider,
    	        			bucket, region,
    	        			uploadFilesOrig, uploadFilesFileList, uploadFilesKeyList,
    	        			uploadFoldersOrig, uploadFoldersDirectoryList, uploadFoldersKeyList,
+   	        			uploadTagsPatternList, uploadTagsNameList, uploadTagsValueList, uploadTagModeType,
 		  	    		invalidateCloudFront, cloudFrontPaths,
    	        			status, logLevel, warningLevel, warningCount, commandTag );
     	    	}
-   	        	else {
+
+   	        	if ( s3Command == null ) {
 					message = "Unknown S3 command: " + S3Command;
 					Message.printWarning(warningLevel,
 						MessageUtil.formatMessageTag( commandTag, ++warningCount), routine, message );
@@ -3547,12 +4597,19 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			"ListObjectsRegEx",
 			"ListFiles",
 			"ListFolders",
+			"ListVersions",
+			"OutputObjectTags",
 			"MaxKeys",
 			"MaxObjects",
 			"ListObjectsCountProperty",
+			// Tag objects.
+			"Tags",
+			"TagMode",
 			// Upload.
 			"UploadFolders",
 			"UploadFiles",
+			"UploadTags",
+			"UploadTagMode",
 			// Output.
 			"OutputTableID",
 			"OutputFile",
