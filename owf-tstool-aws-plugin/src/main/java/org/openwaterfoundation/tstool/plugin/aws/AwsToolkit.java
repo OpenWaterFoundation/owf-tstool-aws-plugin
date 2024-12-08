@@ -30,11 +30,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 import javax.swing.JLabel;
 import javax.swing.JTextField;
 
 import org.openwaterfoundation.tstool.plugin.aws.commands.s3.AwsS3Object;
+import org.openwaterfoundation.tstool.plugin.aws.commands.s3.TagModeType;
 
 import RTi.Util.GUI.SimpleJComboBox;
 import RTi.Util.IO.IOUtil;
@@ -62,6 +66,10 @@ import software.amazon.awssdk.services.cloudfront.model.Tags;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Bucket;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
+import software.amazon.awssdk.services.s3.model.GetBucketLocationRequest;
+import software.amazon.awssdk.services.s3.model.GetBucketLocationResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectTaggingResponse;
 import software.amazon.awssdk.services.s3.model.ListBucketsRequest;
 import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
@@ -276,6 +284,67 @@ public class AwsToolkit {
 			b.append(tag.value());
 		}
 		return b.toString();
+	}
+	
+	/**
+	 * Format a tag string from a map.
+	 * @param tagMap a map (TreeMap, which is sorted by tag name), never null but may be empty
+	 * @return tag string as "TagName1=TagValue1;TagName2=TagValue2..."
+	 */
+	public String formatTagString ( Map<String,String> tagMap ) {
+		StringBuilder tagString = new StringBuilder();
+		for ( Entry<String,String> entry : tagMap.entrySet() ) {
+			if ( tagString.length() > 0 ) {
+				tagString.append("&");
+			}
+			tagString.append(entry.getKey() + "=" + entry.getValue() );
+		}
+		return tagString.toString();
+	}
+
+	/**
+	 * Format at tag string as "TagName1=TagValue1&TagName2=TagValue2...".
+	 * @param tagString the tag string to be set, pending other checks
+	 * @param tagModeType the tag mode type, which may cause modifications to 'tagString'
+	 * @param existingTags the object's existing tags
+	 * @return the updated tag string or null if there was an issue such as no input (should not set tags)
+	 */
+	public String formatTagString ( String tagString, TagModeType tagModeType, Map<String,String> existingTags ) {
+		String newTagString = null;
+		if ( (tagString == null) || tagString.isEmpty() ) {
+			// Return null.
+			newTagString = null;
+		}
+		if ( tagModeType == TagModeType.SET_ALL ) {
+			// Use the string as is, which will set the tags to the specified values.
+			newTagString = tagString;
+		}
+		else if ( tagModeType == TagModeType.SET ) {
+			// Append/reset the specified tags to the existing tags:
+			// - first parse the new tag string
+			// - then modify based on the existing tags
+			Map<String,String> tagMap = AwsToolkit.getInstance().parseTagString(tagString);
+			// Loop through the existing tags:
+			// - if any match the new, use the new
+			// - else, add to the new
+			for ( Map.Entry<String,String> entry : existingTags.entrySet() ) {
+				String key = entry.getKey();
+				String value = entry.getValue();
+				boolean found = false;
+				for ( Map.Entry<String,String> newEntry : tagMap.entrySet() ) {
+					if ( newEntry.getKey().equals(key) ) {
+						found = true;
+						break;
+					}
+				}
+				if ( ! found ) {
+					// Existing was not found in the new tags so add.
+					tagMap.put(key, value);
+				}
+			}
+			newTagString = AwsToolkit.getInstance().formatTagString(tagMap);
+		}
+		return newTagString;
 	}
 	
 	/**
@@ -622,11 +691,108 @@ public class AwsToolkit {
 	}
 
 	/**
+	 * Return the region for the bucket.
+	 * @param bucketName name of the bucket to check
+	 * @return the region name for the bucket
+	 */
+	public String getRegionForS3Bucket ( S3Client s3Client, String bucketName ) {
+		// Request the bucket's location (region)
+        GetBucketLocationRequest locationRequest = GetBucketLocationRequest.builder()
+            .bucket(bucketName)
+            .build();
+
+        GetBucketLocationResponse locationResponse = s3Client.getBucketLocation(locationRequest);
+
+        // Return the region, or return "us-east-1" as the default region for old-style buckets.
+        if ( locationResponse.locationConstraintAsString() == null ) {
+        	return "us-east-1";
+        }
+        else {
+        	return locationResponse.locationConstraintAsString();
+        }
+	}
+
+	/**
+	 * Return the tags for an S3 object.
+	 * @param bucketName name of the bucket to check
+	 * @param objectKey object key
+	 * @param versionId object version ID, specify null no not use the version
+	 * @return the tags for the object, may be an empty list
+	 */
+	public List<software.amazon.awssdk.services.s3.model.Tag> getS3ObjectTags ( S3Client s3Client, String bucketName, String objectKey, String versionId ) {
+		// Request the bucket's location (region)
+        GetObjectTaggingRequest taggingRequest = null;
+        if ( versionId == null ) {
+        	// No version ID.
+        	taggingRequest = GetObjectTaggingRequest.builder()
+            .bucket(bucketName)
+            .key(objectKey)
+            .build();
+        }
+        else {
+        	// Use the version ID.
+        	taggingRequest = GetObjectTaggingRequest.builder()
+            .bucket(bucketName)
+            .key(objectKey)
+            .versionId(versionId)
+            .build();
+        }
+
+        GetObjectTaggingResponse taggingResponse = s3Client.getObjectTagging(taggingRequest);
+
+        // Return the list of tags.
+        return taggingResponse.tagSet();
+	}
+
+	/**
+	 * Get a single S3 object's tags as a map.
+	 * This is used, for example, to retrieve an object's tags so that they can be evaluated before setting new tags.
+	 * @param s3Client S3Client instance to use for the request
+	 * @param bucketName S3 bucket name
+	 * @param objectKey object key to match
+	 * @param versionId object version ID to match
+	 * @return the tags as a map (TreeMap is returned), will never be null
+	 */
+	public Map<String,String> getS3ObjectTagsAsMap ( S3Client s3Client, String bucketName, String objectKey, String versionId ) {
+		Map<String,String> tagMap = new TreeMap<>();
+		
+		// First get the tags.
+		List<software.amazon.awssdk.services.s3.model.Tag> tags = getS3ObjectTags ( s3Client, bucketName, objectKey, versionId );
+		for ( software.amazon.awssdk.services.s3.model.Tag tag : tags ) {
+			tagMap.put(tag.key(), tag.value());
+		}
+		return tagMap;
+	}
+	
+	/**
+	 * Get a single S3 object's tags as a string "TagName1=Value1&TagName2=Value2...".
+	 * This is used, for example, to retrieve an object's tags so that they can be evaluated before setting new tags.
+	 * @param s3Client S3Client instance to use for the request
+	 * @param bucketName S3 bucket name
+	 * @param objectKey object key to match
+	 * @param versionId object version ID to match
+	 * @return the tag string, or an empty string if no tags, will never be null
+	 */
+	public String getS3ObjectTagsAsString ( S3Client s3Client, String bucketName, String objectKey, String versionId ) {
+		StringBuilder tagString = new StringBuilder();
+		
+		// First get the tags.
+		List<software.amazon.awssdk.services.s3.model.Tag> tags = getS3ObjectTags ( s3Client, bucketName, objectKey, versionId );
+		for ( software.amazon.awssdk.services.s3.model.Tag tag : tags ) {
+			if ( tagString.length() > 0 ) {
+				tagString.append("&");
+			}
+			tagString.append(tag.key() + "=" + tag.value());
+		}
+		return tagString.toString();
+	}
+
+	/**
 	 * List S3 bucket objects.
 	 * This is a utility class that is intended to support more complex code,
 	 * for example to list a bucket's objects as keys before deleting a folder,
 	 * or to confirm that objects do or don't exist after an action.
-	 * @param s3 S3Client instance to use for the request
+	 * @param s3Client S3Client instance to use for the request
 	 * @param bucket S3 bucket
 	 * @param prefix prefix to filter the keys,
 	 * should not start with / unless the bucket has a top-level / object
@@ -642,7 +808,7 @@ public class AwsToolkit {
 	 * @throws Exception
 	 */
 	public List<AwsS3Object> getS3BucketObjects (
-		S3Client s3,
+		S3Client s3Client,
 		String bucket,
 		String prefix, String delimiter, boolean useDelimiter, int maxKeys, int maxObjects,
 		boolean listFiles, boolean listFolders, String regex
@@ -697,7 +863,7 @@ public class AwsToolkit {
     	boolean doS3Objects = true;
 
     	while ( !done ) {
-    		response = s3.listObjectsV2(request);
+    		response = s3Client.listObjectsV2(request);
     		// Process files and folders separately, with the maximum count checked based on what is returned.
     		if ( listFiles || listFolders ) {
     			// S3Objects can contain files or folders (objects with key ending in /, typically with size=0).
@@ -968,21 +1134,38 @@ public class AwsToolkit {
 	/**
  	* Get the list of S3 buckets.
  	* @param awsSession the AWS session, containing profile
- 	* @param region the AWS region
+ 	* @param region the AWS region to match (null, empty, or "*" will match all)
  	*/
 	public List<Bucket> getS3Buckets ( AwsSession awsSession, String region ) {
 		ProfileCredentialsProvider credentialsProvider = null;
 		String profile = awsSession.getProfile();
 		try {
 			credentialsProvider = ProfileCredentialsProvider.create(profile);
-			Region regionObject = Region.of(region);
-			S3Client s3 = S3Client.builder()
-				.region(regionObject)
+			S3Client s3Client = S3Client.builder()
 				.credentialsProvider(credentialsProvider)
+				// Adding the region here does not actually filter the buckets by region.
+				//.region(regionObject)
 				.build();
     		ListBucketsRequest request = ListBucketsRequest.builder().build();
-    		ListBucketsResponse response = s3.listBuckets(request);
-    		return response.buckets();
+    		ListBucketsResponse response = s3Client.listBuckets(request);
+    		// Need to filter the buckets after the request.
+    		List<Bucket> buckets = new ArrayList<>();
+    		boolean doMatchRegion = false;
+    		if ( (region != null) && !region.isEmpty() && !region.equals("*") ) {
+    			doMatchRegion = true;
+    		}
+   			if ( doMatchRegion ) {
+   				for ( Bucket bucket : response.buckets() ) {
+    				if ( getRegionForS3Bucket(s3Client, bucket.name()).equals(region) ) {
+    					buckets.add(bucket);
+    				}
+    			}
+   			}
+    		else {
+    			// Return the full list.
+    			buckets = response.buckets();
+    		}
+    		return buckets;
 		}
 		catch ( Exception e ) {
 			// Log the error and return an empty list:
@@ -992,7 +1175,7 @@ public class AwsToolkit {
 		}
 		return new ArrayList<Bucket>();
 	}
-	
+
 	/**
 	 * Invalidate a list of files in a CloudFront distribution.
 	 * @param distributionId CloudFront distribution ID to invalidate
@@ -1062,11 +1245,40 @@ public class AwsToolkit {
        		}
        	}
     }
+    
+    /**
+     * Parse a tag string "TagName1=TagValue1&TagName2=TagValue2" into a map.
+     * A TreeMap is returned.
+     * @param tagString tag string to parse
+     * @return a map of the parsed tags
+     */
+    public Map<String,String> parseTagString ( String tagString ) {
+    	SortedMap<String,String> map = new TreeMap<>();
+    	String [] parts = null;
+    	if ( !tagString.contains("&") ) {
+    		// One tag.
+    		parts = new String[1];
+    		parts[0] = tagString;
+    	}
+    	else {
+    		// Multiple tags.
+    		parts = tagString.split("&");
+    	}
+   		// Split multiple tags.
+    	for ( String part : parts ) {
+    		String [] tagParts = part.split("=");
+    		if ( tagParts.length == 2 ) {
+    			// Well-formed tag.
+    			map.put ( tagParts[0], tagParts[1] );
+    		}
+    	}
+    	return map;
+    }
 
     /**
      * UI helper to populate the Bucket choices based on profile and region selections.
      * @param awsSession the AwsSession instance for the session, for authentication
-     * @param region the selected region
+     * @param region the selected region (e.g., 'us-west-1' or '*' to match all regions)
      * @param bucket_JComboBox the combo box for buckets
      * @param icludeBlank if true, include a blank choice at the top
      */

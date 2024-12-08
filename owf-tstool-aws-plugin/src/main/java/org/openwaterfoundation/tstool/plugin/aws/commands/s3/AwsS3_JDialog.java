@@ -80,6 +80,7 @@ import software.amazon.awssdk.services.cloudfront.model.DistributionSummary;
 public class AwsS3_JDialog extends JDialog
 implements ActionListener, ChangeListener, ItemListener, KeyListener, WindowListener
 {
+
 private final String __AddWorkingDirectory = "Abs";
 private final String __RemoveWorkingDirectory = "Rel";
 
@@ -126,13 +127,21 @@ private JTextField __Delimiter_JTextField = null;
 private JTextField __ListObjectsRegEx_JTextField = null;
 private SimpleJComboBox __ListFiles_JComboBox = null;
 private SimpleJComboBox __ListFolders_JComboBox = null;
+private SimpleJComboBox __ListVersions_JComboBox = null;
+private SimpleJComboBox __OutputObjectTags_JComboBox = null;
 private JTextField __MaxKeys_JTextField = null;
 private JTextField __MaxObjects_JTextField = null;
 private JTextField __ListObjectsCountProperty_JTextField = null;
 
+// Tag objects.
+private JTextArea __Tags_JTextArea = null;
+private SimpleJComboBox __TagMode_JComboBox = null;
+
 // Upload tab.
 private JTextArea __UploadFiles_JTextArea = null;
 private JTextArea __UploadFolders_JTextArea = null;
+private JTextArea __UploadTags_JTextArea = null;
+private SimpleJComboBox __UploadTagMode_JComboBox = null;
 
 // Output tab.
 private SimpleJComboBox __OutputTableID_JComboBox = null;
@@ -188,6 +197,8 @@ public void actionPerformed( ActionEvent event ) {
 
     if ( o == this.__S3Command_JComboBox ) {
     	setTabForS3Command();
+		populateRegionChoices();
+    	refresh();
     }
     else if ( o == __browseOutput_JButton ) {
         String last_directory_selected = JGUIUtil.getLastFileDialogDirectory();
@@ -375,6 +386,22 @@ public void actionPerformed( ActionEvent event ) {
         }
         refresh ();
     }
+    else if ( event.getActionCommand().equalsIgnoreCase("EditTags") ) {
+        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
+        String Tags = __Tags_JTextArea.getText().trim();
+        String [] notes = {
+        	"Set the tags used for existing objects.",
+            "Specify a wildcard pattern to match the object key (e.g., * for all files or *.png for all image files).",
+            "Each object that matches the pattern will be tagged and the tag can be used by AWS and workflows.",
+            "${Property} notation can be used for all values to expand at run time."
+        };
+        String dict = (new DictionaryJDialog ( __parent, true, Tags,
+            "Edit Tags Parameter", notes, "Object Key Pattern", "TagName=TagValue", 10)).response();
+        if ( dict != null ) {
+            __Tags_JTextArea.setText ( dict );
+            refresh();
+        }
+    }
     else if ( event.getActionCommand().equalsIgnoreCase("EditUploadFolders") ) {
         // Edit the dictionary in the dialog.  It is OK for the string to be blank.
         String UploadFolders = __UploadFolders_JTextArea.getText().trim();
@@ -415,6 +442,22 @@ public void actionPerformed( ActionEvent event ) {
             "Edit UploadFiles Parameter", notes, "Local File", "S3 Bucket Object Key (object path)", 10)).response();
         if ( dict != null ) {
             __UploadFiles_JTextArea.setText ( dict );
+            refresh();
+        }
+    }
+    else if ( event.getActionCommand().equalsIgnoreCase("EditUploadTags") ) {
+        // Edit the dictionary in the dialog.  It is OK for the string to be blank.
+        String UploadTags = __UploadTags_JTextArea.getText().trim();
+        String [] notes = {
+        	"Set the tags used for uploaded objects.",
+            "Specify a wildcard pattern to match the file being uploaded (e.g., * for all files or *.png for image files).",
+            "Each object that matches the pattern will be tagged and the tag can be used by AWS and workflows.",
+            "${Property} notation can be used for all values to expand at run time."
+        };
+        String dict = (new DictionaryJDialog ( __parent, true, UploadTags,
+            "Edit UploadTags Parameter", notes, "Local Folder Pattern", "TagName=TagValue", 10)).response();
+        if ( dict != null ) {
+            __UploadTags_JTextArea.setText ( dict );
             refresh();
         }
     }
@@ -461,12 +504,19 @@ private void checkInput () {
 	String ListObjectsRegEx = __ListObjectsRegEx_JTextField.getText().trim();
 	String ListFiles = __ListFiles_JComboBox.getSelected();
 	String ListFolders = __ListFolders_JComboBox.getSelected();
+	String ListVersions = __ListVersions_JComboBox.getSelected();
+	String OutputObjectTags = __OutputObjectTags_JComboBox.getSelected();
 	String MaxKeys = __MaxKeys_JTextField.getText().trim();
 	String MaxObjects = __MaxObjects_JTextField.getText().trim();
 	String ListObjectsCountProperty = __ListObjectsCountProperty_JTextField.getText().trim();
+	// Tag.
+	String Tags = __Tags_JTextArea.getText().trim().replace("\n"," ");
+	String TagMode = __TagMode_JComboBox.getSelected();
 	// Upload.
 	String UploadFolders = __UploadFolders_JTextArea.getText().trim().replace("\n"," ");
 	String UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
+	String UploadTags = __UploadTags_JTextArea.getText().trim().replace("\n"," ");
+	String UploadTagMode = __UploadTagMode_JComboBox.getSelected();
 	// Output.
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
 	String OutputFile = __OutputFile_JTextField.getText().trim();
@@ -549,6 +599,12 @@ private void checkInput () {
 	if ( (ListFolders != null) && !ListFolders.isEmpty() ) {
 		props.set ( "ListFolders", ListFolders );
 	}
+	if ( (ListVersions != null) && !ListVersions.isEmpty() ) {
+		props.set ( "ListVersions", ListVersions );
+	}
+	if ( (OutputObjectTags != null) && !OutputObjectTags.isEmpty() ) {
+		props.set ( "OutputObjectTags", OutputObjectTags );
+	}
 	if ( (MaxKeys != null) && !MaxKeys.isEmpty() ) {
 		props.set ( "MaxKeys", MaxKeys );
 	}
@@ -558,12 +614,25 @@ private void checkInput () {
 	if ( (ListObjectsCountProperty != null) && !ListObjectsCountProperty.isEmpty() ) {
 		props.set ( "ListObjectsCountProperty", ListObjectsCountProperty );
 	}
+	// Tag.
+	if ( (Tags != null) && !Tags.isEmpty() ) {
+		props.set ( "Tags", Tags );
+	}
+	if ( (TagMode != null) && !TagMode.isEmpty() ) {
+		props.set ( "TagMode", TagMode );
+	}
 	// Upload.
 	if ( (UploadFolders != null) && !UploadFolders.isEmpty() ) {
 		props.set ( "UploadFolders", UploadFolders );
 	}
 	if ( (UploadFiles != null) && !UploadFiles.isEmpty() ) {
 		props.set ( "UploadFiles", UploadFiles );
+	}
+	if ( (UploadTags != null) && !UploadTags.isEmpty() ) {
+		props.set ( "UploadTags", UploadTags );
+	}
+	if ( (UploadTagMode != null) && !UploadTagMode.isEmpty() ) {
+		props.set ( "UploadTagMode", UploadTagMode );
 	}
 	// Output.
     if ( (OutputTableID != null) && !OutputTableID.isEmpty() ) {
@@ -644,12 +713,19 @@ private void commitEdits () {
 	String ListObjectsRegEx = __ListObjectsRegEx_JTextField.getText().trim();
 	String ListFiles = __ListFiles_JComboBox.getSelected();
 	String ListFolders = __ListFolders_JComboBox.getSelected();
+	String ListVersions = __ListVersions_JComboBox.getSelected();
+	String OutputObjectTags = __OutputObjectTags_JComboBox.getSelected();
 	String MaxKeys = __MaxKeys_JTextField.getText().trim();
 	String MaxObjects = __MaxObjects_JTextField.getText().trim();
 	String ListObjectsCountProperty = __ListObjectsCountProperty_JTextField.getText().trim();
+	// Tag.
+	String Tags = __Tags_JTextArea.getText().trim().replace("\n"," ");
+	String TagMode = __TagMode_JComboBox.getSelected();
 	// Upload.
 	String UploadFolders = __UploadFolders_JTextArea.getText().trim().replace("\n"," ");
 	String UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
+	String UploadTags = __UploadTags_JTextArea.getText().trim().replace("\n"," ");
+	String UploadTagMode = __UploadTagMode_JComboBox.getSelected();
 	// Output
 	String OutputTableID = __OutputTableID_JComboBox.getSelected();
     String OutputFile = __OutputFile_JTextField.getText().trim();
@@ -691,12 +767,19 @@ private void commitEdits () {
 	__command.setCommandParameter ( "ListObjectsRegEx", ListObjectsRegEx );
 	__command.setCommandParameter ( "ListFiles", ListFiles );
 	__command.setCommandParameter ( "ListFolders", ListFolders );
+	__command.setCommandParameter ( "ListVersions", ListVersions );
+	__command.setCommandParameter ( "OutputObjectTags", OutputObjectTags );
 	__command.setCommandParameter ( "MaxKeys", MaxKeys );
 	__command.setCommandParameter ( "MaxObjects", MaxObjects );
 	__command.setCommandParameter ( "ListObjectsCountProperty", ListObjectsCountProperty );
+	// Tag.
+	__command.setCommandParameter ( "Tags", Tags );
+	__command.setCommandParameter ( "TagMode", TagMode );
 	// Upload.
 	__command.setCommandParameter ( "UploadFolders", UploadFolders );
 	__command.setCommandParameter ( "UploadFiles", UploadFiles );
+	__command.setCommandParameter ( "UploadTags", UploadTags );
+	__command.setCommandParameter ( "UploadTagMode", UploadTagMode );
 	// Output.
 	__command.setCommandParameter ( "OutputTableID", OutputTableID );
 	__command.setCommandParameter ( "OutputFile", OutputFile );
@@ -767,6 +850,29 @@ private String getSelectedCloudFrontRegion( boolean returnDefault ) {
    	return id;
 }
 
+/**
+Return the selected command type enumeration.
+@return the selected command type
+*/
+private AwsS3CommandType getSelectedS3CommandType () {
+    if ( __Region_JComboBox == null ) {
+    	// Region combobox is null, typically at UI startup.
+    	return null;
+    }
+    // The combo box is not null so can get the value.
+    String S3Command = __S3Command_JComboBox.getSelected();
+   	int pos = S3Command.indexOf(" -");
+   	String id = "";
+   	if ( pos > 0 ) {
+   		// Have a description.
+   		S3Command = S3Command.substring(0,pos).trim();
+   	}
+   	else {
+   		// No description.
+       	S3Command = S3Command.trim();
+   	}
+   	return AwsS3CommandType.valueOfIgnoreCase(S3Command);
+}
 /**
 Return the selected profile.
 The default is NOT returned if messing.
@@ -975,21 +1081,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__Region_JComboBox = new SimpleJComboBox ( false );
 	__Region_JComboBox.setToolTipText("AWS region to run service.");
-	List<Region> regions = Region.regions();
-	List<String> regionChoices = new ArrayList<>();
-	for ( Region region : regions ) {
-		RegionMetadata meta = region.metadata();
-		if ( meta == null ) {
-			regionChoices.add ( region.id() );
-		}
-		else {
-			regionChoices.add ( region.id() + " - " + region.metadata().description());
-		}
-	}
-	Collections.sort(regionChoices);
-	regionChoices.add(0,""); // Default - region is not specified (get from user's ~/.aws/config file)
-	__Region_JComboBox.setData(regionChoices);
-	__Region_JComboBox.select ( 0 );
+	// Choices will be populated when refreshed, based on the S3 command.
 	__Region_JComboBox.addItemListener ( this );
     JGUIUtil.addComponent(main_JPanel, __Region_JComboBox,
 		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -1042,6 +1134,8 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(copy_JPanel, new JLabel ("The keys should not start with / unless the bucket uses top-level / for keys."),
 		0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(copy_JPanel, new JLabel ("The keys should not end with / (support for copying folders may be added in the future)."),
+		0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(copy_JPanel, new JLabel ("Use the 'CloudFront' tab to control CloudFront invalidation of the copied objects."),
 		0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(copy_JPanel, new JLabel ("Use the 'Browse S3' button to visually confirm S3 object keys (paths)."),
 		0, ++yCopy, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -1098,6 +1192,8 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(delete_JPanel, new JLabel ("File object keys should NOT end with /."),
 		0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(delete_JPanel, new JLabel ("Folder path keys should end with /."),
+		0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(delete_JPanel, new JLabel ("Use the 'CloudFront' tab to control CloudFront invalidation of the deleted objects."),
 		0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(delete_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -1322,7 +1418,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 
     JGUIUtil.addComponent(listObjects_JPanel, new JLabel ( "Prefix to match:"),
         0, ++yListObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
-    __Prefix_JTextField = new JTextField ( "", 30 );
+    __Prefix_JTextField = new JTextField ( "", 60 );
     __Prefix_JTextField.setToolTipText("Specify the start of the key to match, ending in / if listing a folder's contents.");
     __Prefix_JTextField.addKeyListener ( this );
     JGUIUtil.addComponent(listObjects_JPanel, __Prefix_JTextField,
@@ -1353,7 +1449,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
    JGUIUtil.addComponent(listObjects_JPanel, new JLabel ( "List files?:"),
 		0, ++yListObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__ListFiles_JComboBox = new SimpleJComboBox ( false );
-	__ListFiles_JComboBox.setToolTipText("Indicate whether to list files?");
+	__ListFiles_JComboBox.setToolTipText("Indicate whether to list files.");
 	List<String> listFilesChoices = new ArrayList<>();
 	listFilesChoices.add ( "" );	// Default.
 	listFilesChoices.add ( __command._False );
@@ -1370,7 +1466,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
    JGUIUtil.addComponent(listObjects_JPanel, new JLabel ( "List folders?:"),
 		0, ++yListObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	__ListFolders_JComboBox = new SimpleJComboBox ( false );
-	__ListFolders_JComboBox.setToolTipText("Indicate whether to list files?");
+	__ListFolders_JComboBox.setToolTipText("Indicate whether to list folders.");
 	List<String> listFoldersChoices = new ArrayList<>();
 	listFoldersChoices.add ( "" );	// Default.
 	listFoldersChoices.add ( __command._False );
@@ -1382,6 +1478,40 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 		1, yListObjects, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(listObjects_JPanel, new JLabel(
 		"Optional - list folders? (default=" + __command._True + ")."),
+		3, yListObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+   JGUIUtil.addComponent(listObjects_JPanel, new JLabel ( "List versions?:"),
+		0, ++yListObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__ListVersions_JComboBox = new SimpleJComboBox ( false );
+	__ListVersions_JComboBox.setToolTipText("Indicate whether to list versioned objects, available for versioned S3 buckets.");
+	List<String> listVersionsChoices = new ArrayList<>();
+	listVersionsChoices.add ( "" );	// Default.
+	listVersionsChoices.add ( __command._False );
+	listVersionsChoices.add ( __command._True );
+	__ListVersions_JComboBox.setData(listVersionsChoices);
+	__ListVersions_JComboBox.select ( 0 );
+	__ListVersions_JComboBox.addActionListener ( this );
+    JGUIUtil.addComponent(listObjects_JPanel, __ListVersions_JComboBox,
+		1, yListObjects, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(listObjects_JPanel, new JLabel(
+		"Optional - list versions? (default=" + __command._False + ")."),
+		3, yListObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+   JGUIUtil.addComponent(listObjects_JPanel, new JLabel ( "Output S3 object tags?:"),
+		0, ++yListObjects, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__OutputObjectTags_JComboBox = new SimpleJComboBox ( false );
+	__OutputObjectTags_JComboBox.setToolTipText("Indicate whether to output object tags (slows performance).");
+	List<String> outputTagsChoices = new ArrayList<>();
+	outputTagsChoices.add ( "" );	// Default.
+	outputTagsChoices.add ( __command._False );
+	outputTagsChoices.add ( __command._True );
+	__OutputObjectTags_JComboBox.setData(outputTagsChoices);
+	__OutputObjectTags_JComboBox.select ( 0 );
+	__OutputObjectTags_JComboBox.addActionListener ( this );
+    JGUIUtil.addComponent(listObjects_JPanel, __OutputObjectTags_JComboBox,
+		1, yListObjects, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(listObjects_JPanel, new JLabel(
+		"Optional - output object tags? (default=" + __command._False + ")."),
 		3, yListObjects, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     JGUIUtil.addComponent(listObjects_JPanel, new JLabel ( "Maximum keys:"),
@@ -1415,6 +1545,62 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(listObjects_JPanel, new JLabel ( "Optional - processor property to set as object count." ),
         3, yListObjects, 3, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
+    // Panel for 'Tag Objects' parameters.
+    int yTag = -1;
+    JPanel tag_JPanel = new JPanel();
+    tag_JPanel.setLayout( new GridBagLayout() );
+    __main_JTabbedPane.addTab ( "Tag Objects", tag_JPanel );
+
+    JGUIUtil.addComponent(tag_JPanel, new JLabel ("Process tags for existing objects."),
+		0, ++yTag, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(tag_JPanel, new JLabel ("Use the 'List Objects' and 'Output' tabs to specify the list of objects to tag and then make sure that the S3 Command is '" + AwsS3CommandType.TAG_OBJECTS + "'."),
+		0, ++yTag, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(tag_JPanel, new JLabel ("The tag mode is handled as follows."),
+		0, ++yTag, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(tag_JPanel, new JLabel ("    " + TagModeType.SET + ": " + TagModeType.SET.getDescription() + "."),
+		0, ++yTag, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(tag_JPanel, new JLabel ("    " + TagModeType.SET_ALL + ": " + TagModeType.SET_ALL.getDescription() + "."),
+		0, ++yTag, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(tag_JPanel, new JLabel ("    " + TagModeType.DELETE + ": " + TagModeType.DELETE.getDescription() + " (FUTURE ENHANCEMENT)."),
+		0, ++yTag, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(tag_JPanel, new JLabel ("    " + TagModeType.DELETE_ALL + ": " + TagModeType.DELETE_ALL.getDescription() + " (FUTURE ENHANCEMENT)."),
+		0, ++yTag, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(tag_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
+    	0, ++yTag, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(tag_JPanel, new JLabel ("Tags:"),
+        0, ++yTag, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __Tags_JTextArea = new JTextArea (6,35);
+    __Tags_JTextArea.setLineWrap ( true );
+    __Tags_JTextArea.setWrapStyleWord ( true );
+    __Tags_JTextArea.setToolTipText("Pattern1:TagName1=TagValue1,...");
+    __Tags_JTextArea.addKeyListener (this);
+    JGUIUtil.addComponent(tag_JPanel, new JScrollPane(__Tags_JTextArea),
+        1, yTag, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(tag_JPanel, new JLabel ("S3 object key and S3 object tags."),
+        3, yTag, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+    JGUIUtil.addComponent(tag_JPanel, new SimpleJButton ("Edit","EditTags",this),
+        3, ++yTag, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+   JGUIUtil.addComponent(tag_JPanel, new JLabel ( "Tag mode:"),
+		0, ++yTag, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__TagMode_JComboBox = new SimpleJComboBox ( false );
+	__TagMode_JComboBox.setToolTipText("Mode for handling tags.");
+	List<String> tagModeChoices = new ArrayList<>();
+	tagModeChoices.add ( "" ); // Default.
+	tagModeChoices.add ( "" + TagModeType.SET );
+	tagModeChoices.add ( "" + TagModeType.SET_ALL );
+	tagModeChoices.add ( "" + TagModeType.DELETE );
+	tagModeChoices.add ( "" + TagModeType.DELETE_ALL );
+	__TagMode_JComboBox.setData(tagModeChoices);
+	__TagMode_JComboBox.select ( 0 );
+	__TagMode_JComboBox.addActionListener ( this );
+    JGUIUtil.addComponent(tag_JPanel, __TagMode_JComboBox,
+		1, yTag, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(tag_JPanel, new JLabel(
+		"Optional - mode for tagging (default=" + TagModeType.SET + ")."),
+		3, yTag, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
     // Panel for 'Upload' parameters:
     // - map files and folders to bucket objects
     int yUpload = -1;
@@ -1425,6 +1611,10 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(upload_JPanel, new JLabel ("Specify files and folders (directories) to upload."),
 		0, ++yUpload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(upload_JPanel, new JLabel ("Use the 'Edit' button to view information about local and S3 file and folder paths."),
+		0, ++yUpload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(upload_JPanel, new JLabel ("See the 'Tag Objects' tab for an explanation of 'Upload tag mode'."),
+		0, ++yUpload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Use the 'CloudFront' tab to control CloudFront invalidation of the uploaded objects."),
 		0, ++yUpload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(upload_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
     	0, ++yUpload, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
@@ -1457,6 +1647,39 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     JGUIUtil.addComponent(upload_JPanel, new SimpleJButton ("Edit","EditUploadFiles",this),
         3, ++yUpload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
 
+    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Upload tags:"),
+        0, ++yUpload, 1, 2, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+    __UploadTags_JTextArea = new JTextArea (6,35);
+    __UploadTags_JTextArea.setLineWrap ( true );
+    __UploadTags_JTextArea.setWrapStyleWord ( true );
+    __UploadTags_JTextArea.setToolTipText("Pattern1:TagName1=TagValue1,...");
+    __UploadTags_JTextArea.addKeyListener (this);
+    JGUIUtil.addComponent(upload_JPanel, new JScrollPane(__UploadTags_JTextArea),
+        1, yUpload, 2, 2, 1, 0, insetsTLBR, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(upload_JPanel, new JLabel ("Local file(s) and S3 object tags."),
+        3, yUpload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+    JGUIUtil.addComponent(upload_JPanel, new SimpleJButton ("Edit","EditUploadTags",this),
+        3, ++yUpload, 4, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST );
+
+   JGUIUtil.addComponent(upload_JPanel, new JLabel ( "Upload tag mode:"),
+		0, ++yUpload, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__UploadTagMode_JComboBox = new SimpleJComboBox ( false );
+	__UploadTagMode_JComboBox.setToolTipText("Mode for handling tags.");
+	List<String> uploadTagModeChoices = new ArrayList<>();
+	uploadTagModeChoices.add ( "" ); // Default.
+	uploadTagModeChoices.add ( "" + TagModeType.SET );
+	uploadTagModeChoices.add ( "" + TagModeType.SET_ALL );
+	//uploadTagModeChoices.add ( "" + TagModeType.DELETE );
+	//uploadTagModeChoices.add ( "" + TagModeType.DELETE_ALL );
+	__UploadTagMode_JComboBox.setData(uploadTagModeChoices);
+	__UploadTagMode_JComboBox.select ( 0 );
+	__UploadTagMode_JComboBox.addActionListener ( this );
+    JGUIUtil.addComponent(upload_JPanel, __UploadTagMode_JComboBox,
+		1, yUpload, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(upload_JPanel, new JLabel(
+		"Optional - mode for tagging (default=" + TagModeType.SET + ")."),
+		3, yUpload, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
     // Panel for output.
     int yOutput = -1;
     JPanel output_JPanel = new JPanel();
@@ -1464,7 +1687,7 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
     __main_JTabbedPane.addTab ( "Output", output_JPanel );
 
     JGUIUtil.addComponent(output_JPanel, new JLabel (
-    	"The following parameters are used with 'List Buckets' and 'List Objects' commands."),
+    	"The following parameters are used with 'List Buckets', 'List Objects', and 'Tag Objects' commands."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(output_JPanel, new JLabel ("An output table and/or file can be created."),
 		0, ++yOutput, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
@@ -1732,6 +1955,7 @@ public void itemStateChanged ( ItemEvent e ) {
 	Object o = e.getSource();
     if ( o == this.__S3Command_JComboBox ) {
     	setTabForS3Command();
+		populateRegionChoices();
     }
     else if ( o == this.__Profile_JComboBox ) {
     	this.awsSession.setProfile(this.__Profile_JComboBox.getSelected());
@@ -1782,7 +2006,7 @@ private void populateCloudFrontDistributionIdChoices() {
 	if ( awsSession == null ) {
 		// Startup - can't populate the buckets.
 		if ( debug ) {
-			Message.printStatus(2, routine, "Startup - not populating the list of distributions." );
+			Message.printStatus(2, routine, "Startup - not populating the list of CloudFront distributions." );
 		}
 		return;
 	}
@@ -1825,6 +2049,43 @@ private void populateCloudFrontDistributionIdChoices() {
 }
 
 /**
+ * Populate the region choices.
+ */
+private void populateRegionChoices () {
+	String routine = getClass().getSimpleName() + ".populateRegionChoices";
+	boolean debug = false;
+	if ( awsSession == null ) {
+		// Startup - can't populate the buckets.
+		if ( debug ) {
+			Message.printStatus(2, routine, "Startup - not populating the list of regions." );
+		}
+		return;
+	}
+	List<Region> regions = Region.regions();
+	List<String> regionChoices = new ArrayList<>();
+	// Add a choice for all regions, used with ListBuckets.
+	AwsS3CommandType selectedCommandType = getSelectedS3CommandType();
+	if ( selectedCommandType == AwsS3CommandType.LIST_BUCKETS ) {
+		// Add a wildcard to list the buckets for all regions.
+		regionChoices.add ( "* - all regions");
+	}
+	// Always add all the regions.
+	for ( Region region : regions ) {
+		RegionMetadata meta = region.metadata();
+		if ( meta == null ) {
+			regionChoices.add ( region.id() );
+		}
+		else {
+			regionChoices.add ( region.id() + " - " + region.metadata().description());
+		}
+	}
+	Collections.sort(regionChoices);
+	regionChoices.add(0,""); // Default - region is not specified (get from user's ~/.aws/config file)
+	__Region_JComboBox.setData(regionChoices);
+	__Region_JComboBox.select ( 0 );
+}
+
+/**
 Refresh the command from the other text field contents.
 */
 private void refresh () {
@@ -1856,12 +2117,19 @@ private void refresh () {
 	String ListObjectsRegEx = "";
 	String ListFiles = "";
 	String ListFolders = "";
+	String ListVersions = "";
+	String OutputObjectTags = "";
 	String MaxKeys = "";
 	String MaxObjects = "";
 	String ListObjectsCountProperty = "";
+	// Tag.
+	String Tags = "";
+	String TagMode = "";
 	// Upload.
 	String UploadFolders = "";
 	String UploadFiles = "";
+	String UploadTags = "";
+	String UploadTagMode = "";
 	// Output.
 	String OutputTableID = "";
 	String OutputFile = "";
@@ -1906,12 +2174,19 @@ private void refresh () {
 		ListObjectsRegEx = parameters.getValue ( "ListObjectsRegEx" );
 		ListFiles = parameters.getValue ( "ListFiles" );
 		ListFolders = parameters.getValue ( "ListFolders" );
+		ListVersions = parameters.getValue ( "ListVersions" );
+		OutputObjectTags = parameters.getValue ( "OutputObjectTags" );
 		MaxKeys = parameters.getValue ( "MaxKeys" );
 		MaxObjects = parameters.getValue ( "MaxObjects" );
 		ListObjectsCountProperty = parameters.getValue ( "ListObjectsCountProperty" );
+		// Tag.
+		Tags = parameters.getValue ( "Tags" );
+		TagMode = parameters.getValue ( "TagMode" );
 		// Upload.
 		UploadFolders = parameters.getValue ( "UploadFolders" );
 		UploadFiles = parameters.getValue ( "UploadFiles" );
+		UploadTags = parameters.getValue ( "UploadTags" );
+		UploadTagMode = parameters.getValue ( "UploadTagMode" );
 		// Output
 		OutputTableID = parameters.getValue ( "OutputTableID" );
 		OutputFile = parameters.getValue ( "OutputFile" );
@@ -1959,6 +2234,8 @@ private void refresh () {
 				"Profile parameter \"" + Profile + "\".  Select a value or Cancel." );
 			}
 		}
+		// Populate the region choices based on the S3 command.
+		populateRegionChoices();
 		// The Region may or may not include a note following " - " so try to match with or without the note.
         int [] index = new int[1];
         //Message.printStatus(2,routine,"Checking to see if Region=\"" + Region + "\" is a choice.");
@@ -2141,6 +2418,36 @@ private void refresh () {
 				"ListFolders parameter \"" + ListFolders + "\".  Select a value or Cancel." );
 			}
 		}
+		if ( JGUIUtil.isSimpleJComboBoxItem(__ListVersions_JComboBox, ListVersions,JGUIUtil.NONE, null, null ) ) {
+			__ListVersions_JComboBox.select ( ListVersions );
+		}
+		else {
+            if ( (ListVersions == null) ||	ListVersions.equals("") ) {
+				// New command...select the default.
+				__ListVersions_JComboBox.select ( 0 );
+			}
+			else {
+				// Bad user command.
+				Message.printWarning ( 1, routine,
+				"Existing command references an invalid\n"+
+				"ListVersions parameter \"" + ListVersions + "\".  Select a value or Cancel." );
+			}
+		}
+		if ( JGUIUtil.isSimpleJComboBoxItem(__OutputObjectTags_JComboBox, OutputObjectTags,JGUIUtil.NONE, null, null ) ) {
+			__OutputObjectTags_JComboBox.select ( OutputObjectTags );
+		}
+		else {
+            if ( (OutputObjectTags == null) ||	OutputObjectTags.equals("") ) {
+				// New command...select the default.
+				__OutputObjectTags_JComboBox.select ( 0 );
+			}
+			else {
+				// Bad user command.
+				Message.printWarning ( 1, routine,
+				"Existing command references an invalid\n"+
+				"OutputObjectTags parameter \"" + OutputObjectTags + "\".  Select a value or Cancel." );
+			}
+		}
         if ( MaxKeys != null ) {
             __MaxKeys_JTextField.setText ( MaxKeys );
         }
@@ -2150,12 +2457,48 @@ private void refresh () {
         if ( ListObjectsCountProperty != null ) {
             __ListObjectsCountProperty_JTextField.setText ( ListObjectsCountProperty );
         }
+        if ( Tags != null ) {
+            __Tags_JTextArea.setText ( Tags );
+        }
+		if ( JGUIUtil.isSimpleJComboBoxItem(__TagMode_JComboBox, TagMode,JGUIUtil.NONE, null, null ) ) {
+			__TagMode_JComboBox.select ( TagMode );
+		}
+		else {
+            if ( (TagMode == null) ||	TagMode.equals("") ) {
+				// New command...select the default.
+				__TagMode_JComboBox.select ( 0 );
+			}
+			else {
+				// Bad user command.
+				Message.printWarning ( 1, routine,
+				"Existing command references an invalid\n"+
+				"TagMode parameter \"" + TagMode + "\".  Select a value or Cancel." );
+			}
+		}
         if ( UploadFolders != null ) {
             __UploadFolders_JTextArea.setText ( UploadFolders );
         }
         if ( UploadFiles != null ) {
             __UploadFiles_JTextArea.setText ( UploadFiles );
         }
+        if ( UploadTags != null ) {
+            __UploadTags_JTextArea.setText ( UploadTags );
+        }
+		if ( JGUIUtil.isSimpleJComboBoxItem(__UploadTagMode_JComboBox, UploadTagMode,JGUIUtil.NONE, null, null ) ) {
+			__UploadTagMode_JComboBox.select ( UploadTagMode );
+		}
+		else {
+            if ( (UploadTagMode == null) ||	UploadTagMode.equals("") ) {
+				// New command...select the default.
+				__UploadTagMode_JComboBox.select ( 0 );
+			}
+			else {
+				// Bad user command.
+				Message.printWarning ( 1, routine,
+				"Existing command references an invalid\n"+
+				"UploadTagMode parameter \"" + UploadTagMode + "\".  Select a value or Cancel." );
+			}
+		}
         if ( OutputTableID == null ) {
             // Select default.
             __OutputTableID_JComboBox.select ( 0 );
@@ -2375,12 +2718,19 @@ private void refresh () {
 	ListObjectsRegEx = __ListObjectsRegEx_JTextField.getText().trim();
 	ListFiles = __ListFiles_JComboBox.getSelected();
 	ListFolders = __ListFolders_JComboBox.getSelected();
+	ListVersions = __ListVersions_JComboBox.getSelected();
+	OutputObjectTags = __OutputObjectTags_JComboBox.getSelected();
 	MaxKeys = __MaxKeys_JTextField.getText().trim();
 	MaxObjects = __MaxObjects_JTextField.getText().trim();
 	ListObjectsCountProperty = __ListObjectsCountProperty_JTextField.getText().trim();
+	// Tag objects.
+	Tags = __Tags_JTextArea.getText().trim().replace("\n"," ");
+	TagMode = __TagMode_JComboBox.getSelected();
 	// Upload.
 	UploadFolders = __UploadFolders_JTextArea.getText().trim().replace("\n"," ");
 	UploadFiles = __UploadFiles_JTextArea.getText().trim().replace("\n"," ");
+	UploadTags = __UploadTags_JTextArea.getText().trim().replace("\n"," ");
+	UploadTagMode = __UploadTagMode_JComboBox.getSelected();
 	// Output
 	OutputTableID = __OutputTableID_JComboBox.getSelected();
 	OutputFile = __OutputFile_JTextField.getText().trim();
@@ -2425,12 +2775,19 @@ private void refresh () {
 	props.add ( "ListObjectsRegEx=" + ListObjectsRegEx );
 	props.add ( "ListFiles=" + ListFiles );
 	props.add ( "ListFolders=" + ListFolders );
+	props.add ( "ListVersions=" + ListVersions );
+	props.add ( "OutputObjectTags=" + OutputObjectTags );
 	props.add ( "MaxKeys=" + MaxKeys );
 	props.add ( "MaxObjects=" + MaxObjects );
 	props.add ( "ListObjectsCountProperty=" + ListObjectsCountProperty );
+	// Tag objects.
+	props.add ( "Tags=" + Tags );
+	props.add ( "TagMode=" + TagMode );
 	// Upload.
 	props.add ( "UploadFolders=" + UploadFolders );
 	props.add ( "UploadFiles=" + UploadFiles );
+	props.add ( "UploadTags=" + UploadTags );
+	props.add ( "UploadTagMode=" + UploadTagMode );
 	// Output.
 	props.add ( "OutputTableID=" + OutputTableID );
 	props.add ( "OutputFile=" + OutputFile );
@@ -2507,9 +2864,15 @@ private void setTabForS3Command() {
 	else if ( command.equalsIgnoreCase("" + AwsS3CommandType.LIST_OBJECTS) ) {
 		__main_JTabbedPane.setSelectedIndex(4);
 	}
-	else if ( command.equalsIgnoreCase("" + AwsS3CommandType.UPLOAD_OBJECTS) ) {
+	else if ( command.equalsIgnoreCase("" + AwsS3CommandType.TAG_OBJECTS) ) {
 		__main_JTabbedPane.setSelectedIndex(5);
 	}
+	else if ( command.equalsIgnoreCase("" + AwsS3CommandType.UPLOAD_OBJECTS) ) {
+		__main_JTabbedPane.setSelectedIndex(6);
+	}
+	// Output
+	// CloudFront
+	// - these are tabs with secondary data so no need to jump to because a command will always also be selected.
 }
 
 /**

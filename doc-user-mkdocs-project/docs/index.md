@@ -10,8 +10,8 @@ The plugin also provides a stand-alone S3 browser application that can be used t
 
 This documentation has been updated for:
 
-*   TSTool version 14.9.7
-*   TSTool AWS plugin version 1.5.5
+*   TSTool version 14.10.0
+*   TSTool AWS plugin version 1.5.6
 
 **TSTool 14.6.0 or later is required for this version of the plugin due to design changes.**
 

@@ -7,6 +7,7 @@ See the [TSTool release notes](http://opencdss.state.co.us/tstool/latest/doc-use
 Plugin release notes are listed below.
 The repository issue for release note item is shown where applicable.
 
+*   [Version 1.5.6](#version-156)
 *   [Version 1.5.5](#version-155)
 *   [Version 1.5.4](#version-154)
 *   [Version 1.5.3](#version-153)
@@ -23,6 +24,28 @@ The repository issue for release note item is shown where applicable.
 *   [Version 1.0.0](#version-100)
 
 ----------
+
+## Version 1.5.6 ##
+
+**Maintenance release to improve the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command for versions and tags.**
+
+*   ![change](change.png) Update the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command:
+    +   [#53] The `ListObjects` command now properly sets the output table for discovery mode
+        when a property is used in the table name.
+        This allows other command editors to see the table name with unexpanded property.
+    +   [#54] Add features to tag objects and handle versions:
+        -   Add the `TagObjects` S3 command with `Tags` and `TagMode` parameters to allow tagging existing objects.
+        -   Update the `UploadObjects` S3 command with new `UploadTags` and `UploadTagMode`
+            parameters to allow tagging objects as they are uploaded.
+        -   Update the `ListObjects` S3 command with new `ListVersions` parameter so that versioned objects can be listed
+            and `OutputObjectTags` parameter to control whether tags are output.
+        -   Update the command to show progress in cases where the number of operations is known,
+            such as uploading and tagging files.
+        -   Update the `ListBuckets` S3 command to allow selecting a specific bucket or `*` for all buckets.
+            All other S3 commands operate on a single selected bucket.
+            This functionality may be expanded in the future to other S3 commands.
+        -   Improve command editor error checking to make sure that specified parameters are only used with
+            the S3 command being run.
 
 ## Version 1.5.5 ##
 
