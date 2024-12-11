@@ -1735,7 +1735,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		boolean listFiles, boolean listFolders, boolean outputTags, String regex,
 		DataTable table, int objectKeyCol, int objectTypeCol, int objectNameCol, int objectParentFolderCol,
 		String listObjectsCountProperty,
-		int objectSizeCol, int objectOwnerCol, int objectLastModifiedCol,
+		int objectSizeCol, int objectStorageClassCol, int objectOwnerCol, int objectLastModifiedCol,
 		CommandStatus status, int logLevel, int warningCount, String commandTag
 		) throws Exception {
 		String routine = getClass().getSimpleName() + ".doS3ListObjects";
@@ -1881,6 +1881,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     						rec.setFieldValue(objectTypeCol,"file");
     					}
     					rec.setFieldValue(objectSizeCol,s3Object.size());
+    					rec.setFieldValue(objectStorageClassCol,s3Object.storageClassAsString());
     					if ( s3Object.owner() == null ) {
     						rec.setFieldValue(objectOwnerCol,"");
     					}
@@ -2026,7 +2027,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		boolean listFiles, boolean listFolders, boolean outputTags, String regex,
 		DataTable table, int objectKeyCol, int objectTypeCol, int objectNameCol, int objectParentFolderCol,
 		String listObjectsCountProperty,
-		int objectSizeCol, int objectOwnerCol, int objectLastModifiedCol,
+		int objectSizeCol, int objectStorageClassCol, int objectOwnerCol, int objectLastModifiedCol,
 		int objectVersionIdCol, int objectIsLatestCol, int objectDeleteMarkerFoundCol, int objectKeyVersionIdCol,
 		CommandStatus status, int logLevel, int warningCount, String commandTag
 		) throws Exception {
@@ -2189,6 +2190,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     						rec.setFieldValue(objectTypeCol,"file");
     					}
     					rec.setFieldValue(objectSizeCol,version.size());
+    					rec.setFieldValue(objectStorageClassCol,version.storageClassAsString());
     					if ( version.owner() == null ) {
     						rec.setFieldValue(objectOwnerCol,"");
     					}
@@ -2362,8 +2364,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    		 Message.printStatus(2, routine, "Checking " + nrec + " S3 objects for matches against " + tagsPatternList.size() + " tag patterns.");
    		 notifyCommandProgressListeners ( 0, nrec, (float)0.0, "Start tagging S3 objects." );
    		 // Increment for notifying TSTool of command progress, percent as an integer.
-   		 double notifyIncrement = 1.0;
+   		 double notifyIncrement = .01; // 1%
    		 double notifyNext = notifyIncrement;
+   		 // Count of objects tagged, for logging.
+   		 int tagCount = 0;
    		 for ( int irec = 0; irec < nrec; irec++ ) {
    			 // Notify listeners about progress, based on 100 objects.
    			 if ( (float)irec/nrec > notifyNext ) {
@@ -2410,7 +2414,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     		 for ( String tagsPattern : tagsPatternList ) {
     			 ++itag;
     			 // Convert glob-style wildcard to Java wildcard.
-    			 Message.printStatus(2, routine, "  Checking key against pattern \"" + tagsPattern + "\".");
+    			 if ( Message.isDebugOn ) {
+    				 Message.printStatus(2, routine, "  Key [" + irec + "] checking key against pattern \"" + tagsPattern + "\".");
+    			 }
     			 if ( (objectKey != null) && !objectKey.isEmpty() && objectKey.matches(tagsPattern) ) {
     				 // Have a matching pattern so add the tag for this object.
     				 if ( tagStringBuilder.length() > 0 ) {
@@ -2421,7 +2427,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     		 }
     		 if ( tagStringBuilder.length() == 0 ) {
     			 // The file did not match any of the tag patterns so no need to set the tag.
- 				 Message.printWarning(2, routine, "  [" + irec + "] No tags matched for key=\"" + objectKey + "\".");
+ 				 Message.printStatus(2, routine, "  Key [" + irec + "] No tags matched for key=\"" + objectKey + "\".");
     			 continue;
     		 }
     		 // If here have a file that matched one or more tag strings:
@@ -2449,6 +2455,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    				     	.key(objectKey)
    				     	.tagging(tagging)
    				     	.build();
+   					 ++tagCount;
    				 }
    				 else {
    					 // Processing versioned objects but version may not have been set:
@@ -2460,6 +2467,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    								 .key(objectKey)
    								 .tagging(tagging)
    								 .build();
+   						 ++tagCount;
    					 }
    					 else {
    						 // Version is available so tag the version.
@@ -2469,16 +2477,18 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    							 .versionId(versionId)
    							 .tagging(tagging)
    							 .build();
+   						 ++tagCount;
    					 }
    				 }
-   				 Message.printStatus(2, routine, "  Tagging bucket=" + bucket + " key=" + objectKey + " versionId=" + versionId + " tags=" + tagStringFinal);
+   				 Message.printStatus(2, routine, "  Key [" + irec + "] tagging bucket=" + bucket + " key=" + objectKey +
+   					 " versionId=" + versionId + " tags=" + tagStringFinal);
    				 s3Client.putObjectTagging(taggingRequest);
    			 }
    			 else {
-   				 Message.printWarning(2, routine, "  Final tag is null for key=\"" + objectKey + "\".");
+   				 Message.printWarning(2, routine, "  Key [" + irec + "] final tag considering tag mode is null for key=\"" + objectKey + "\" - not setting tag.");
    			 }
    		 }
-   		 notifyCommandProgressListeners ( nrec, nrec, (float)100.0, "Completed tagging S3 objects." );
+   		 notifyCommandProgressListeners ( nrec, nrec, (float)100.0, "Completed tagging " + tagCount + " S3 objects of " + nrec + " objects in the list table." );
    	 }
 
 	/**
@@ -2532,8 +2542,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	Message.printStatus(2, routine, "Have " + nFiles + " files to upload.");
     	if ( uploadFilesFileList.size() > 0 ) {
     		notifyCommandProgressListeners ( 0, nFiles, (float)100.0, "Start uploading files." );
-    		double notifyIncrement = 1.0;
-    		double notifyNext = 1.0;
+    		double notifyIncrement = .01; // 1%
+    		double notifyNext = notifyIncrement;
     		// Process each file in the list:
     		// - don't allow null or empty key or name
     		boolean error = false;
@@ -2674,8 +2684,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	if ( uploadFoldersDirectoryList.size() > 0 ) {
     		// Process each folder in the list.
     		notifyCommandProgressListeners ( 0, nFolders, (float)100.0, "Start uploading folders." );
-    		double notifyIncrement = 1.0;
-    		double notifyNext = 1.0;
+    		double notifyIncrement = .01; // 1%
+    		double notifyNext = notifyIncrement;
     		boolean error = false;
 			int iDir = -1;
     		for ( String localFolder : uploadFoldersDirectoryList ) {
@@ -3060,7 +3070,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	setOutputFile ( null );
 
 		String Profile = parameters.getValue ( "Profile" );
-		Profile = TSCommandProcessorUtil.expandParameterValue(processor,this,Profile);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			Profile = TSCommandProcessorUtil.expandParameterValue(processor,this,Profile);
+		}
 		String profile = Profile;
 		if ( (Profile == null) || Profile.isEmpty() ) {
 			// Get the default.
@@ -3079,7 +3091,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		String region = parameters.getValue ( "Region" );
 		// Save the original requested region for 'ListBuckets' command.
 		String regionRequested = region;
-		region = TSCommandProcessorUtil.expandParameterValue(processor,this,region);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			region = TSCommandProcessorUtil.expandParameterValue(processor,this,region);
+		}
 		if ( (region == null) || region.isEmpty() ) {
 			// Get the default region.
 			region = AwsToolkit.getInstance().getDefaultRegion(profile);
@@ -3096,12 +3110,17 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			}
 		}
 		// Bucket must be final because of lambda use below.
-		String bucket0 = parameters.getValue ( "Bucket" );
-		final String bucket = TSCommandProcessorUtil.expandParameterValue(processor,this,bucket0);
+		String Bucket = parameters.getValue ( "Bucket" );
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			Bucket = TSCommandProcessorUtil.expandParameterValue(processor,this,Bucket);
+		}
+		String bucket = Bucket; // TODO is this needed?  Was using a final before code clean up.
 
 		// Copy.
 		String CopyFiles = parameters.getValue ( "CopyFiles" );
-		CopyFiles = TSCommandProcessorUtil.expandParameterValue(processor,this,CopyFiles);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			CopyFiles = TSCommandProcessorUtil.expandParameterValue(processor,this,CopyFiles);
+		}
 		int copyFilesCount = 0;
 		List<String> copyFilesSourceKeyList = new ArrayList<>();
 		List<String> copyFilesDestKeyList = new ArrayList<>();
@@ -3210,8 +3229,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         	}
     	}
 		// Bucket must be final because of lambda use below.
-		String copyBucket0 = parameters.getValue ( "CopyBucket" );
-		final String copyBucket = TSCommandProcessorUtil.expandParameterValue(processor,this,copyBucket0);
+		String CopyBucket = parameters.getValue ( "CopyBucket" );
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			CopyBucket = TSCommandProcessorUtil.expandParameterValue(processor,this,CopyBucket);
+		}
+		String copyBucket = CopyBucket; // TODO is this needed?  Was using a final before code clean up.
     	String CopyObjectsCountProperty = parameters.getValue ( "CopyObjectsCountProperty" );
     	if ( commandPhase == CommandPhaseType.RUN ) {
     		CopyObjectsCountProperty = TSCommandProcessorUtil.expandParameterValue(processor, this, CopyObjectsCountProperty);
@@ -3219,7 +3241,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
 		// Delete.
 		String DeleteFiles = parameters.getValue ( "DeleteFiles" );
-		DeleteFiles = TSCommandProcessorUtil.expandParameterValue(processor,this,DeleteFiles);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			DeleteFiles = TSCommandProcessorUtil.expandParameterValue(processor,this,DeleteFiles);
+		}
 		List<String> deleteFilesKeys = new ArrayList<>();
 		int deleteFilesCount = 0;
 		if ( (DeleteFiles == null) || !DeleteFiles.isEmpty() ) {
@@ -3242,7 +3266,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			}
 		}
 		String DeleteFolders = parameters.getValue ( "DeleteFolders" );
-		DeleteFolders = TSCommandProcessorUtil.expandParameterValue(processor,this,DeleteFolders);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			DeleteFolders = TSCommandProcessorUtil.expandParameterValue(processor,this,DeleteFolders);
+		}
 		List<String> deleteFoldersKeys = new ArrayList<>();
 		int deleteFoldersCount = 0;
 		if ( (DeleteFolders == null) || !DeleteFolders.isEmpty() ) {
@@ -3282,7 +3308,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
 		// Download.
     	String DownloadFolders = parameters.getValue ( "DownloadFolders" );
-		DownloadFolders = TSCommandProcessorUtil.expandParameterValue(processor,this,DownloadFolders);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			DownloadFolders = TSCommandProcessorUtil.expandParameterValue(processor,this,DownloadFolders);
+		}
 		// Can't use a hashtable because sometimes download the same folders to multiple S3 locations.
     	List<String> downloadFoldersKeys = new ArrayList<>();
     	List<String> downloadFoldersDirectories = new ArrayList<>();
@@ -3391,7 +3419,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         	}
     	}
     	String DownloadFiles = parameters.getValue ( "DownloadFiles" );
-		DownloadFiles = TSCommandProcessorUtil.expandParameterValue(processor,this,DownloadFiles);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			DownloadFiles = TSCommandProcessorUtil.expandParameterValue(processor,this,DownloadFiles);
+		}
 		// Can't use a hashtable because sometimes download the same files to multiple S3 locations.
     	List<String> downloadFilesKeys = new ArrayList<>();
     	List<String> downloadFilesFiles = new ArrayList<>();
@@ -3533,10 +3563,14 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			ListObjectsScope = this._All; // Default.
 		}
 		String Prefix = parameters.getValue ( "Prefix" );
-		Prefix = TSCommandProcessorUtil.expandParameterValue(processor,this,Prefix);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			Prefix = TSCommandProcessorUtil.expandParameterValue(processor,this,Prefix);
+		}
 		// Set the default delimiter lower in the code because defaulting to / has implications.
 		String Delimiter = parameters.getValue ( "Delimiter" );
-		Delimiter = TSCommandProcessorUtil.expandParameterValue(processor,this,Delimiter);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			Delimiter = TSCommandProcessorUtil.expandParameterValue(processor,this,Delimiter);
+		}
 		String ListObjectsRegEx = parameters.getValue ( "ListObjectsRegEx" );
 		// TODO smalers 2023-01-27 evaluate whether regex can be expanded or will have conflicts.
 		//ListObjectsRegEx = TSCommandProcessorUtil.expandParameterValue(processor,this,ListObjectsRegEx);
@@ -3605,7 +3639,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	// The key pattern can be repeated.  Only one tag can be defined on the right.
     	// The tags will be further processed in the TagObjects command.
     	String Tags = parameters.getValue ( "Tags" );
-		Tags = TSCommandProcessorUtil.expandParameterValue(processor,this,Tags);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			Tags = TSCommandProcessorUtil.expandParameterValue(processor,this,Tags);
+		}
 		// Can't use a hashtable because sometimes  the same files to multiple S3 locations so the key would be repeated.
     	List<String> tagsPatternList = new ArrayList<>();
     	List<String> tagsNameList = new ArrayList<>();
@@ -3634,7 +3670,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         	}
     	}
     	String TagMode = parameters.getValue ( "TagMode" );
-		TagMode = TSCommandProcessorUtil.expandParameterValue(processor,this,TagMode);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			TagMode = TSCommandProcessorUtil.expandParameterValue(processor,this,TagMode);
+		}
 		TagModeType tagModeType = TagModeType.SET; // Default.
 		if ( (TagMode != null) && ! TagMode.isEmpty() ) {
 			tagModeType = TagModeType.valueOfIgnoreCase(TagMode);
@@ -3642,7 +3680,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
     	// Upload.
     	String UploadFolders = parameters.getValue ( "UploadFolders" );
-		UploadFolders = TSCommandProcessorUtil.expandParameterValue(processor,this,UploadFolders);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			UploadFolders = TSCommandProcessorUtil.expandParameterValue(processor,this,UploadFolders);
+		}
 		// Can't use a hashtable because sometimes upload the same folders to multiple S3 locations.
     	List<String> uploadFoldersOrig = new ArrayList<>(); // For log messages.
     	List<String> uploadFoldersDirectoryList = new ArrayList<>();
@@ -3745,7 +3785,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	}
     	String UploadFiles = parameters.getValue ( "UploadFiles" );
     	// Expand the entire parameter string before parsing into pairs.
-		UploadFiles = TSCommandProcessorUtil.expandParameterValue(processor,this,UploadFiles);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			UploadFiles = TSCommandProcessorUtil.expandParameterValue(processor,this,UploadFiles);
+		}
 		// Can't use a hashtable because sometimes upload the same files to multiple S3 locations so the key would be repeated.
     	List<String> uploadFilesOrig = new ArrayList<>(); // For log messages.
     	List<String> uploadFilesFileList = new ArrayList<>();
@@ -3895,7 +3937,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	// The file pattern can be repeated.  Only one tag can be defined on the right.
     	// The tags will be further processed in the UploadObjects command.
     	String UploadTags = parameters.getValue ( "UploadTags" );
-		UploadTags = TSCommandProcessorUtil.expandParameterValue(processor,this,UploadTags);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			UploadTags = TSCommandProcessorUtil.expandParameterValue(processor,this,UploadTags);
+		}
 		// Can't use a hashtable because sometimes upload the same files to multiple S3 locations so the key would be repeated.
     	List<String> uploadTagsPatternList = new ArrayList<>();
     	List<String> uploadTagsNameList = new ArrayList<>();
@@ -3924,7 +3968,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         	}
     	}
     	String UploadTagMode = parameters.getValue ( "UploadTagMode" );
-		UploadTagMode = TSCommandProcessorUtil.expandParameterValue(processor,this,UploadTagMode);
+		if ( commandPhase == CommandPhaseType.RUN ) {
+			UploadTagMode = TSCommandProcessorUtil.expandParameterValue(processor,this,UploadTagMode);
+		}
 		TagModeType uploadTagModeType = TagModeType.SET; // Default.
 		if ( (UploadTagMode != null) && ! UploadTagMode.isEmpty() ) {
 			uploadTagModeType = TagModeType.valueOfIgnoreCase(UploadTagMode);
@@ -4061,36 +4107,35 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			throw new InvalidCommandParameterException ( message );
 		}
 
-		// Handle credentials.
-
-		ProfileCredentialsProvider credentialsProvider0 = null;
-		credentialsProvider0 = ProfileCredentialsProvider.create(profile);
-		this.credentialsProvider = credentialsProvider0;
-
-		// The following is used to create a temporary table before outputting to a file.
-		//boolean useTempTable = false;
-
-		Region regionObject = Region.of(region);
-
-		Message.printStatus(2, routine, "Creating an S3Client for region \"" + regionObject + "\".");
-		S3Client s3Client = null;
-		if ( region.equals("*") ) {
-			// Create the client without specifying the region:
-			// - this is used when listing buckets
-			s3Client = S3Client.builder()
-				.credentialsProvider(this.credentialsProvider)
-				.build();
-		}
-		else {
-			// Create the client for a specific region.
-			s3Client = S3Client.builder()
-				.region(regionObject)
-				.credentialsProvider(this.credentialsProvider)
-				.build();
-		}
-
 		try {
 	    	if ( commandPhase == CommandPhaseType.RUN ) {
+	    		// Handle credentials.
+
+		   		ProfileCredentialsProvider credentialsProvider0 = null;
+		   		credentialsProvider0 = ProfileCredentialsProvider.create(profile);
+		   		this.credentialsProvider = credentialsProvider0;
+
+	    		// The following is used to create a temporary table before outputting to a file.
+	    		//boolean useTempTable = false;
+
+		  		Region regionObject = Region.of(region);
+
+		  		Message.printStatus(2, routine, "Creating an S3Client for region \"" + regionObject + "\".");
+		  		S3Client s3Client = null;
+		  		if ( region.equals("*") ) {
+			  		// Create the client without specifying the region:
+			  		// - this is used when listing buckets
+			  		s3Client = S3Client.builder()
+				  		.credentialsProvider(this.credentialsProvider)
+				  		.build();
+		  		}
+		  		else {
+			  		// Create the client for a specific region.
+			  		s3Client = S3Client.builder()
+				  		.region(regionObject)
+				  		.credentialsProvider(this.credentialsProvider)
+				  		.build();
+			  	}
 
 	    		// Create a session with the credentials.
 	    		AwsSession awsSession = new AwsSession(profile);
@@ -4109,6 +4154,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
         		int objectParentFolderCol = -1;
         		int objectTypeCol = -1;
    	    		int objectSizeCol = -1;
+   	    		int objectStorageClassCol = -1;
    	    		int objectOwnerCol = -1;
    	    		int objectLastModifiedCol = -1;
    	    		// Used with versions.
@@ -4140,6 +4186,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "ParentFolder", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Type", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_LONG, "Size", -1) );
+    	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "StorageClass", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Owner", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_DATETIME, "LastModified", -1) );
     	        			if ( listVersions ) {
@@ -4169,6 +4216,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			objectParentFolderCol = table.getFieldIndex("ParentFolder");
     	        			objectTypeCol = table.getFieldIndex("Type");
     	        			objectSizeCol = table.getFieldIndex("Size");
+    	        			objectStorageClassCol = table.getFieldIndex("StorageClass");
     	        			objectOwnerCol = table.getFieldIndex("Owner");
     	        			objectLastModifiedCol = table.getFieldIndex("LastModified");
     	        			if ( listVersions ) {
@@ -4238,6 +4286,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			objectParentFolderCol = table.getFieldIndex("ParentFolder");
     	        			objectTypeCol = table.getFieldIndex("Type");
     	        			objectSizeCol = table.getFieldIndex("Size");
+    	        			objectStorageClassCol = table.getFieldIndex("StorageClass");
     	        			objectOwnerCol = table.getFieldIndex("Owner");
     	        			objectLastModifiedCol = table.getFieldIndex("LastModified");
     	        			if ( listVersions ) {
@@ -4260,6 +4309,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			}
     	        			if ( objectSizeCol < 0 ) {
     	            			objectSizeCol = table.addField(new TableField(TableField.DATA_TYPE_LONG, "Size", -1), "");
+    	        			}
+    	        			if ( objectStorageClassCol < 0 ) {
+    	            			objectStorageClassCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "StorageClass", -1), "");
     	        			}
     	        			if ( objectOwnerCol < 0 ) {
     	            			objectOwnerCol = table.addField(new TableField(TableField.DATA_TYPE_STRING, "Owner", -1), "");
@@ -4350,7 +4402,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		 	       			listFiles, listFolders, outputTags, listObjectsRegEx,
 		 	       			table, objectKeyCol, objectTypeCol, objectNameCol, objectParentFolderCol,
 		 	       			ListObjectsCountProperty,
-		 	       			objectSizeCol, objectOwnerCol, objectLastModifiedCol,
+		 	       			objectSizeCol, objectStorageClassCol, objectOwnerCol, objectLastModifiedCol,
 		 	       			status, logLevel, warningCount, commandTag );
     	    		}
    	        		else if ( listVersions ) {
@@ -4362,7 +4414,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		 	       			listFiles, listFolders, outputTags, listObjectsRegEx,
 		 	       			table, objectKeyCol, objectTypeCol, objectNameCol, objectParentFolderCol,
 		 	       			ListObjectsCountProperty,
-		 	       			objectSizeCol, objectOwnerCol, objectLastModifiedCol,
+		 	       			objectSizeCol, objectStorageClassCol, objectOwnerCol, objectLastModifiedCol,
 		 	       			objectVersionIdCol, objectIsLatestCol, objectDeleteMarkerFoundCol, objectKeyVersionIdCol,
 		 	       			status, logLevel, warningCount, commandTag );
    	        		}
@@ -4459,7 +4511,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	    	}
 	    	else if ( commandPhase == CommandPhaseType.DISCOVERY ) {
    	        	if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
-   	        		(s3Command == AwsS3CommandType.LIST_OBJECTS) ) {
+   	        		(s3Command == AwsS3CommandType.LIST_OBJECTS) ||
+   	        		(s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
    	        		if ( (OutputTableID != null) && !OutputTableID.isEmpty() ) {
    	        			// Have a user-specified table identifier, may use ${Property}.
    	        			if ( table == null ) {
@@ -4475,26 +4528,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
 		}
     	catch ( S3Exception e ) {
-  	    	if ( s3Command == AwsS3CommandType.COPY_OBJECTS ) {
-				message = "Unexpected error copying objects (" + e.awsErrorDetails().errorMessage() + ").";
-			}
-  	    	else if ( s3Command == AwsS3CommandType.DELETE_OBJECTS ) {
-				message = "Unexpected error deleting object (" + e.awsErrorDetails().errorMessage() + ").";
-			}
-  	    	else if ( s3Command == AwsS3CommandType.DOWNLOAD_OBJECTS ) {
-				message = "Unexpected error downloading object(s) (" + e.awsErrorDetails().errorMessage() + ").";
-			}
-  	    	else if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
-				message = "Unexpected error listing buckets (" + e.awsErrorDetails().errorMessage() + ").";
-			}
-        	else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
-				message = "Unexpected error listing bucket objects (" + e.awsErrorDetails().errorMessage() + ").";
-        	}
-  	    	else if ( s3Command == AwsS3CommandType.UPLOAD_OBJECTS ) {
-				message = "Unexpected error uploading object(s) (" + e.awsErrorDetails().errorMessage() + ").";
+  	    	if ( s3Command != null ) {
+				message = "Unexpected error for S3 command + \"" + s3Command + "\" (" + e.awsErrorDetails().errorMessage() + ").";
 			}
 			else {
-				message = "Unexpected error for unknown S3 command (" + e.awsErrorDetails().errorMessage() + ": " + S3Command;
+				message = "Unexpected error for unknown S3 command " + S3Command + " (" + e.awsErrorDetails().errorMessage() + ").";
 			}
 			Message.printWarning ( warningLevel,
 				MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
@@ -4505,26 +4543,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			throw new CommandException ( message );
     	}
     	catch ( Exception e ) {
-  	    	if ( s3Command == AwsS3CommandType.COPY_OBJECTS ) {
-				message = "Unexpected error copying objects (" + e + ").";
-			}
-  	    	else if ( s3Command == AwsS3CommandType.DELETE_OBJECTS ) {
-				message = "Unexpected error deleting object (" + e + ").";
-			}
-  	    	else if ( s3Command == AwsS3CommandType.DOWNLOAD_OBJECTS ) {
-				message = "Unexpected error downloading objects (" + e + ").";
-			}
-  	    	else if ( s3Command == AwsS3CommandType.LIST_BUCKETS ) {
-				message = "Unexpected error listing buckets (" + e + ").";
-			}
-        	else if ( s3Command == AwsS3CommandType.LIST_OBJECTS ) {
-				message = "Unexpected error listing bucket objects (" + e + ").";
-        	}
-  	    	else if ( s3Command == AwsS3CommandType.UPLOAD_OBJECTS ) {
-				message = "Unexpected error uploading objects (" + e + ").";
+  	    	if ( s3Command != null ) {
+				message = "Unexpected error for S3 command + \"" + s3Command + "\" (" + e + ").";
 			}
 			else {
-				message = "Unexpected error for unknown S3 command: " + S3Command;
+				message = "Unexpected error for unknown S3 command \"" + S3Command + " (" + e + ").";
 			}
 			Message.printWarning ( warningLevel,
 				MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
