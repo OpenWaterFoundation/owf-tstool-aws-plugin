@@ -7,6 +7,7 @@ See the [TSTool release notes](http://opencdss.state.co.us/tstool/latest/doc-use
 Plugin release notes are listed below.
 The repository issue for release note item is shown where applicable.
 
+*   [Version 1.5.7](#version-157)
 *   [Version 1.5.6](#version-156)
 *   [Version 1.5.5](#version-155)
 *   [Version 1.5.4](#version-154)
@@ -24,6 +25,14 @@ The repository issue for release note item is shown where applicable.
 *   [Version 1.0.0](#version-100)
 
 ----------
+
+## Version 1.5.7 ##
+
+**Maintenance release to improve the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command for versions and tags.**
+
+*   ![change](change.png) [#58] Update the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command:
+    +   Add the `StorageClass` to output when listing objects.
+    +   Improve the command progress messages shown in the TSTool progress bar.
 
 ## Version 1.5.6 ##
 
