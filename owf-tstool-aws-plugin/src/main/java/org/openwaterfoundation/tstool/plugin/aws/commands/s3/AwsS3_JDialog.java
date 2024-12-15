@@ -111,6 +111,7 @@ private JTextArea __DeleteFiles_JTextArea = null;
 private JTextArea __DeleteFolders_JTextArea = null;
 private SimpleJComboBox __DeleteFoldersScope_JComboBox = null;
 private JTextField __DeleteFoldersMinDepth_JTextField = null;
+private SimpleJComboBox __DeleteListObjectsOutput_JComboBox = null;
 
 // Download tab.
 private JTextArea __DownloadFiles_JTextArea = null;
@@ -491,6 +492,7 @@ private void checkInput () {
 	String DeleteFolders = __DeleteFolders_JTextArea.getText().trim().replace("\n"," ");
 	String DeleteFoldersScope = __DeleteFoldersScope_JComboBox.getSelected();
 	String DeleteFoldersMinDepth = __DeleteFoldersMinDepth_JTextField.getText().trim();
+	String DeleteListObjectsOutput = __DeleteListObjectsOutput_JComboBox.getSelected();
 	// Download.
 	String DownloadFolders = __DownloadFolders_JTextArea.getText().trim().replace("\n"," ");
 	String DownloadFiles = __DownloadFiles_JTextArea.getText().trim().replace("\n"," ");
@@ -565,6 +567,9 @@ private void checkInput () {
 	}
 	if ( (DeleteFoldersMinDepth != null) && !DeleteFoldersMinDepth.isEmpty() ) {
 		props.set ( "DeleteFoldersMinDepth", DeleteFoldersMinDepth );
+	}
+	if ( (DeleteListObjectsOutput != null) && !DeleteListObjectsOutput.isEmpty() ) {
+		props.set ( "DeleteListObjectsOutput", DeleteListObjectsOutput );
 	}
 	// Download.
 	if ( (DownloadFolders != null) && !DownloadFolders.isEmpty() ) {
@@ -700,6 +705,7 @@ private void commitEdits () {
 	String DeleteFolders = __DeleteFolders_JTextArea.getText().trim().replace("\n"," ");
 	String DeleteFoldersScope = __DeleteFoldersScope_JComboBox.getSelected();
 	String DeleteFoldersMinDepth = __DeleteFoldersMinDepth_JTextField.getText().trim();
+	String DeleteListObjectsOutput = __DeleteListObjectsOutput_JComboBox.getSelected();
 	// Download.
 	String DownloadFolders = __DownloadFolders_JTextArea.getText().trim().replace("\n"," ");
 	String DownloadFiles = __DownloadFiles_JTextArea.getText().trim().replace("\n"," ");
@@ -754,6 +760,7 @@ private void commitEdits () {
 	__command.setCommandParameter ( "DeleteFolders", DeleteFolders );
 	__command.setCommandParameter ( "DeleteFoldersScope", DeleteFoldersScope );
 	__command.setCommandParameter ( "DeleteFoldersMinDepth", DeleteFoldersMinDepth );
+	__command.setCommandParameter ( "DeleteListObjectsOutput", DeleteListObjectsOutput );
 	// Download.
 	__command.setCommandParameter ( "DownloadFolders", DownloadFolders );
 	__command.setCommandParameter ( "DownloadFiles", DownloadFiles );
@@ -1193,6 +1200,9 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
 		0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(delete_JPanel, new JLabel ("Folder path keys should end with /."),
 		0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(delete_JPanel, new JLabel (
+    	"Use the 'ListObjects' tab to list objects to be deleted with 'DeleteListObjectsOutput' below (in addition to the file and folder lists)."),
+		0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(delete_JPanel, new JLabel ("Use the 'CloudFront' tab to control CloudFront invalidation of the deleted objects."),
 		0, ++yDelete, 8, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(delete_JPanel, new JSeparator(SwingConstants.HORIZONTAL),
@@ -1251,6 +1261,22 @@ private void initialize ( JFrame parent, AwsS3_Command command, List<String> tab
         1, yDelete, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
     JGUIUtil.addComponent(delete_JPanel, new JLabel ( "Optional - minimum required folder depth (default=" + command._DeleteFoldersMinDepth + ")."),
         3, yDelete, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+
+    JGUIUtil.addComponent(delete_JPanel, new JLabel ( "Delete 'ListObjects' output?"),
+		0, ++y, 1, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.EAST);
+	__DeleteListObjectsOutput_JComboBox = new SimpleJComboBox ( false );
+	__DeleteListObjectsOutput_JComboBox.setToolTipText("AWS S3 bucket.");
+	List<String> deleteListObjectsChoices = new ArrayList<>();
+	deleteListObjectsChoices.add("");
+	deleteListObjectsChoices.add(command._False);
+	deleteListObjectsChoices.add(command._True);
+	__DeleteListObjectsOutput_JComboBox.setData(deleteListObjectsChoices);
+	__DeleteListObjectsOutput_JComboBox.addActionListener ( this );
+    JGUIUtil.addComponent(delete_JPanel, __DeleteListObjectsOutput_JComboBox,
+		1, y, 2, 1, 1, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
+    JGUIUtil.addComponent(delete_JPanel, new JLabel(
+		"Optional - delete ListObjects output? (default=" + command._False + ")."),
+		3, y, 2, 1, 0, 0, insetsTLBR, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
     // Panel for 'Download' parameters:
     // - map bucket objects to files and folders
@@ -2104,6 +2130,7 @@ private void refresh () {
 	String DeleteFolders = "";
 	String DeleteFoldersScope = "";
 	String DeleteFoldersMinDepth = "";
+	String DeleteListObjectsOutput = "";
 	// Download.
 	String DownloadFolders = "";
 	String DownloadFiles = "";
@@ -2161,6 +2188,7 @@ private void refresh () {
 		DeleteFolders = parameters.getValue ( "DeleteFolders" );
 		DeleteFoldersScope = parameters.getValue ( "DeleteFoldersScope" );
 		DeleteFoldersMinDepth = parameters.getValue ( "DeleteFoldersMinDepth" );
+		DeleteListObjectsOutput = parameters.getValue ( "DeleteListObjectsOutput" );
 		// Download.
 		DownloadFolders = parameters.getValue ( "DownloadFolders" );
 		DownloadFiles = parameters.getValue ( "DownloadFiles" );
@@ -2349,11 +2377,26 @@ private void refresh () {
 				"DeleteFoldersScope parameter \"" + DeleteFoldersScope + "\".  Select a value or Cancel." );
 			}
 		}
-        if ( DownloadFolders != null ) {
-            __DownloadFolders_JTextArea.setText ( DownloadFolders );
-        }
         if ( DeleteFoldersMinDepth != null ) {
             __DeleteFoldersMinDepth_JTextField.setText ( DeleteFoldersMinDepth );
+        }
+		if ( JGUIUtil.isSimpleJComboBoxItem(__DeleteListObjectsOutput_JComboBox, DeleteListObjectsOutput,JGUIUtil.NONE, null, null ) ) {
+			__DeleteListObjectsOutput_JComboBox.select ( DeleteListObjectsOutput );
+		}
+		else {
+            if ( (DeleteListObjectsOutput == null) || DeleteListObjectsOutput.equals("") ) {
+				// New command...select the default.
+				__DeleteListObjectsOutput_JComboBox.select ( 0 );
+			}
+			else {
+				// Bad user command.
+				Message.printWarning ( 1, routine,
+				"Existing command references an invalid\n"+
+				"DeleteListObjectsOutput parameter \"" + DeleteListObjectsOutput + "\".  Select a value or Cancel." );
+			}
+		}
+        if ( DownloadFolders != null ) {
+            __DownloadFolders_JTextArea.setText ( DownloadFolders );
         }
         if ( DownloadFiles != null ) {
             __DownloadFiles_JTextArea.setText ( DownloadFiles );
@@ -2705,6 +2748,7 @@ private void refresh () {
 	DeleteFolders = __DeleteFolders_JTextArea.getText().trim().replace("\n"," ");
 	DeleteFoldersScope = __DeleteFoldersScope_JComboBox.getSelected();
 	DeleteFoldersMinDepth = __DeleteFoldersMinDepth_JTextField.getText().trim();
+	DeleteListObjectsOutput = __DeleteListObjectsOutput_JComboBox.getSelected();
 	// Download.
 	DownloadFolders = __DownloadFolders_JTextArea.getText().trim().replace("\n"," ");
 	DownloadFiles = __DownloadFiles_JTextArea.getText().trim().replace("\n"," ");
@@ -2762,6 +2806,7 @@ private void refresh () {
 	props.add ( "DeleteFolders=" + DeleteFolders );
 	props.add ( "DeleteFoldersScope=" + DeleteFoldersScope );
 	props.add ( "DeleteFoldersMinDepth=" + DeleteFoldersMinDepth );
+	props.add ( "DeleteListObjectsOutput=" + DeleteListObjectsOutput );
 	// Download.
 	props.add ( "DownloadFolders=" + DownloadFolders );
 	props.add ( "DownloadFiles=" + DownloadFiles );

@@ -160,13 +160,21 @@ each copied object will be invalidated.
 
 ### Delete Objects ###
 
-Use the `S3Command=DeleteObjects` parameter to delete one or more S3 file or folder objects
-using keys to identify objects.
+Use the `S3Command=DeleteObjects` parameter to delete one or more S3 file or folder objects:
+
+*   using a list of S3 file object keys
+*   using a list of S3 folder object keys (key ending in `/`)
+*   using the output table of the ***List Objects*** parameters to provide the list of object keys and
+    optional version identifiers:
+    +   use the ***List Objects*** `ListVersions` parameter to list object versions if it is desired to delete
+        non-current versions
+
 The S3 API does not provide a service to delete folders.
 Therefore folder contents are listed first and then the corresponding files are deleted.
+The API deletes up to 1000 objects at a time but this command can process a larger number by deleting files in batches.
 
 Because deleting objects is a destructive action,
-the `DeleteFoldersMinDepth` default value requires 3 levels of folder depth by default
+the `DeleteFoldersMinDepth` default value requires 3 levels of folder depth by default (so that high-level folders are not deleted)
 and the `DeleteFoldersScope` default value of `FolderFiles` will only delete files in the folder,
 not all files recursively.
 These parameter values can be changed using the command editor.
@@ -373,6 +381,7 @@ Command Parameters - Delete Objects
 | `DeleteFolders`| S3 object keys ending in `/` for folders to delete, separated by commas, can use `${Property}` syntax.  The files to delete are listed first and are then deleted. | Must specify files and/or folders to delete. |
 | `DeleteFoldersMinDepth` | The minimum number of folders required in the key in order to delete, used to prevent accidental delete of high-level folder. For example, `folder1/folder2/file.ext` and `/folder1/folder2/file.ext` both have a folder depth of `2`. | `3` |
 | `DeleteFoldersScope` | The scope of the delete for `DeleteFolders`:<ul><li>`AllFilesAndFolders` all files and folders, including the folder itself.</li><li>`FolderFiles` - only delete the files in the folder.</li></ul> | `FolderFiles` |
+| `DeleteListObjectsOutput` | Whether to delete the output of ***List Objects*** parameters, `True` or `False`.  Each output table row's `Key` and `VersionId` are used to identify the object to delete.  This allows deleting many objects with one command.  | `False` |
 
 ### Download Objects Command Parameters ###
 

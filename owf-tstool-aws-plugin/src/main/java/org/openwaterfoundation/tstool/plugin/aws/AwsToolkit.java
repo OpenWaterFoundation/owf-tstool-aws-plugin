@@ -68,6 +68,8 @@ import software.amazon.awssdk.services.s3.model.Bucket;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.GetBucketLocationRequest;
 import software.amazon.awssdk.services.s3.model.GetBucketLocationResponse;
+import software.amazon.awssdk.services.s3.model.GetBucketTaggingRequest;
+import software.amazon.awssdk.services.s3.model.GetBucketTaggingResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingResponse;
 import software.amazon.awssdk.services.s3.model.ListBucketsRequest;
@@ -713,7 +715,52 @@ public class AwsToolkit {
 	}
 
 	/**
+	 * Return the tags for an S3 bucket.
+	 * If the bucket does not exist, an empty list is returned.
+	 * @param s3Client the S3 client to use, must be for the bucket's region
+	 * @param bucketName name of the bucket to check
+	 * @return the tags for the bucket, may be an empty list
+	 */
+	public List<software.amazon.awssdk.services.s3.model.Tag> getS3BucketTags ( S3Client s3Client, String bucketName ) {
+		// Request the bucket's location (region)
+        GetBucketTaggingRequest taggingRequest = null;
+       	taggingRequest = GetBucketTaggingRequest.builder()
+            .bucket(bucketName)
+            .build();
+
+        try {
+        	GetBucketTaggingResponse taggingResponse = s3Client.getBucketTagging(taggingRequest);
+        	return taggingResponse.tagSet();
+        }
+        catch ( Exception e ) {
+        	// Exception will occur if the object does not exist:
+        	// - return an empty list of tags
+        	return new ArrayList<>();
+        }
+	}
+
+	/**
+	 * Get a single S3 bucket's tags as a map.
+	 * This is used, for example, to retrieve an bucket's tags to list the buckets.
+	 * @param s3Client S3Client instance to use for the request
+	 * @param bucketName S3 bucket name
+	 * @return the tags as a map (TreeMap is returned), will never be null
+	 */
+	public Map<String,String> getS3BucketTagsAsMap ( S3Client s3Client, String bucketName ) {
+		Map<String,String> tagMap = new TreeMap<>();
+		
+		// First get the tags.
+		List<software.amazon.awssdk.services.s3.model.Tag> tags = getS3BucketTags ( s3Client, bucketName );
+		for ( software.amazon.awssdk.services.s3.model.Tag tag : tags ) {
+			tagMap.put(tag.key(), tag.value());
+		}
+		return tagMap;
+	}
+	
+
+	/**
 	 * Return the tags for an S3 object.
+	 * If the object does not exist, an empty list is returned.
 	 * @param bucketName name of the bucket to check
 	 * @param objectKey object key
 	 * @param versionId object version ID, specify null no not use the version
@@ -738,10 +785,15 @@ public class AwsToolkit {
             .build();
         }
 
-        GetObjectTaggingResponse taggingResponse = s3Client.getObjectTagging(taggingRequest);
-
-        // Return the list of tags.
-        return taggingResponse.tagSet();
+        try {
+        	GetObjectTaggingResponse taggingResponse = s3Client.getObjectTagging(taggingRequest);
+        	return taggingResponse.tagSet();
+        }
+        catch ( Exception e ) {
+        	// Exception will occur if the object does not exist:
+        	// - return an empty list of tags
+        	return new ArrayList<>();
+        }
 	}
 
 	/**
