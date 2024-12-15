@@ -223,17 +223,23 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	*/
 	public void checkCommandParameters ( PropList parameters, String command_tag, int warning_level )
 	throws InvalidCommandParameterException {
+		// General.
 		String S3Command = parameters.getValue ( "S3Command" );
 		String Profile = parameters.getValue ( "Profile" );
 		String Region = parameters.getValue ( "Region" );
     	String Bucket = parameters.getValue ( "Bucket" );
+    	// Copy.
     	String CopyFiles = parameters.getValue ( "CopyFiles" );
+    	// Delete.
     	String DeleteFiles = parameters.getValue ( "DeleteFiles" );
     	String DeleteFolders = parameters.getValue ( "DeleteFolders" );
     	String DeleteFoldersScope = parameters.getValue ( "DeleteFoldersScope" );
     	String DeleteFoldersMinDepth = parameters.getValue ( "DeleteFoldersMinDepth" );
+    	String DeleteListObjectsOutput = parameters.getValue ( "DeleteListObjectsOutput" );
+    	// Download.
     	String DownloadFiles = parameters.getValue ( "DownloadFiles" );
     	String DownloadFolders = parameters.getValue ( "DownloadFolders" );
+    	// List Objects.
     	String ListObjectsScope = parameters.getValue ( "ListObjectsScope" );
     	//String Prefix = parameters.getValue ( "Prefix" );
     	String Delimiter = parameters.getValue ( "Delimiter" );
@@ -243,19 +249,19 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	String OutputObjectTags = parameters.getValue ( "OutputObjectTags" );
     	String MaxKeys = parameters.getValue ( "MaxKeys" );
     	String MaxObjects = parameters.getValue ( "MaxObjects" );
-    	// Tag
+    	// Tag Objects.
     	String Tags = parameters.getValue ( "Tags" );
     	String TagMode = parameters.getValue ( "TagMode" );
-    	// Upload
+    	// Upload.
     	String UploadFiles = parameters.getValue ( "UploadFiles" );
     	String UploadFolders = parameters.getValue ( "UploadFolders" );
     	String UploadTags = parameters.getValue ( "UploadTags" );
     	String UploadTagMode = parameters.getValue ( "UploadTagMode" );
-    	// Output
+    	// Output.
     	String OutputTableID = parameters.getValue ( "OutputTableID" );
     	String OutputFile = parameters.getValue ( "OutputFile" );
     	String AppendOutput = parameters.getValue ( "AppendOutput" );
-    	// CloudFront
+    	// CloudFront.
     	String InvalidateCloudFront = parameters.getValue ( "InvalidateCloudFront" );
     	String CloudFrontDistributionId = parameters.getValue ( "CloudFrontDistributionId" );
     	String CloudFrontTags = parameters.getValue ( "CloudFrontTags" );
@@ -367,6 +373,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		// Delete.
 
 		if ( s3Command == AwsS3CommandType.DELETE_OBJECTS ) {
+			int deleteCount = 0;
 			if ( (DeleteFoldersScope != null) && !DeleteFoldersScope.equals("") ) {
 				if ( !DeleteFoldersScope.equalsIgnoreCase(_AllFilesAndFolders) && !DeleteFoldersScope.equalsIgnoreCase(_FolderFiles) ) {
 					message = "The DeleteFoldersScope parameter \"" + DeleteFoldersScope + "\" is invalid.";
@@ -385,12 +392,31 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 						message, "Specify the parameter as an integer."));
 			}
 
-			if ( ((DeleteFiles == null) || DeleteFiles.isEmpty()) && ((DeleteFolders == null) || DeleteFolders.isEmpty()) ) {
-				message = "The files or folders must be specified for the delete.";
+			if ( (DeleteListObjectsOutput != null) && !DeleteListObjectsOutput.equals("") ) {
+				++deleteCount;
+				if ( !DeleteListObjectsOutput.equalsIgnoreCase(_False) && !DeleteListObjectsOutput.equalsIgnoreCase(_True) ) {
+					message = "The DeleteListObjectsOutput parameter \"" + DeleteListObjectsOutput + "\" is invalid.";
+					warning += "\n" + message;
+					status.addToLog(CommandPhaseType.INITIALIZATION,
+						new CommandLogRecord(CommandStatusType.FAILURE,
+							message, "Specify the parameter as " + _False + " (default) or " + _True + "."));
+				}
+			}
+
+			if ( (DeleteFiles != null) && ! DeleteFiles.isEmpty() ) {
+				++deleteCount;
+			}
+
+			if ( (DeleteFolders != null) && ! DeleteFolders.isEmpty() ) {
+				++deleteCount;
+			}
+
+			if ( deleteCount == 0 ) {
+				message = "The files, folders, or 'ListObjects' output must be specified for the delete.";
 				warning += "\n" + message;
 				status.addToLog(CommandPhaseType.INITIALIZATION,
 					new CommandLogRecord(CommandStatusType.FAILURE,
-						message, "Specify 1+ file and/or folder keys to delete."));
+						message, "Specify 1+ file and/or 1+ folder and/or 'ListObjects' output to delete."));
 			}
 		}
 
@@ -415,7 +441,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		// List Objects:
 		// - also used by Tag Objects
 
-		if ( (s3Command == AwsS3CommandType.LIST_OBJECTS) || (s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
+		if (
+   			(s3Command == AwsS3CommandType.DELETE_OBJECTS) ||
+			(s3Command == AwsS3CommandType.LIST_OBJECTS) ||
+			(s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
 			if ( (Delimiter != null) && !Delimiter.isEmpty() && (Delimiter.length() != 1) ) {
 				message = "The delimiter, if specified, must be 1 character.";
 				warning += "\n" + message;
@@ -725,6 +754,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		validList.add ( "DeleteFolders" );
 		validList.add ( "DeleteFoldersScope" );
 		validList.add ( "DeleteFoldersMinDepth" );
+		validList.add ( "DeleteListObjectsOutput" );
 		// Download.
 		validList.add ( "DownloadFolders" );
 		validList.add ( "DownloadFiles" );
@@ -808,7 +838,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			"DeleteFiles",
 			"DeleteFolders",
 			"DeleteFoldersScope",
-			"DeleteFoldersMinDepth"
+			"DeleteFoldersMinDepth",
+			"DeleteListObjectsOutput"
 		};
 
 		// Download.
@@ -878,8 +909,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			// Output is not used.
 			// CloudFront can be used.
 			commandp = deleteParameters;
-			listp = null;
-			outp = null;
+			listp = listObjectsParameters;
+			outp = outputParameters;
 			cfp = cloudFrontParameters;
 		}
 		else if ( s3Command == AwsS3CommandType.DOWNLOAD_OBJECTS ) {
@@ -1199,6 +1230,8 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	 * @param deleteFoldersScope scope for deleting folders, controls whether shallow or deep delete
 	 * @param deleteFoldersMinDepth minimum number of folders in keys to allow delete,
 	 * used to protect against accidental deletes
+	 * @param deleteListObjectsOutput whether the output table objects should provide the objects to delete
+	 * @param table output table containing objects to delete
  	 * @param invalidateCloudFront whether to automatically invalidate CloudFront
      * @param cloudFrontPaths list of CloudFront paths to invalidate, should invalidation be requested,
      * will contain the parent of deleted files and folders
@@ -1212,13 +1245,14 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		S3Client s3Client,
 		String bucket,
 		List<String> deleteFilesKeys, List<String> deleteFoldersKeys,
-		String deleteFoldersScope, int deleteFoldersMinDepth,
+		String deleteFoldersScope, int deleteFoldersMinDepth, boolean deleteListObjectsOutput,
+		DataTable table, int objectKeyCol, int objectVersionIdCol,
 		boolean invalidateCloudFront, List<String> cloudFrontPaths,
 		CommandStatus status, int logLevel, int warningLevel, int warningCount, String commandTag
 		) throws Exception {
 		String routine = getClass().getSimpleName() + ".doS3DeleteObjects";
 		String message;
-
+		
 		boolean debug = false;
 		if ( Message.isDebugOn ) {
 			debug = true;
@@ -1244,7 +1278,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
   	    	s3.deleteObject(request);
   	   */
 
-		// Create a list of identifiers:
+		// Create a list of object identifiers:
 		// - reuse the ObjectIdentifier.Builder
 		List<ObjectIdentifier> objectIds = new ArrayList<>();
 		ObjectIdentifier.Builder objectIdBuilder = ObjectIdentifier.builder();
@@ -1271,6 +1305,76 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 					Message.printStatus(2, routine, "Skipping file key \"" + deleteFilesKey +
 						"\" because key has folder depth (" + StringUtil.patternCount(deleteFilesKey, "/")
 						+ ") < than the minimum of " + deleteFoldersMinDepth );
+				}
+			}
+		}
+
+		// Also check whether the 'ListObjects' output should be deleted, similar to files.
+
+		boolean canDoTable = false;
+		if ( table != null ) {
+			canDoTable = true;
+		}
+		if ( objectKeyCol < 0 ) {
+			canDoTable = false;
+		}
+		if ( deleteListObjectsOutput && canDoTable ) {
+			Message.printStatus(2,routine,"Deleting objects in the 'ListObjects' output table (including versions if present)." );
+			for ( int irec = 0; irec < table.getNumberOfRecords(); irec++ ) {
+				// Get the key.
+				Object o = null;
+				String key = null;
+				String versionId = null;
+				try {
+					o = table.getFieldValue(irec, objectKeyCol);
+					if ( o == null ) {
+						continue;
+					}
+					key = (String)o;
+					if ( key.isEmpty() ) {
+						continue;
+					}
+					// Get the version.
+					if ( objectVersionIdCol >= 0 ) {
+						o = table.getFieldValue(irec, objectVersionIdCol);
+						if ( o == null ) {
+							continue;
+						}
+						versionId = (String)o;
+						if ( versionId.isEmpty() ) {
+							continue;
+						}
+					}
+				}
+				catch ( Exception e ) {
+					// Should not happen with checks that are done.
+					continue;
+				}
+				// If here can include the object.
+				if ( versionId != null ) {
+					// Add an object with version ID.
+					objectIds.add(
+						objectIdBuilder
+							.key(key)
+							.versionId(versionId)
+							.build());
+					if ( debug ) {
+						if ( debug ) {
+							Message.printStatus(2, routine, "Attempting to delete object list key=\"" + key + "\" versionId=\"" + versionId + "\"." );
+						}
+					}
+				}
+				else {
+					// Add the object without the version ID.
+					objectIds.add(
+						objectIdBuilder
+							.key(key)
+							.build());
+					if ( debug ) {
+						if ( debug ) {
+							Message.printStatus(2, routine, "Attempting to delete object list key=\"" + key + "\"." );
+						}
+					}
 				}
 			}
 		}
@@ -1367,59 +1471,113 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			}
 		}
 
+		// Delete the objects for the identifiers determined above:
+		// - there is a maximum of 1000 objects deleted at a time so break into batches
+
 		if ( objectIds.size() > 0 ) {
 			// Delete the objects.
-    		DeleteObjectsRequest request = DeleteObjectsRequest
-    			.builder()
-    			.bucket(bucket)
-    			.delete(
-    				Delete.builder()
-    					.objects(objectIds)
-    					.build())
-    			.build();
+			int deleteMax = 1000;
+			// Position in the original identifier list, incremented after transferring from the original list.
+			int idelete = 0;
+			int iend = 0;
+			int noDeleteCount = 0;
+			int deleteCount = 0;
+			int batchCount = 0;
+			while ( idelete < objectIds.size() ) {
+				List<ObjectIdentifier> batchObjectIds = new ArrayList<>();
+				++batchCount;
+				// Add 1000 objects or whatever is left.
+				iend = deleteMax;
+				if ( (objectIds.size() - idelete) < deleteMax ) {
+					iend = objectIds.size() - idelete;
+				}
+				Message.printStatus(2, routine, "Starting batch delete at object [" + idelete + "].");
+				for ( int i = 0; i < iend; i++ ) {
+					batchObjectIds.add(objectIds.get(idelete++));
+				}
+				Message.printStatus(2, routine, "Processing " + batchObjectIds.size() + " objects.");
+				DeleteObjectsRequest request = DeleteObjectsRequest
+					.builder()
+					.bucket(bucket)
+					.delete(
+						Delete.builder()
+    						.objects(batchObjectIds)
+    						.build())
+					.build();
 
-  	   		DeleteObjectsResponse response = s3Client.deleteObjects(request);
+  	   			DeleteObjectsResponse response = s3Client.deleteObjects(request);
 
-  	   		if ( response.deleted().size() != objectIds.size() ) {
-  	   			// Create a list of booleans to check which files were deleted.
-  	   			boolean [] isDeleted = new boolean[objectIds.size()];
-  	   			for ( int i = 0; i < isDeleted.length; i++ ) {
-  	   				isDeleted[i] = false;
-  	   			}
-  	   			// Go through the list of what was actually deleted.
-  	   			for ( DeletedObject deleted : response.deleted() ) {
-  	   				// Search for the deleted object in the original list.
-  	   				for ( int i = 0; i < objectIds.size(); i++ ) {
-  	   					ObjectIdentifier objectId = objectIds.get(i);
-  	   					if ( objectId.key().equals(deleted.key()) ) {
-  	   						isDeleted[i] = true;
-  	   						// If invalidating CloudFront, invalidate the parent folder.
-  	   						if ( invalidateCloudFront ) {
-  	   							//addCloudFrontPath(cloudFrontPaths, getKeyParentFolder(deleted.key() + "*"));
-  	   							addCloudFrontPath(cloudFrontPaths, getKeyParentFolder(deleted.key() ));
+   				int batchDeleteCount = 0;
+   				int batchNoDeleteCount = 0;
+  	   			if ( response.deleted().size() != batchObjectIds.size() ) {
+  	   				// Create a list of booleans to check which files were deleted.
+  	   				boolean [] isDeleted = new boolean[batchObjectIds.size()];
+  	   				for ( int i = 0; i < isDeleted.length; i++ ) {
+  	   					isDeleted[i] = false;
+  	   				}
+  	   				// Go through the list of what was actually deleted.
+  	   				for ( DeletedObject deleted : response.deleted() ) {
+  	   					// Search for the deleted object in the original list.
+  	   					for ( int i = 0; i < batchObjectIds.size(); i++ ) {
+  	   						ObjectIdentifier objectId = batchObjectIds.get(i);
+  	   						if ( objectId.key().equals(deleted.key()) ) {
+  	   							isDeleted[i] = true;
+  	   							// If invalidating CloudFront, invalidate the parent folder.
+  	   							if ( invalidateCloudFront ) {
+  	   								//addCloudFrontPath(cloudFrontPaths, getKeyParentFolder(deleted.key() + "*"));
+  	   								addCloudFrontPath(cloudFrontPaths, getKeyParentFolder(deleted.key() ));
+  	   							}
+  	   							break;
   	   						}
-  	   						break;
+  	   					}
+  	   				}
+
+  	   				// Now have the list of undeleted keys.
+  	   				for ( int i = 0; i < isDeleted.length; i++ ) {
+  	   					if ( isDeleted[i] ) {
+  	   						++batchDeleteCount;
+  	   					}
+  	   					else {
+  	   						++batchNoDeleteCount;
+  	   						if ( objectVersionIdCol < 0 ) {
+  	   							message = "Unable to delete key=\"" + batchObjectIds.get(i).key() + "\".";
+  	   						}
+  	   						else {
+  	   							message = "Unable to delete key=\"" + batchObjectIds.get(i).key() + "\" versionId=\"" +
+  	   								batchObjectIds.get(i).versionId() + "\".";
+  	   						}
+  	   						Message.printWarning ( warningLevel,
+  	   							MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
+  	   						status.addToLog(CommandPhaseType.RUN,
+  	   							new CommandLogRecord(CommandStatusType.FAILURE,
+  	   								message, "Check permissions."));
   	   					}
   	   				}
   	   			}
-
-  	   			// Now have the list of undeleted keys.
-  	   			for ( int i = 0; i < isDeleted.length; i++ ) {
-  	   				if ( !isDeleted[i] ) {
-    					message = "Unable to delete key \"" + objectIds.get(i).key() + "\".";
-    					Message.printWarning ( warningLevel,
-    						MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
-    					status.addToLog(CommandPhaseType.RUN,
-    						new CommandLogRecord(CommandStatusType.FAILURE,
-    							message, "Check permissions."));
-  	   				}
+  	   			else {
+  	   				// All objects in the batch were deleted.
+  	   				batchDeleteCount = batchObjectIds.size();
+  	   				batchNoDeleteCount = 0;
   	   			}
-  	   		}
+  				// Increment the total counts.
+   				deleteCount += batchDeleteCount;
+   				noDeleteCount += batchNoDeleteCount;
+  				message = "Batch " + batchCount + " : deleted " + batchDeleteCount + " objects.  Did not delete " + batchNoDeleteCount + " objects.";
+  				Message.printStatus ( 2, routine, message );
+  				status.addToLog(CommandPhaseType.RUN,
+	   				new CommandLogRecord(CommandStatusType.SUCCESS,
+		   				message, "Check permissions."));
+			}
+			message = "Total: deleted " + deleteCount + " objects.  Did not delete " + noDeleteCount + " objects.";
+			Message.printStatus ( 2, routine, message );
+  	   		status.addToLog(CommandPhaseType.RUN,
+  	   			new CommandLogRecord(CommandStatusType.SUCCESS,
+  	   				message, "Check permissions."));
 		}
 		else {
-			// Only show a warning if files were requested:
+			// Only show a warning if files or the list objects table were requested:
 			// - folders might have been empty
-			if ( deleteFilesKeys.size() > 0 ) {
+			if ( (deleteFilesKeys.size() > 0) || (deleteListObjectsOutput && canDoTable) ) {
 				message = "No file keys were valid to delete.";
 				Message.printWarning ( warningLevel,
 					MessageUtil.formatMessageTag(commandTag, ++warningCount),routine, message );
@@ -1656,7 +1814,12 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	}
 
 		// Output to table.
+    	// Whether to output bucket tags.
+    	boolean outputTags = true;
    		if ( table != null ) {
+   			// Previous region that was processed.
+   			String bucketRegionPrev = null;
+			S3Client s3ClientForRegion = null;
    			for ( Bucket bucketObject : response.buckets() ) {
    				String bucketName = bucketObject.name();
    				if ( doRegEx ) {
@@ -1695,6 +1858,38 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     			rec.setFieldValue(bucketRegionCol,bucketRegion);
     			// Must specify the same region as the bucket to get whether versioned.
     			rec.setFieldValue(bucketIsVersionedCol,isBucketVersioned(bucketRegion,bucketName));
+				if ( outputTags ) {
+					// Output tags in the bucket list table:
+					// - the S3 client must be for the same region as the bucket
+					if ( (s3ClientForRegion == null) || (bucketRegionPrev == null) || !bucketRegionPrev.equals(bucketRegion) ) {
+						s3ClientForRegion = S3Client.builder()
+							.region(Region.of(bucketRegion))
+							.credentialsProvider(this.credentialsProvider)
+							.build();
+					}
+					List<software.amazon.awssdk.services.s3.model.Tag> tags =
+						AwsToolkit.getInstance().getS3BucketTags(s3ClientForRegion, bucketName);
+					for ( software.amazon.awssdk.services.s3.model.Tag tag : tags ) {
+						String columnName = tag.key() + "/Tag";
+						int tagCol = -1;
+						try {
+							tagCol = table.getFieldIndex(columnName);
+						}
+						catch ( Exception e ) {
+							// OK, handle below.
+						}
+						if ( tagCol < 0 ) {
+							// Add the column.
+							tagCol = table.addField ( new TableField(TableField.DATA_TYPE_STRING, columnName, -1), "" );
+							// Get the record again since it will have changed.
+							rec = table.getRecord ( bucketNameCol, bucketName );
+						}
+						// Set the tag value.
+						rec.setFieldValue(tagCol,tag.value());
+					}
+				}
+				// Update the previous bucket region.
+				bucketRegionPrev = bucketRegion;
     		}
     	}
     	// Set the property indicating the number of buckets.
@@ -1811,6 +2006,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	int objectCount = 0;
     	int fileCount = 0;
     	int folderCount = 0;
+    	boolean needToBreak = false;
     	while ( !done ) {
     		response = s3Client.listObjectsV2(request);
     		// Process files and folders separately, with the maximum count checked based on what is returned.
@@ -1825,6 +2021,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 						if ( Message.isDebugOn ) {
 							Message.printStatus(2, routine, "Reached maxObjects limit (" + maxObjects + ") - skipping: " + key);
 						}
+						needToBreak = true;
     					break;
     				}
     				// Output to table:
@@ -1931,6 +2128,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			  		// Check the maximum object count, to protect against runaway processes.
 			  		if ( objectCount >= maxObjects ) {
 			  			// Quit saving objects when the limit has been reached.
+			  			needToBreak = true;
 						break;
 			  		}
    					if ( doPrefix && prefix.endsWith("/") && commonPrefix.prefix().equals(prefix) ) {
@@ -1973,6 +2171,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    					++folderCount;
 		  		}
     		}
+   			// Check whether to break out  of the outer loop.
+   			if ( needToBreak ) {
+				Message.printStatus(2, routine, "Reached maxObjects limit (" + maxObjects + ") - quit reading data.");
+   				break;
+   			}
     		if ( response.nextContinuationToken() == null ) {
     			done = true;
     		}
@@ -2111,6 +2314,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	int objectCount = 0;
     	int fileCount = 0;
     	int folderCount = 0;
+    	boolean needToBreak = false;
     	while ( !done ) {
     		response = s3Client.listObjectVersions(request);
     		// Get the delete markers, which indicate which files have been marked for deletion but have not yet been deleted.
@@ -2131,6 +2335,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 						if ( Message.isDebugOn ) {
 							Message.printStatus(2, routine, "Reached maxObjects limit (" + maxObjects + ") - skipping: " + key);
 						}
+						needToBreak = true;
     					break;
     				}
     				// Output to table:
@@ -2255,6 +2460,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			  		// Check the maximum object count, to protect against runaway processes.
 			  		if ( objectCount >= maxObjects ) {
 			  			// Quit saving objects when the limit has been reached.
+			  			needToBreak = true;
 						break;
 			  		}
    					if ( doPrefix && prefix.endsWith("/") && commonPrefix.prefix().equals(prefix) ) {
@@ -2297,6 +2503,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    					++folderCount;
 		  		}
     		}
+   			// Check whether to break out  of the outer loop.
+   			if ( needToBreak ) {
+				Message.printStatus(2, routine, "Reached maxObjects limit (" + maxObjects + ") - quit reading data.");
+   				break;
+   			}
     		if ( (response.nextKeyMarker() == null) || (response.nextVersionIdMarker() == null) ) {
     			done = true;
     		}
@@ -3305,6 +3516,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 				deleteFoldersMinDepth = _DeleteFoldersMinDepth;
 			}
 		}
+		String DeleteListObjectsOutput = parameters.getValue ( "DeleteListObjectsOutput" );
+		boolean deleteListObjectsOutput = false;
+		if ( (DeleteListObjectsOutput != null) && DeleteListObjectsOutput.equalsIgnoreCase(_True) ) {
+			deleteListObjectsOutput = true;
+		}
 
 		// Download.
     	String DownloadFolders = parameters.getValue ( "DownloadFolders" );
@@ -4180,7 +4396,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_DATETIME, "CreationDate", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_BOOLEAN, "IsVersioned", -1) );
     	        		}
-    	        		else if ( (s3Command == AwsS3CommandType.LIST_OBJECTS) || (s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
+    	        		else if (
+    	        			((s3Command == AwsS3CommandType.DELETE_OBJECTS) && deleteListObjectsOutput) ||
+    	        			(s3Command == AwsS3CommandType.LIST_OBJECTS) ||
+    	        			(s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Key", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "Name", -1) );
     	        			columnList.add ( new TableField(TableField.DATA_TYPE_STRING, "ParentFolder", -1) );
@@ -4197,7 +4416,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			}
     	        		}
     	        		// 2. Create the table if not found from the processor above.
-    	        		if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
+    	        		if (
+    	        			((s3Command == AwsS3CommandType.DELETE_OBJECTS) && deleteListObjectsOutput) ||
+    	        			(s3Command == AwsS3CommandType.LIST_BUCKETS) ||
     	        			(s3Command == AwsS3CommandType.LIST_OBJECTS) ||
     	        			(s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
     	        			// Create the table.
@@ -4210,7 +4431,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        			bucketCreationDateCol = table.getFieldIndex("CreationDate");
     	        			bucketIsVersionedCol = table.getFieldIndex("IsVersioned");
     	        		}
-    	        		else if ( (s3Command == AwsS3CommandType.LIST_OBJECTS) || (s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
+    	        		else if (
+    	        			((s3Command == AwsS3CommandType.DELETE_OBJECTS) && deleteListObjectsOutput) ||
+    	        			(s3Command == AwsS3CommandType.LIST_OBJECTS) ||
+    	        			(s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
     	        			objectKeyCol = table.getFieldIndex("Key");
     	        			objectNameCol = table.getFieldIndex("Name");
     	        			objectParentFolderCol = table.getFieldIndex("ParentFolder");
@@ -4229,7 +4453,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	        		// 4. Set the table in the processor:
     	        		//    - if new will add
     	        		//    - if append will overwrite by replacing the matching table ID
-    	        		if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
+    	        		if (
+    	        			((s3Command == AwsS3CommandType.DELETE_OBJECTS) && deleteListObjectsOutput) ||
+    	        			(s3Command == AwsS3CommandType.LIST_BUCKETS) ||
     	        			(s3Command == AwsS3CommandType.LIST_OBJECTS) ||
     	        			(s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
     	        			if ( (OutputTableID != null) && !OutputTableID.isEmpty() ) {
@@ -4280,7 +4506,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	            			bucketIsVersionedCol = table.addField(new TableField(TableField.DATA_TYPE_BOOLEAN, "IsVersioned", -1), "");
     	        			}
     	        		}
-    	        		else if ( (s3Command == AwsS3CommandType.LIST_OBJECTS) || (s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
+    	        		else if (
+    	        			((s3Command == AwsS3CommandType.DELETE_OBJECTS) && deleteListObjectsOutput) ||
+    	        			(s3Command == AwsS3CommandType.LIST_OBJECTS) ||
+    	        			(s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
     	        			objectKeyCol = table.getFieldIndex("Key");
     	        			objectNameCol = table.getFieldIndex("Name");
     	        			objectParentFolderCol = table.getFieldIndex("ParentFolder");
@@ -4341,7 +4570,10 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	    		// S3Client:
    	    		//    https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/services/s3/S3Client.html
 
-   	        	if ( ((s3Command == AwsS3CommandType.LIST_OBJECTS) || (s3Command == AwsS3CommandType.TAG_OBJECTS)) && listVersions ) {
+   	        	if (
+        			((s3Command == AwsS3CommandType.DELETE_OBJECTS) && deleteListObjectsOutput) ||
+   	        		((s3Command == AwsS3CommandType.LIST_OBJECTS) ||
+   	        		(s3Command == AwsS3CommandType.TAG_OBJECTS)) && listVersions ) {
    	        		// Make sure that the bucket supports versions:
    	        		// - if not, list without versions
    	        		// - the output table will have previously been set up with columns for versions and output will be nulls
@@ -4364,15 +4596,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 		  	    		invalidateCloudFront, cloudFrontPaths,
 		  	    		status, logLevel, warningCount, commandTag );
     	    	}
-    	    	else if ( s3Command == AwsS3CommandType.DELETE_OBJECTS ) {
-    	    		warningCount = doS3DeleteObjects (
-    	    			s3Client,
-		  	    		bucket,
-   	        			deleteFilesKeys, deleteFoldersKeys,
-   	        			DeleteFoldersScope, deleteFoldersMinDepth,
-		  	    		invalidateCloudFront, cloudFrontPaths,
-		  	    		status, logLevel, warningLevel, warningCount, commandTag );
-    	    	}
+    	    	// Delete is below, after the list.
     	    	else if ( s3Command == AwsS3CommandType.DOWNLOAD_OBJECTS ) {
     	    		warningCount = doS3DownloadObjects (
     	    			processor,
@@ -4391,8 +4615,11 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
     	    			status, logLevel, warningCount, commandTag );
     	    	}
 
-   	        	if ( (s3Command == AwsS3CommandType.LIST_OBJECTS) || (s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
-   	        		// Tag objects requires running list objects first.
+   	        	if (
+        			((s3Command == AwsS3CommandType.DELETE_OBJECTS) && deleteListObjectsOutput) ||
+   	        		(s3Command == AwsS3CommandType.LIST_OBJECTS) ||
+   	        		(s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
+   	        		// Delete and tag objects requires running list objects first.
    	        		if ( !listVersions ) {
    	        			warningCount = doS3ListObjectsLatest (
    	        				processor,
@@ -4420,8 +4647,19 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
    	        		}
     	    	}
 
-   	        	// Tag objects after generating the list.
-   	        	if ( s3Command == AwsS3CommandType.TAG_OBJECTS ) {
+    	    	if ( s3Command == AwsS3CommandType.DELETE_OBJECTS ) {
+    	    		// Delete objects after generating the list.
+    	    		warningCount = doS3DeleteObjects (
+    	    			s3Client,
+		  	    		bucket,
+   	        			deleteFilesKeys, deleteFoldersKeys,
+   	        			DeleteFoldersScope, deleteFoldersMinDepth, deleteListObjectsOutput,
+   	        			table, objectKeyCol, objectVersionIdCol,
+		  	    		invalidateCloudFront, cloudFrontPaths,
+		  	    		status, logLevel, warningLevel, warningCount, commandTag );
+    	    	}
+    	    	else if ( s3Command == AwsS3CommandType.TAG_OBJECTS ) {
+   	        		// Tag objects after generating the list.
    	        		// The output table must exist.
    	        		if ( table == null ) {
    	        			message = "No output table is found. Tagging objects requires an output table from listing objects.";
@@ -4510,7 +4748,9 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 	    	   	}
 	    	}
 	    	else if ( commandPhase == CommandPhaseType.DISCOVERY ) {
-   	        	if ( (s3Command == AwsS3CommandType.LIST_BUCKETS) ||
+   	        	if (
+        			((s3Command == AwsS3CommandType.DELETE_OBJECTS) && deleteListObjectsOutput) ||
+   	        		(s3Command == AwsS3CommandType.LIST_BUCKETS) ||
    	        		(s3Command == AwsS3CommandType.LIST_OBJECTS) ||
    	        		(s3Command == AwsS3CommandType.TAG_OBJECTS) ) {
    	        		if ( (OutputTableID != null) && !OutputTableID.isEmpty() ) {
@@ -4607,6 +4847,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 			"DeleteFolders",
 			"DeleteFoldersScope",
 			"DeleteFoldersMinDepth",
+			"DeleteListObjectsOutput",
 			// Download.
 			"DownloadFolders",
 			"DownloadFiles",

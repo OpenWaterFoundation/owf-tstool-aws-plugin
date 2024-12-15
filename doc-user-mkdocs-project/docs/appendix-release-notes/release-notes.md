@@ -28,11 +28,14 @@ The repository issue for release note item is shown where applicable.
 
 ## Version 1.5.7 ##
 
-**Maintenance release to improve the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command for versions and tags.**
+**Maintenance release to improve the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) delete objects features.**
 
-*   ![change](change.png) [#58] Update the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command:
-    +   Add the `StorageClass` to output when listing objects.
-    +   Improve the command progress messages shown in the TSTool progress bar.
+*   ![change](change.png) Update the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command:
+    +   [#57] Enhance the `DeleteObjects` command to allow deleting objects
+        listed in the ***List Objects*** output and handle the API limit of 1000 objects per delete.
+    +   [#58] Add the `StorageClass` to output when listing objects
+    +   [#58] Improve the command progress messages shown in the TSTool progress bar.
+    +   [#59] Enhance the `ListBuckets` command to output tags for each bucket.
 
 ## Version 1.5.6 ##
 
