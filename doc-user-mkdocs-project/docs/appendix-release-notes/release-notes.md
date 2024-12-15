@@ -246,7 +246,7 @@ The repository issue for release note item is shown where applicable.
     +   The ***Markdown Inserts*** tab has been added to the command editor for Markdown-related landing page insert files.
     +   The ***Output*** tab has been removed from the command editor since these features were used with the catalog landing page.
     +   The ***CloudFront*** tab has been added to the command editor with parameters similar to the
-        [`AwsS3`](../AwsS3/AwsS3.md) command to automate CloudFront invalidations.
+        [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command to automate CloudFront invalidations.
         The previous `DistributionId` has been renamed to `CloudFrontDistributionId` for consistency.
 *   ![new](new.png) [1.2.0] Add the ***Browse S3*** button to command editors,
     which starts a separate [S3 Browser application](../app-ref/S3Browser/S3Browser.md) to browse S3 objects.

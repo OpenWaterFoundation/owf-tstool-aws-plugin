@@ -30,9 +30,9 @@ information product, or other electronic asset.
 *   [Examples](#examples)
     +   [HTML Landing Page](#html-landing-page)
         -   [Simple Dataset with HTML Landing Page](#simple-dataset-with-html-landing-page)
-        -   [Dataset with Only Latest Version HMTL Landing Page](#dataset-with-only-latest-version-html-landing-page)
-        -   [Dataset with Multiple Versions HMTL Landing Page](#dataset-with-multiple-versions-html-landing-page)
-    +   [Markdown Landing Page](#markdoown-landing-page)
+        -   [Dataset with Only Latest Version HTML Landing Page](#dataset-with-only-latest-version-html-landing-page)
+        -   [Dataset with Multiple Versions HTML Landing Page](#dataset-with-multiple-versions-html-landing-page)
+    +   [Markdown Landing Page](#markdown-landing-page)
         -   [Simple Dataset with Markdown Landing Page](#simple-dataset-with-markdown-landing-page)
         -   [Dataset with Only Latest Version Markdown Landing Page](#dataset-with-only-latest-version-markdown-landing-page)
         -   [Dataset with Multiple Versions Markdown Landing Page](#dataset-with-multiple-versions-markdown-landing-page)
@@ -133,7 +133,7 @@ This `AwsS3LandingPage` command is used in a workflow to perform the following t
 1.  Prior to using this `AwsS3LandingPage` command:
     1.  Typically, work in a Git repository's working files to create dataset files.
     2.  Data files that comprise the dataset should exist in local files and are uploaded to S3,
-        for example using the [`AwsS3`](../AwsS3/AwsS3) command.
+        for example using the [`AwsS3`](../AwsS3/AwsS3.md) command.
     3.  Typically, dynamic content such as output from a workflow, especially large files,
         is not committed to a repository,
         which is why publishing to a dataset landing page is needed.
@@ -594,7 +594,7 @@ In other words, shared files are typically not stored in each dataset's reposito
 Shared files such as css can be stored in a website's root folders and accessed with absolute locations in URLs.
 
 See also the 
-[`dataset-details.md` - Insert for Dataset Details Section](#dataset-detailsmd-insert-for-dataset-section)
+[`dataset-details.md` - Insert for Dataset Details Section](#dataset-detailsmd-insert-for-dataset-details-section)
 discussion.  If the `dataset-details.md` file is found, it is converted to HTML and inserted.
 
 #### `dataset.png` - Image for HTML Landing Page ####
@@ -974,9 +974,9 @@ used to upload the continental divide dataset to S3 and create its landing page.
 
 #### Simple Dataset with HTML Landing Page ####
 
-#### Dataset with Only Latest Version HMTL Landing Page ####
+#### Dataset with Only Latest Version HTML Landing Page ####
 
-#### Dataset with Multiple Versions HMTL Landing Page ####
+#### Dataset with Multiple Versions HTML Landing Page ####
 
 ### Markdown Landing Page ###
 
