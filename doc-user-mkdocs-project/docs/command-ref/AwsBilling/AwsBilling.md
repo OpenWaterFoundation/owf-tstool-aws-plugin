@@ -14,8 +14,9 @@
     +   [General Command Parameters](#general-command-parameters)
     +   [Cost Explorer Query Command Parameters](#cost-explorer-query-command-parameters)
     +   [Cost Explorer Filters Command Parameters](#cost-explorer-filters-command-parameters)
-    +   [Output Command Parameters](#output-command-parameters)
-    +   [Time Series Command Parameters](#time-series-command-parameters)
+    +   [Output Cost Tables Command Parameters](#output-cost-tables-command-parameters)
+    +   [Output Time Series Command Parameters](#output-time-series-command-parameters)
+    +   [Output Service Properties Command Parameters](#output-service-properties-command-parameters)
 *   [Examples](#examples)
     +   [Checking for Untagged Services](#checking-for-untagged-services)
 *   [Troubleshooting](#troubleshooting)
@@ -448,7 +449,7 @@ Command Parameters - Output Time Series Parameters
 |`TimeSeriesMissingGroupBy` | Value to use if the group by value is missing, including tag names that were not set in the early part of the cost history. | `Unknown` |
 |`Alias`|The alias to assign to the time series, as a literal string or using the special formatting characters listed by the command editor.  The alias is a short identifier used by other commands to locate time series for processing, as an alternative to the time series identifier (`TSID`). | |
 
-### Output Service Properties Parameters ###
+### Output Service Properties Command Parameters ###
 
 These command parameters correspond to the ***Output Service Properties*** tab
 and are used to read properties for services.
