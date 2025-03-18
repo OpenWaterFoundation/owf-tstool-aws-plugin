@@ -869,7 +869,6 @@ private AwsS3CommandType getSelectedS3CommandType () {
     // The combo box is not null so can get the value.
     String S3Command = __S3Command_JComboBox.getSelected();
    	int pos = S3Command.indexOf(" -");
-   	String id = "";
    	if ( pos > 0 ) {
    		// Have a description.
    		S3Command = S3Command.substring(0,pos).trim();
@@ -880,6 +879,7 @@ private AwsS3CommandType getSelectedS3CommandType () {
    	}
    	return AwsS3CommandType.valueOfIgnoreCase(S3Command);
 }
+
 /**
 Return the selected profile.
 The default is NOT returned if messing.
@@ -2723,8 +2723,10 @@ private void refresh () {
 		// Set the tab for selected S3 command.
 		setTabForS3Command();
 	}
+
 	// Regardless, reset the command from the fields.
-	// This is only  visible information that has not been committed in the command.
+	// This is the only visible information that has not been committed in the command.
+
 	// General.
 	S3Command = __S3Command_JComboBox.getSelected();
 	Profile = __Profile_JComboBox.getSelected();
