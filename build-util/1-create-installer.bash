@@ -1,8 +1,8 @@
 #!/bin/bash
 #
 # Create the plugin installer file for the download website:
-# - the current files in the following folder are zipped
-#   ./tstool/NN/plugins/owf-tstool-aws-plugin/
+# - the current files in the following folder are zipped, keeping the plugin main folder:
+#   ./tstool/NN/plugins/owf-tstool-aws-plugin/${pluginVersion}
 # - output is to the plugin 'dist' folder with filename like:
 #     tstool-aws-plugin-1.0.0-win-2206060102.zip
 #   where the number is YYMMDDHHMM
@@ -32,7 +32,7 @@ checkOperatingSystem() {
   echoStderr "[INFO] operatingSystem=${operatingSystem} (used to check for Cygwin and filemode compatibility)"
 
   if [ "${operatingSystem}" != "mingw" ]; then
-    echoStderr "[ERROR] ${errorColor}Currently this script only works for MINGW (Git Bash)${endColor}"
+    echoStderr "${errorColor}[ERROR] Currently this script only works for MINGW (Git Bash)${endColor}"
     exit 1
   fi
 }
@@ -77,11 +77,13 @@ createPluginZipFile() {
     echoStderr "[INFO] Removing existing zip file:  ${zipFile}"
     rm -f "${zipFile}"
   fi
-  # Change to the plugins folder.
+  # Change to the plugins folder:
+  # - only want to include the specific version,
+  #   but also include the parent of the version folder
   cd ${pluginsFolder}
   echoStderr "[INFO] Running 7zip to create zip file:  ${zipFile}"
   echoStderr "[INFO] Current folder is:  ${pluginsFolder}"
-  "${sevenzip}" a -tzip ${zipFile} owf-tstool-aws-plugin
+  "${sevenzip}" a -tzip ${zipFile} "owf-tstool-aws-plugin/${pluginVersion}"
   exitStatus=$?
   if [ ${exitStatus} -ne 0 ]; then
     echoStderr "[INFO] Error running 7zip, exit status (${exitStatus})."
@@ -182,15 +184,27 @@ fi
 # - put after determining versions
 # - the folders adhere to Maven folder structure
 devBinFolder="${repoFolder}/owf-tstool-aws-plugin/target/classes"
+
+# Main folder for installed plugins.
 pluginsFolder="${HOME}/.tstool/${tstoolMajorVersion}/plugins"
-jarFolder="${pluginsFolder}/owf-tstool-aws-plugin"
-pluginDepFolder="${pluginsFolder}/owf-tstool-aws-plugin/dep"
-jarFile="${jarFolder}/owf-tstool-aws-plugin-${pluginVersion}.jar"
+
+# Main installed folder for the plugin.
+mainPluginFolder="${pluginsFolder}/owf-tstool-aws-plugin"
+
+# Version installed folder for the plugin.
+mainPluginFolder="${mainPluginsFolder}/${pluginVersion}"
+
+# Jar file for the plugin.
+jarFile="${versionPluginFolder}/owf-tstool-aws-plugin-${pluginVersion}.jar"
+
+# Folder for dependencies.
+pluginDepFolder="${versionPluginFolder}/dep"
+
 now=$(date +%Y%m%d%H%M)
 zipFile="${distFolder}/tstool-aws-plugin-${pluginVersion}-win-${now}.zip"
 
 # Create the local plugin files to make sure they are current.
-echoStderr "Creating the jar file with current development files..."
+echoStderr "[INFO] Creating the jar file with current development files..."
 ${scriptFolder}/0-create-plugin-jar.bash
 if [ $? -ne 0 ]; then
   echoStderr "[ERROR] Error creating plugin jar file."

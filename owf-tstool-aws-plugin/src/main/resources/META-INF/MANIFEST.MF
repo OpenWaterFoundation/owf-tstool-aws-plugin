@@ -7,6 +7,9 @@ Comment06: Increment the number as needed for the number of command classes.
 Comment07: Class-Path contains the dep/ folder for dependency jar files.
 Comment08: For this plugin dependencies are AWS SKD jar files.
 manifest-Version: 1.0
+Plugin-Name: owf-tstool-aws-plugin
+Plugin-Version: 2.0.0
+TSTool-Version: >= 15.0.0
 Command-Class1: org.openwaterfoundation.tstool.plugin.aws.
  commands.billing.AwsBilling_Command
 Command-Class2: org.openwaterfoundation.tstool.plugin.aws.

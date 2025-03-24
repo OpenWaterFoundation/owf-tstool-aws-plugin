@@ -3,7 +3,7 @@
 /* NoticeStart
 
 OWF TSTool AWS Plugin
-Copyright (C) 2022-2024 Open Water Foundation
+Copyright (C) 2022-2025 Open Water Foundation
 
 OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -1109,7 +1109,7 @@ throws InvalidCommandParameterException, CommandWarningException, CommandExcepti
 	
     CommandProcessor processor = getCommandProcessor();
 	CommandStatus status = getCommandStatus();
-    Boolean clearStatus = new Boolean(true); // Default.
+    Boolean clearStatus = Boolean.TRUE; // Default.
     try {
     	Object o = processor.getPropContents("CommandsShouldClearRunStatus");
     	if ( o != null ) {
