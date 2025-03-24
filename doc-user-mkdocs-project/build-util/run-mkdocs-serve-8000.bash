@@ -15,7 +15,9 @@ checkMkdocsVersion() {
   requiredMajorVersion="1"
   # On Cygwin, mkdocs --version gives:  mkdocs, version 1.0.4 from /usr/lib/python3.6/site-packages/mkdocs (Python 3.6)
   # On Debian Linux, similar to Cygwin:  mkdocs, version 0.17.3
-  mkdocsVersionFull=$(${mkdocsExe} --version)
+  # On newer windows: MkDocs --version:  python -m mkdocs, version 1.3.1 from C:\Users\steve\AppData\Local\Programs\Python\Python310\lib\site-packages\mkdocs (Python 3.10)
+  # The following should work for any version after a comma.
+  mkdocsVersionFull=$(${mkdocsExe} --version | sed -e 's/.*, \(version .*\)/\1/g' | cut -d ' ' -f 2)
   echo "MkDocs --version:  ${mkdocsVersionFull}"
   if [ -z "${mkdocsVersionFull}" ]; then
     echo "Unable to determine MkDocs version."

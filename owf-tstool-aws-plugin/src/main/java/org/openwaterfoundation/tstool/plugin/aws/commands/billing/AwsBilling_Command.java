@@ -3,7 +3,7 @@
 /* NoticeStart
 
 OWF TSTool AWS Plugin
-Copyright (C) 2022-2024 Open Water Foundation
+Copyright (C) 2022-2025 Open Water Foundation
 
 OWF TSTool AWS Plugin is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -2226,7 +2226,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
           	}
            	PropList requestParams = new PropList ( "" );
            	requestParams.setUsingObject ( "PropertyName", totalTableRowCountProperty );
-           	requestParams.setUsingObject ( "PropertyValue", new Integer(rowCount) );
+           	requestParams.setUsingObject ( "PropertyValue", Integer.valueOf(rowCount) );
            	try {
                	processor.processRequest( "SetProperty", requestParams);
            	}
@@ -3189,7 +3189,7 @@ implements CommandDiscoverable, FileGenerator, ObjectListProvider
 
     	CommandProcessor processor = getCommandProcessor();
 		CommandStatus status = getCommandStatus();
-    	Boolean clearStatus = new Boolean(true); // Default.
+    	Boolean clearStatus = Boolean.TRUE; // Default.
     	try {
     		Object o = processor.getPropContents("CommandsShouldClearRunStatus");
     		if ( o != null ) {

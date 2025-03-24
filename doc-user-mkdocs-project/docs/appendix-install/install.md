@@ -10,7 +10,7 @@ This appendix describes how to install the AWS Plugin.
 
 ## Overview ##
 
-TSTool is used with AWS to automate file uploads and downloads.
+TSTool is used with AWS to automate file uploads, downloads, and other tasks.
 The TSTool AWS plugin is developed and tested on Windows but can also be installed on Linux.
 
 ## Install TSTool ##
@@ -32,43 +32,45 @@ Multiple versions of TSTool can be installed at the same time.
 
 ## Install and Configure the TSTool AWS Plugin ##
 
-TSTool must have been previously installed and run at least once.
+The plugin installation folder structure is as follows and is explained below.
+The convention of using a version folder (e.g., `2.0.0`) was introduced in TSTool 15.0.0.
 
-1.  Download the `tstool-aws-plugin` software installer file from the
+```
+C:\Users\user\.tstool\NN\plugins\owf-tstool-aws-plugin\    (Windows)
+/home/user/.tstool/NN/plugins/owf-tstool-aws-plugin/       (Linux)
+  1.5.7/
+    owf-tstool-aws-plugin-1.5.7.jar
+    dep/
+      *.jar (many files)
+  2.0.0/
+    owf-tstool-aws-plugin-1.5.7.jar
+    dep/
+      *.jar (many files)
+```
+
+To install the plugin:
+
+1.  TSTool must have been previously installed and run at least once.
+    This will ensure that folders are properly created and, if appropriate,
+    a previous version's files will be copied to a new major version run for the first time.
+2.  Download the TSTool AWS Plugin software installer file from the
     [TSTool AWS Download page](https://software.openwaterfoundation.org/tstool-aws-plugin/).
-    For example with a name similar to `tstool-aws-plugin-1.1.1-win-202212021709.zip`.
-2.  If installing the plugin in user files and if TSTool was not run before,
-    run TSTool once to automatically create user folders and files needed by the plugin.
-3.  The plugin installation folder is as follows, where `C:\Users\user` should match the specific user's folder:
-    1.  If installing in user files (`NN` is the TSTool major version):
-        *   Windows: `C:\Users\user\.tstool\NN\plugins\`
-        *   Linux (`~` indicates the user's home folder): `~/.tstool/NN/plugins/`
-    2.  If installing in system files on Linux (`opt`), install in the following folder:
-        *   Linux: `/opt/tstool-version/plugins/`
-4.  If an old version of the plugin was previous installed:
-    1.  Delete the old `jar` file or move to the `plugins-old/` folder (same level as the `plugins` folder) to archive.
-        Only one copy of the plugin `jar` file can be found in the `plugins` folder to avoid software conflicts.
-    2.  Similarly, the contents of the `dep/` folder should be deleted or moved before installing the plugin.
-        These files are required by the AWS plugin software and multiple versions of the files will confuse the plugin software.
-5.  Copy the `owf-tstool-aws-plugin` folder from the zip file to the following folder:
-    1.  If installing in user files (`NN` is the TSTool major version):
-        *   Windows: `C:\Users\user\.tstool\NN\plugins\`
-        *   Linux (`~` indicates the user's home folder): `~/.tstool/NN/plugins/`
-    2.  If installing in system files on Linux (`opt`), install in the following folder:
-        *   Linux: `/opt/tstool-version/plugins/`
+    The installer will have a name similar to `tstool-aws-plugin-2.0.0-win-202503241451.zip`.
+3.  The plugin installation folders are as shown above.
+    If installing the plugin in system files on Linux, install in the following folder:
+    `/opt/tstool-version/plugins/`
+4.  If an old version of the plugin was previous installed and does not exist in a version folder:
+    1.  Create a folder with the version (e.g., `1.2.3`) consistent with the software
+        and move the files into the folder.
+        The files will be available to TSTool versions that are compatible.
+    2.  Delete the files if not needed.
+5.  Copy files from the `zip` file to the `owf-tstool-aws-plugin` folder as shown in the above example:
+    *   Windows:  Use File Explorer, 7-Zip, or other software to extract files.
+    *   Linux:  Unzip the `zip` file to a temporary folder and copy the files.
 6.  Restart TSTool and test the commands.
     Try a simple command like using the [`AwsS3`](../command-ref/AwsS3/AwsS3.md) command to list S3 buckets.
 7.  Troubleshooting:
     1.  If the AWS plugin features are not functioning properly, it may be due to conflicting jar files.
-        The ***Commands(Plugin)*** menu will usually contain duplicate menus if
-        multiple `jar` files with different versions are found in the `plugins` folder.
+        TSTool versions before 15.0.0 may show duplicate commands in the ***Commands(Plugin)*** menu.
     2.  See the [Troubleshooting](../troubleshooting/troubleshooting.md) documentation.
-
-After installing, the plugin software folders should be similar to the following,
-where `C:\Users\user` is the specific user's folder.
-```
-C:\Users\user\.tstool\plugins\owf-tstool-aws-plugin\
-  owf-tstool-aws-plugin-1.1.1.jar
-  dep\
-    *.jar (many files)
-```
+8.  For TSTool 15.0.0 and later, use the TSTool ***Tools / Plugin Manager*** menu to review installed plugins.

@@ -1124,7 +1124,7 @@ public class AwsToolkit {
     						}
     						if ( foundS3Object != null ) {
     							// Overwrite data in the existing object.
-    							Long size = new Long(0);
+    							Long size = Long.valueOf(0);
     							String owner = "";
     							Instant lastModified = null;
     							foundS3Object.setBucket(bucket);
@@ -1135,7 +1135,7 @@ public class AwsToolkit {
     						}
     						else {
     							// Create a new object and pass data to the constructor.
-    							Long size = new Long(0);
+    							Long size = Long.valueOf(0);
     							String owner = "";
     							Instant lastModified = null;
     							AwsS3Object newS3Object = new AwsS3Object ( bucket, commonPrefix.prefix(), size, owner, lastModified );
@@ -1144,7 +1144,7 @@ public class AwsToolkit {
     					}
     					else {
     						// Always create a new instance.
-   							Long size = new Long(0);
+   							Long size = Long.valueOf(0);
    							String owner = "";
    							Instant lastModified = null;
     						AwsS3Object newS3Object = new AwsS3Object ( bucket, commonPrefix.prefix(), size, owner, lastModified );
