@@ -107,16 +107,16 @@ getPluginVersion() {
   # Maven folder structure results in duplicate 'owf-tstool-aws-plugin'?
   # TODO smalers 2022-05-19 need to enable this.
   srcFile="${repoFolder}/owf-tstool-aws-plugin/src/main/java/org/openwaterfoundation/tstool/plugin/aws/PluginMeta.java"  
-  # Get the version from the code
-  # line looks like:
-  #  public static final String VERSION = "1.0.0 (2022-05-27)";
+  # Get the version from the code line like:
+  #   public static final String VERSION = "1.0.0 (2022-05-27)";
   if [ -f "${srcFile}" ]; then
     cat ${srcFile} | grep 'VERSION =' | cut -d '"' -f 2 | cut -d ' ' -f 1 | tr -d '"' | tr -d ' '
   else
     # Don't echo error to stdout.
     echoStderr "[ERROR] Source file with version does not exist:"
     echoStderr "[ERROR]   ${srcFile}"
-    cat ""
+    # Output an empty string as the version.
+    echo ""
   fi
 }
 
@@ -124,8 +124,8 @@ getPluginVersion() {
 # - the version is printed to stdout so assign function output to a variable
 getTSToolMajorVersion() {
   srcFile="${tstoolMainRepoFolder}/src/DWR/DMI/tstool/TSToolMain.java"  
-  # Get the version from the code.
-  # line looks like:   this.pluginProperties.put("Version", "1.2.0 (2020-05-29");
+  # Get the version from the code line like:
+  #   this.pluginProperties.put("Version", "1.2.0 (2020-05-29");
   cat ${srcFile} | grep 'public static final String PROGRAM_VERSION' | cut -d '=' -f 2 | cut -d '(' -f 1 | tr -d ' ' | tr -d '"' | cut -d '.' -f 1
 }
 
@@ -192,7 +192,7 @@ pluginsFolder="${HOME}/.tstool/${tstoolMajorVersion}/plugins"
 mainPluginFolder="${pluginsFolder}/owf-tstool-aws-plugin"
 
 # Version installed folder for the plugin.
-mainPluginFolder="${mainPluginsFolder}/${pluginVersion}"
+versionPluginFolder="${mainPluginFolder}/${pluginVersion}"
 
 # Jar file for the plugin.
 jarFile="${versionPluginFolder}/owf-tstool-aws-plugin-${pluginVersion}.jar"
