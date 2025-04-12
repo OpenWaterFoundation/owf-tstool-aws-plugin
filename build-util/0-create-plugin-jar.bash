@@ -12,7 +12,6 @@
 #     TSTool before version 15:
 #       ./tstool/NN/plugins/owf-tstool-aws-plugin/
 
-
 # Supporting functions, alphabetized.
 
 # Determine the operating system that is running the script:
@@ -128,7 +127,8 @@ getPluginVersion() {
     # Don't echo error to stdout.
     echoStderr "[ERROR] Source file with version does not exist:"
     echoStderr "[ERROR]   ${srcFile}"
-    cat ""
+    # Output an empty string as the version.
+    echo ""
   fi
 }
 

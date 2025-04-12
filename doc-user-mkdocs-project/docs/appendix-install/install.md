@@ -43,7 +43,7 @@ C:\Users\user\.tstool\NN\plugins\owf-tstool-aws-plugin\    (Windows)
     dep/
       *.jar (many files)
   2.0.0/
-    owf-tstool-aws-plugin-1.5.7.jar
+    owf-tstool-aws-plugin-2.0.0.jar
     dep/
       *.jar (many files)
 ```
