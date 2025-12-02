@@ -862,8 +862,8 @@ Return the selected command type enumeration.
 @return the selected command type
 */
 private AwsS3CommandType getSelectedS3CommandType () {
-    if ( __Region_JComboBox == null ) {
-    	// Region combobox is null, typically at UI startup.
+    if ( __S3Command_JComboBox == null ) {
+    	// Command combobox is null, typically at UI startup.
     	return null;
     }
     // The combo box is not null so can get the value.
